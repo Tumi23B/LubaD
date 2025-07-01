@@ -70,7 +70,12 @@ export default function AuthScreen() {
         await signInWithEmailAndPassword(auth, email, password);
         // Success: navigate to app home or show success message
       } catch (error) {
-        setFirebaseError(error.message); // Show Firebase error
+        // Check for user-not-found error and show a friendly message
+        if (error.code === 'auth/user-not-found') {
+          setFirebaseError('No account found for this email. Please sign up first.');
+        } else {
+          setFirebaseError(error.message); // Show other Firebase errors
+        }
       }
     } else {
       // Sign Up logic: create user and store username/email in database
