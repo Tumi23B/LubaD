@@ -34,9 +34,17 @@ export default function AuthScreen() {
     if (!email) {
       errs.email = 'Email is required.';
       valid = false;
-    } else if (email !== email.toLowerCase() || !email.includes('@')) {
-      errs.email = 'Email must be lowercase and contain @.';
+    } else if (email !== email.toLowerCase()) {
+      errs.email = 'Email must be lowercase.';
       valid = false;
+    } else {
+      // Only allow lowercase letters, numbers (optional), '@', and must contain at least one '.' after '@'
+      // Format: [a-z0-9]+@[a-z0-9]+\.[a-z]{2,}
+      const emailRegex = /^[a-z0-9]+@[a-z0-9]+\.[a-z]{2,}$/;
+      if (!emailRegex.test(email)) {
+        errs.email = "Email must be all lowercase letters and/or numbers, include a single '@'";
+        valid = false;
+      }
     }
     // Password validation
     if (!password) {
@@ -192,6 +200,9 @@ export default function AuthScreen() {
           {!isLogin && successMsg ? (
             <Text style={styles.successMsg}>{successMsg}</Text>
           ) : null}
+
+          {/* Add space between successMsg and button */}
+          <View style={{ height: 16 }} />
 
           {/* Login or Sign Up button */}
           <Button
