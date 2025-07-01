@@ -38,11 +38,11 @@ export default function AuthScreen() {
       errs.email = 'Email must be lowercase.';
       valid = false;
     } else {
-      // Only allow lowercase letters, numbers (optional), '@', and must contain at least one '.' after '@'
-      // Format: [a-z0-9]+@[a-z0-9]+\.[a-z]{2,}
-      const emailRegex = /^[a-z0-9]+@[a-z0-9]+\.[a-z]{2,}$/;
+      // Allow lowercase letters, numbers (optional), '@', and '.' anywhere in the email
+      // Example valid: abc@def.gh, a.b@c, abc@def, abc.def, abc123@xyz, etc.
+      const emailRegex = /^[a-z0-9@.]+$/;
       if (!emailRegex.test(email)) {
-        errs.email = "Email must be all lowercase letters and/or numbers, include a single '@'";
+        errs.email = "Email must contain only lowercase letters, numbers, '@', and '.'";
         valid = false;
       }
     }
