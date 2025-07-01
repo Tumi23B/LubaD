@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, Button, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, TextInput, Button, StyleSheet, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { auth, database } from '../firebase';
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
 import { ref, set } from 'firebase/database';
@@ -48,7 +48,7 @@ export default function AuthScreen() {
       !/[0-9]/.test(password) ||
       !/[#_!]/.test(password)
     ) {
-      errs.password = 'Password must be 8+ chars, include upper, lower, number, and special (#_!).';
+      errs.password = 'Password must be at least 8 characters and include upper, lower, number, and one of: _ # !';
       valid = false;
     }
     // Confirm password (Sign Up only)
@@ -95,89 +95,105 @@ export default function AuthScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      {/* App Logo and Tagline */}
-      <Text style={styles.logo}>Luba Delivery</Text>
-      <Text style={styles.tagline}>Your Logistics Partner</Text>
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={70}
+    >
+      <ScrollView
+        contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }}
+        keyboardShouldPersistTaps="handled"
+      >
+        <View style={styles.container}>
+          {/* App Logo and Tagline */}
+          <Text style={styles.logo}>Luba Delivery</Text>
+          <Text style={styles.tagline}>Your Logistics Partner</Text>
 
-      {/* Tab Switcher for Login/Sign Up */}
-      <View style={styles.tab}>
-        <TouchableOpacity
-          style={[styles.tabButton, isLogin && styles.activeTab]}
-          onPress={() => { setIsLogin(true); setErrors({}); setFirebaseError(''); }}
-        >
-          <Text style={[styles.tabText, isLogin && styles.activeText]}>Login</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tabButton, !isLogin && styles.activeTab]}
-          onPress={() => { setIsLogin(false); setErrors({}); setFirebaseError(''); }}
-        >
-          <Text style={[styles.tabText, !isLogin && styles.activeText]}>Sign Up</Text>
-        </TouchableOpacity>
-      </View>
+          {/* Tab Switcher for Login/Sign Up */}
+          <View style={styles.tab}>
+            <TouchableOpacity
+              style={[styles.tabButton, isLogin && styles.activeTab]}
+              onPress={() => { setIsLogin(true); setErrors({}); setFirebaseError(''); }}
+            >
+              <Text style={[styles.tabText, isLogin && styles.activeText]}>Login</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.tabButton, !isLogin && styles.activeTab]}
+              onPress={() => { setIsLogin(false); setErrors({}); setFirebaseError(''); }}
+            >
+              <Text style={[styles.tabText, !isLogin && styles.activeText]}>Sign Up</Text>
+            </TouchableOpacity>
+          </View>
 
-      {/* Username field (Sign Up only) */}
-      {!isLogin && (
-        <View style={styles.field}>
-          <TextInput
-            placeholder="👤 Username"
-            style={styles.input}
-            value={username}
-            onChangeText={setUsername}
-            autoCapitalize="none"
+          {/* Show static sign up prompt on Login screen */}
+          {isLogin && (
+            <Text style={styles.infoMsg}> First time here? Sign Up First To Login</Text>
+          )}
+
+          {/* Username field (Sign Up only) */}
+          {!isLogin && (
+            <View style={styles.field}>
+              <TextInput
+                placeholder="👤 Username"
+                style={styles.input}
+                value={username}
+                onChangeText={setUsername}
+                autoCapitalize="none"
+              />
+              {errors.username && <Text style={styles.error}>{errors.username}</Text>}
+            </View>
+          )}
+
+          {/* Email field */}
+          <View style={styles.field}>
+            <TextInput
+              placeholder="📧 Email"
+              style={styles.input}
+              value={email}
+              onChangeText={setEmail}
+              autoCapitalize="none"
+            />
+            {errors.email && <Text style={styles.error}>{errors.email}</Text>}
+          </View>
+
+          {/* Password field */}
+          <View style={styles.field}>
+            <TextInput
+              placeholder="🔒 Password"
+              secureTextEntry
+              style={styles.input}
+              value={password}
+              onChangeText={setPassword}
+            />
+            {errors.password && <Text style={styles.error}>{errors.password}</Text>}
+          </View>
+
+          {/* Confirm Password field (Sign Up only) */}
+          {!isLogin && (
+            <View style={styles.field}>
+              <TextInput
+                placeholder="🔒 Confirm Password"
+                secureTextEntry
+                style={styles.input}
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+              />
+              {errors.confirmPassword && <Text style={styles.error}>{errors.confirmPassword}</Text>}
+            </View>
+          )}
+
+          {/* Show Firebase or validation errors */}
+          {firebaseError ? <Text style={styles.error}>{firebaseError}</Text> : null}
+
+          {/* Login or Sign Up button */}
+          <Button
+            title={isLogin ? 'Login' : 'Sign Up'}
+            color="#D90D32"
+            onPress={handleAuth}
           />
-          {errors.username && <Text style={styles.error}>{errors.username}</Text>}
         </View>
-      )}
-
-      {/* Email field */}
-      <View style={styles.field}>
-        <TextInput
-          placeholder="📧 Email"
-          style={styles.input}
-          value={email}
-          onChangeText={setEmail}
-          autoCapitalize="none"
-        />
-        {errors.email && <Text style={styles.error}>{errors.email}</Text>}
-      </View>
-
-      {/* Password field */}
-      <View style={styles.field}>
-        <TextInput
-          placeholder="🔒 Password"
-          secureTextEntry
-          style={styles.input}
-          value={password}
-          onChangeText={setPassword}
-        />
-        {errors.password && <Text style={styles.error}>{errors.password}</Text>}
-      </View>
-
-      {/* Confirm Password field (Sign Up only) */}
-      {!isLogin && (
-        <View style={styles.field}>
-          <TextInput
-            placeholder="🔒 Confirm Password"
-            secureTextEntry
-            style={styles.input}
-            value={confirmPassword}
-            onChangeText={setConfirmPassword}
-          />
-          {errors.confirmPassword && <Text style={styles.error}>{errors.confirmPassword}</Text>}
-        </View>
-      )}
-
-      {/* Show Firebase or validation errors */}
-      {firebaseError ? <Text style={styles.error}>{firebaseError}</Text> : null}
-
-      {/* Login or Sign Up button */}
-      <Button
-        title={isLogin ? 'Login' : 'Sign Up'}
-        color="#D90D32"
-        onPress={handleAuth}
-      />
-    </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -237,5 +253,11 @@ const styles = StyleSheet.create({
     fontSize: 13,
     marginTop: 4,
     marginLeft: 4,
+  },
+  infoMsg: {
+    fontSize: 10,
+    color: 'red',
+    textAlign: 'center',
+    marginBottom: 20,
   },
 });
