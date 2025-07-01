@@ -1,14 +1,34 @@
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View, Button } from 'react-native';
+import React from 'react';
+import { Button, Text, View, StyleSheet } from 'react-native';
+import { NavigationContainer } from '@react-navigation/native';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { TouchableOpacity } from 'react-native';
+
+import AuthScreen from './screens/AuthScreen';
+
+const Stack = createNativeStackNavigator();
 
 export default function App() {
   return (
-    <View style={styles.container}>
-      <Text>Welcome to Luba Delivery</Text>
-      
-      <Button title="GET STARTED" onPress={() => {}}/>
-
+    <NavigationContainer>
+      <Stack.Navigator initialRouteName="Home">
+        <Stack.Screen name="Home" component={HomeScreen} />
+        <Stack.Screen name="Auth" component={AuthScreen} />
+      </Stack.Navigator>
       <StatusBar style="auto" />
+    </NavigationContainer>
+  );
+}
+
+function HomeScreen({ navigation }) {
+  return (
+    <View style={styles.container}>
+      <Text style={styles.title}>Welcome to Luba Delivery</Text>
+
+      <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('Auth')}>
+        <Text style={styles.buttonText}>GET STARTED</Text>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -16,8 +36,25 @@ export default function App() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#FFD700 ',
     alignItems: 'center',
     justifyContent: 'center',
+    padding: 30,
   },
+  title: {
+    fontSize: 22,
+    marginBottom: 20,
+  },
+  button: {
+  backgroundColor: '#D90D32', // Red background
+  paddingVertical: 12,
+  paddingHorizontal: 25,
+  borderRadius: 8,
+},
+buttonText: {
+  color: '#FFD700', // Gold text
+  fontWeight: 'bold',
+  fontSize: 16,
+},
+
 });
