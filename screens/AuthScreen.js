@@ -14,6 +14,7 @@ export default function AuthScreen() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [errors, setErrors] = useState({}); // Field validation errors
   const [firebaseError, setFirebaseError] = useState(''); // Firebase error messages
+  const [successMsg, setSuccessMsg] = useState(''); // Success message for sign up
 
   // Validate user input for each field
   const validate = () => {
@@ -63,6 +64,7 @@ export default function AuthScreen() {
   // Handle Login or Sign Up button press
   const handleAuth = async () => {
     setFirebaseError('');
+    setSuccessMsg('');
     if (!validate()) return; // Stop if validation fails
     if (isLogin) {
       // Login logic using Firebase Authentication
@@ -87,6 +89,7 @@ export default function AuthScreen() {
           username: username,
           email: email
         });
+        setSuccessMsg('Successfully Signed Up!'); // Show success message
         // Success: navigate to app home or show success message
       } catch (error) {
         setFirebaseError(error.message); // Show Firebase error
@@ -98,7 +101,7 @@ export default function AuthScreen() {
     <KeyboardAvoidingView
       style={{ flex: 1 }}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={70}
+      keyboardVerticalOffset={100}
     >
       <ScrollView
         contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }}
@@ -127,7 +130,7 @@ export default function AuthScreen() {
 
           {/* Show static sign up prompt on Login screen */}
           {isLogin && (
-            <Text style={styles.infoMsg}> First time here? Sign Up First To Login</Text>
+            <Text style={styles.infoMsg}> First time here? Sign Up To Login</Text>
           )}
 
           {/* Username field (Sign Up only) */}
@@ -184,6 +187,11 @@ export default function AuthScreen() {
 
           {/* Show Firebase or validation errors */}
           {firebaseError ? <Text style={styles.error}>{firebaseError}</Text> : null}
+
+          {/* Show success message on Sign Up */}
+          {!isLogin && successMsg ? (
+            <Text style={styles.successMsg}>{successMsg}</Text>
+          ) : null}
 
           {/* Login or Sign Up button */}
           <Button
@@ -259,5 +267,11 @@ const styles = StyleSheet.create({
     color: 'red',
     textAlign: 'center',
     marginBottom: 20,
+  },
+  successMsg: {
+    color: 'green',
+    fontSize: 10,
+    marginTop: 10,
+    textAlign: 'center',
   },
 });
