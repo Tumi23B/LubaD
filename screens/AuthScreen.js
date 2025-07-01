@@ -60,7 +60,7 @@ export default function AuthScreen() {
     return valid;
   };
 
-  // Handle Login button press
+  // Handle Login or Sign Up button press
   const handleAuth = async () => {
     setFirebaseError('');
     if (!validate()) return; // Stop if validation fails
@@ -92,7 +92,7 @@ export default function AuthScreen() {
   return (
     <View style={styles.container}>
       {/* App Logo and Tagline */}
-      <Text style={styles.logo}>Luba Delivery </Text>
+      <Text style={styles.logo}>Luba Delivery</Text>
       <Text style={styles.tagline}>Your Logistics Partner</Text>
 
       {/* Tab Switcher for Login/Sign Up */}
@@ -113,7 +113,7 @@ export default function AuthScreen() {
 
       {/* Username field (Sign Up only) */}
       {!isLogin && (
-        <View>
+        <View style={styles.field}>
           <TextInput
             placeholder="👤 Username"
             style={styles.input}
@@ -126,7 +126,7 @@ export default function AuthScreen() {
       )}
 
       {/* Email field */}
-      <View>
+      <View style={styles.field}>
         <TextInput
           placeholder="📧 Email"
           style={styles.input}
@@ -136,7 +136,9 @@ export default function AuthScreen() {
         />
         {errors.email && <Text style={styles.error}>{errors.email}</Text>}
       </View>
-      <View>
+
+      {/* Password field */}
+      <View style={styles.field}>
         <TextInput
           placeholder="🔒 Password"
           secureTextEntry
@@ -149,7 +151,7 @@ export default function AuthScreen() {
 
       {/* Confirm Password field (Sign Up only) */}
       {!isLogin && (
-        <View>
+        <View style={styles.field}>
           <TextInput
             placeholder="🔒 Confirm Password"
             secureTextEntry
@@ -192,14 +194,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 40,
   },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    marginBottom: 15,
-    padding: 10,
-    borderRadius: 8,
-    backgroundColor: '#f9f9f9',
-  },
   tab: {
     flexDirection: 'row',
     justifyContent: 'center',
@@ -223,10 +217,20 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: 'bold',
   },
+  field: {
+    marginBottom: 15, // space between form groups
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    padding: 10,
+    borderRadius: 8,
+    backgroundColor: '#f9f9f9',
+  },
   error: {
     color: 'red',
-    marginBottom: 8,
-    marginLeft: 4,
     fontSize: 13,
+    marginTop: 4,
+    marginLeft: 4,
   },
 });
