@@ -4,8 +4,10 @@ import { Button, Text, View, StyleSheet } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { TouchableOpacity } from 'react-native';
-
+import Dashboard from './screens/Dashboard';
 import AuthScreen from './screens/AuthScreen';
+import DriverApplication from './screens/DriverApplication'; 
+import DriverDashboard from './screens/DriverDashboard';
 
 const Stack = createNativeStackNavigator();
 
@@ -15,6 +17,10 @@ export default function App() {
       <Stack.Navigator initialRouteName="Home">
         <Stack.Screen name="Home" component={HomeScreen} />
         <Stack.Screen name="Auth" component={AuthScreen} />
+        <Stack.Screen name="Dashboard" component={Dashboard} /> 
+        <Stack.Screen name="DriverApplication" component={DriverApplication} 
+        options={{ headerShown: true, title: 'Driver Application' }} />
+      
       </Stack.Navigator>
       <StatusBar style="auto" />
     </NavigationContainer>
