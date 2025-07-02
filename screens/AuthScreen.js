@@ -1,26 +1,40 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, Button, StyleSheet, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import {
+  View,
+  Text,
+  TextInput,
+  Button,
+  StyleSheet,
+  TouchableOpacity,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+} from 'react-native';
 import { auth, database } from '../firebase';
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
-import { ref, set } from 'firebase/database';
+import {
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+} from 'firebase/auth';
+import { ref, set, get } from 'firebase/database';
+import { useNavigation } from '@react-navigation/native';
 
-// AuthScreen handles both Login and Sign Up logic and interface
 export default function AuthScreen() {
-  // State variables for form fields and error messages
-  const [isLogin, setIsLogin] = useState(true); // Toggle between Login and Sign Up
+  const navigation = useNavigation();
+
+  const [isLogin, setIsLogin] = useState(true);
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [errors, setErrors] = useState({}); // Field validation errors
-  const [firebaseError, setFirebaseError] = useState(''); // Firebase error messages
-  const [successMsg, setSuccessMsg] = useState(''); // Success message for sign up
+  const [errors, setErrors] = useState({});
+  const [firebaseError, setFirebaseError] = useState('');
+  const [successMsg, setSuccessMsg] = useState('');
 
-  // Validate user input for each field
   const validate = () => {
     let valid = true;
     let errs = {};
-    // Username validation (Sign Up only)
+    const trimmedEmail = email.trim().toLowerCase();
+
     if (!isLogin) {
       if (!username || username.length < 6) {
         errs.username = 'Username must be at least 6 characters.';
@@ -30,86 +44,74 @@ export default function AuthScreen() {
         valid = false;
       }
     }
-    // Email validation
-    if (!email) {
+
+    if (!trimmedEmail) {
       errs.email = 'Email is required.';
       valid = false;
-    } else if (email !== email.toLowerCase()) {
-      errs.email = 'Email must be lowercase.';
-      valid = false;
     } else {
-      // Allow lowercase letters, numbers (optional), '@', and '.' anywhere in the email
-      // Example valid: abc@def.gh, a.b@c, abc@def, abc.def, abc123@xyz, etc.
-      const emailRegex = /^[a-z0-9@.]+$/;
-      if (!emailRegex.test(email)) {
-        errs.email = "Email must contain only lowercase letters, numbers, '@', and '.'";
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(trimmedEmail)) {
+        errs.email = 'Please enter a valid email address.';
         valid = false;
       }
     }
-    // Password validation
+
+    const passwordRegex =
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]).{8,}$/;
     if (!password) {
       errs.password = 'Password is required.';
       valid = false;
-    } else if (
-      password.length < 8 ||
-      !/[A-Z]/.test(password) ||
-      !/[a-z]/.test(password) ||
-      !/[0-9]/.test(password) ||
-      !/[#_!]/.test(password)
-    ) {
-      errs.password = 'Password must be at least 8 characters and include upper, lower, number, and one of: _ # !';
+    } else if (!passwordRegex.test(password)) {
+      errs.password =
+        'Password must be at least 8 characters and include uppercase, lowercase, number, and special character.';
       valid = false;
     }
-    // Confirm password (Sign Up only)
+
     if (!isLogin && password !== confirmPassword) {
       errs.confirmPassword = 'Passwords do not match.';
       valid = false;
     }
+
     setErrors(errs);
     return valid;
   };
 
-  // Handle Login or Sign Up button press
   const handleAuth = async () => {
     setFirebaseError('');
     setSuccessMsg('');
-    if (!validate()) return; // Stop if validation fails
-    if (isLogin) {
-      // Login logic using Firebase Authentication
-      try {
-        await signInWithEmailAndPassword(auth, email, password);
-        // Success: navigate to app home or show success message
-      } catch (error) {
-        // Check for user-not-found error and show a friendly message
-        if (error.code === 'auth/user-not-found') {
-          setFirebaseError('No account found for this email. Please sign up first.');
-        } else {
-          setFirebaseError(error.message); // Show other Firebase errors
-        }
-      }
-    } else {
-  // Sign Up logic: create user and store user details in database
-  try {
-    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-    const userId = userCredential.user.uid;
+    if (!validate()) return;
 
-    // Store complete user data with default customer role
-    await set(ref(database, 'users/' + userId), {
-      username: username,
-      email: email,
-      role: 'customer',
-      driverApplication: {
-        status: 'not_applied'
-      }
-    });
+    const trimmedEmail = email.trim().toLowerCase();
 
-    setSuccessMsg('Successfully Signed Up!');
-    // Optionally navigate to customer dashboard here
-  } catch (error) {
-    setFirebaseError(error.message);
-  }
-}
-};
+    try {
+      if (isLogin) {
+        const userCredential = await signInWithEmailAndPassword(auth, trimmedEmail, password);
+        const snapshot = await get(ref(database, 'users/' + userCredential.user.uid));
+        const userData = snapshot.val();
+        const name = userData?.username || 'User';
+        navigation.navigate('Dashboard', { username: name });
+      } else {
+        const userCredential = await createUserWithEmailAndPassword(auth, trimmedEmail, password);
+        const userId = userCredential.user.uid;
+
+        await set(ref(database, 'users/' + userId), {
+          username,
+          email: trimmedEmail,
+          role: 'customer',
+          driverApplication: { status: 'not_applied' },
+        });
+
+        setSuccessMsg('Successfully Signed Up!');
+        navigation.navigate('Dashboard', { username });
+      }
+    } catch (error) {
+      if (error.code === 'auth/user-not-found') {
+        setFirebaseError('No account found for this email. Please sign up first.');
+      } else {
+        setFirebaseError(error.message);
+      }
+    }
+  };
 
   return (
     <KeyboardAvoidingView
@@ -122,32 +124,34 @@ export default function AuthScreen() {
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.container}>
-          {/* App Logo and Tagline */}
           <Text style={styles.logo}>Luba Delivery</Text>
           <Text style={styles.tagline}>Your Logistics Partner</Text>
 
-          {/* Tab Switcher for Login/Sign Up */}
           <View style={styles.tab}>
             <TouchableOpacity
               style={[styles.tabButton, isLogin && styles.activeTab]}
-              onPress={() => { setIsLogin(true); setErrors({}); setFirebaseError(''); }}
+              onPress={() => {
+                setIsLogin(true);
+                setErrors({});
+                setFirebaseError('');
+              }}
             >
               <Text style={[styles.tabText, isLogin && styles.activeText]}>Login</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.tabButton, !isLogin && styles.activeTab]}
-              onPress={() => { setIsLogin(false); setErrors({}); setFirebaseError(''); }}
+              onPress={() => {
+                setIsLogin(false);
+                setErrors({});
+                setFirebaseError('');
+              }}
             >
               <Text style={[styles.tabText, !isLogin && styles.activeText]}>Sign Up</Text>
             </TouchableOpacity>
           </View>
 
-          {/* Show static sign up prompt on Login screen */}
-          {isLogin && (
-            <Text style={styles.infoMsg}> First time here? Sign Up To Login</Text>
-          )}
+          {isLogin && <Text style={styles.infoMsg}>First time here? Sign Up to Login</Text>}
 
-          {/* Username field (Sign Up only) */}
           {!isLogin && (
             <View style={styles.field}>
               <TextInput
@@ -161,7 +165,6 @@ export default function AuthScreen() {
             </View>
           )}
 
-          {/* Email field */}
           <View style={styles.field}>
             <TextInput
               placeholder="📧 Email"
@@ -169,11 +172,11 @@ export default function AuthScreen() {
               value={email}
               onChangeText={setEmail}
               autoCapitalize="none"
+              keyboardType="email-address"
             />
             {errors.email && <Text style={styles.error}>{errors.email}</Text>}
           </View>
 
-          {/* Password field */}
           <View style={styles.field}>
             <TextInput
               placeholder="🔒 Password"
@@ -185,7 +188,6 @@ export default function AuthScreen() {
             {errors.password && <Text style={styles.error}>{errors.password}</Text>}
           </View>
 
-          {/* Confirm Password field (Sign Up only) */}
           {!isLogin && (
             <View style={styles.field}>
               <TextInput
@@ -195,34 +197,22 @@ export default function AuthScreen() {
                 value={confirmPassword}
                 onChangeText={setConfirmPassword}
               />
-              {errors.confirmPassword && <Text style={styles.error}>{errors.confirmPassword}</Text>}
+              {errors.confirmPassword && (
+                <Text style={styles.error}>{errors.confirmPassword}</Text>
+              )}
             </View>
           )}
 
-          {/* Show Firebase or validation errors */}
           {firebaseError ? <Text style={styles.error}>{firebaseError}</Text> : null}
-
-          {/* Show success message on Sign Up */}
-          {!isLogin && successMsg ? (
-            <Text style={styles.successMsg}>{successMsg}</Text>
-          ) : null}
-
-          {/* Add space between successMsg and button */}
+          {successMsg ? <Text style={styles.successMsg}>{successMsg}</Text> : null}
           <View style={{ height: 16 }} />
-
-          {/* Login or Sign Up button */}
-          <Button
-            title={isLogin ? 'Login' : 'Sign Up'}
-            color="#D90D32"
-            onPress={handleAuth}
-          />
+          <Button title={isLogin ? 'Login' : 'Sign Up'} color="#D90D32" onPress={handleAuth} />
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
   );
 }
 
-// Styles for the AuthScreen UI
 const styles = StyleSheet.create({
   container: {
     padding: 30,
@@ -264,7 +254,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   field: {
-    marginBottom: 15, // space between form groups
+    marginBottom: 15,
   },
   input: {
     borderWidth: 1,
