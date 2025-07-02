@@ -1,0 +1,56 @@
+# Enforce consistent line endings
+* text=auto
+
+# Use LF for source code files
+*.js   text eol=lf
+*.jsx  text eol=lf
+*.ts   text eol=lf
+*.tsx  text eol=lf
+*.json text eol=lf
+*.css  text eol=lf
+*.html text eol=lf
+*.md   text eol=lf
+*.yml  text eol=lf
+*.yaml text eol=lf
+
+# Force Unix-style shell scripts
+*.sh text eol=lf
+
+# Mark binary files to prevent diffing or CRLF conversion
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.svg binary
+*.ttf binary
+*.otf binary
+*.woff binary
+*.woff2 binary
+*.ico binary
+*.pdf binary
+*.jar binary
+*.zip binary
+
+# Treat lock files as text to avoid line ending issues
+package-lock.json text eol=lf
+yarn.lock        text eol=lf
+pnpm-lock.yaml   text eol=lf
+
+# Prevent CRLF normalization on certificates and sensitive keys
+*.pem binary
+*.key binary
+*.p12 binary
+*.p8  binary
+*.jks binary
+
+# Binary files
+*.png binary
+*.jpg binary
+*.ttf binary
+*.woff2 binary
+
+
+# Optional: Avoid diffs on Expo and build artifacts
+.expo/** binary
+dist/** binary
+web-build/** binary
