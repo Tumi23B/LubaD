@@ -15,12 +15,16 @@ export default function App() {
   return (
     <NavigationContainer>
       <Stack.Navigator initialRouteName="Home">
-        <Stack.Screen name="Home" component={HomeScreen} />
-        <Stack.Screen name="Auth" component={AuthScreen} />
-        <Stack.Screen name="Dashboard" component={Dashboard} /> 
+        <Stack.Screen name="Home" component={HomeScreen}
+         options={{ headerShown: false, title: 'Home' }} />
+        <Stack.Screen name="Auth" component={AuthScreen}
+         options={{ headerShown: false, title: 'Auth Screen' }} />
+        <Stack.Screen name="Dashboard" component={Dashboard}
+         /> 
         <Stack.Screen name="DriverApplication" component={DriverApplication} 
-        options={{ headerShown: true, title: 'Driver Application' }} />
-      
+        options={{ headerShown: false, title: 'Driver Application' }} />
+      <Stack.Screen name="DriverDashboard" component={DriverDashboard} 
+       options={{ headerShown: false, title: ' Dashboard' }}/>
       </Stack.Navigator>
       <StatusBar style="auto" />
     </NavigationContainer>

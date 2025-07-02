@@ -12,7 +12,9 @@ import {
 import { auth, database } from '../firebase';
 import { ref, get } from 'firebase/database';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import MapView, { Marker } from 'react-native-maps';
+import MapView, { Marker, Polyline } from 'react-native-maps';
+import * as Location from 'expo-location';
+import axios from 'axios';
 
 export default function Dashboard({ navigation }) {
   const [username, setUsername] = useState('');
@@ -23,9 +25,13 @@ export default function Dashboard({ navigation }) {
   const [date, setDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [timeNow, setTimeNow] = useState(true);
+  const [location, setLocation] = useState(null);
+  const [routeCoords, setRouteCoords] = useState([]);
+
+  const GOOGLE_MAPS_API_KEY = 'AIzaSyAhSvufBEInpH4J-ug01pOmTix7SFe3hZI';
 
   useEffect(() => {
-    const fetchUserName = async () => {
+    const fetchUserNameAndLocation = async () => {
       const user = auth.currentUser;
       if (user) {
         const snapshot = await get(ref(database, 'users/' + user.uid));
@@ -33,9 +39,70 @@ export default function Dashboard({ navigation }) {
           setUsername(snapshot.val().username);
         }
       }
+
+      let { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        alert('Location permission denied.');
+        return;
+      }
+
+      let currentLocation = await Location.getCurrentPositionAsync({});
+      setLocation({
+        latitude: currentLocation.coords.latitude,
+        longitude: currentLocation.coords.longitude,
+      });
     };
-    fetchUserName();
+    fetchUserNameAndLocation();
   }, []);
+
+  const fetchRoute = async () => {
+    if (!pickup || !dropoff) return;
+
+    try {
+      const result = await axios.get(
+        `https://maps.googleapis.com/maps/api/directions/json?origin=${pickup}&destination=${dropoff}&key=${GOOGLE_MAPS_API_KEY}`
+      );
+      const points = result.data.routes[0].overview_polyline.points;
+      const steps = decodePolyline(points);
+      setRouteCoords(steps);
+    } catch (error) {
+      console.error('Error fetching route:', error);
+    }
+  };
+
+  const decodePolyline = (t) => {
+    let points = [];
+    let index = 0,
+      len = t.length;
+    let lat = 0,
+      lng = 0;
+
+    while (index < len) {
+      let b,
+        shift = 0,
+        result = 0;
+      do {
+        b = t.charCodeAt(index++) - 63;
+        result |= (b & 0x1f) << shift;
+        shift += 5;
+      } while (b >= 0x20);
+      let dlat = result & 1 ? ~(result >> 1) : result >> 1;
+      lat += dlat;
+
+      shift = 0;
+      result = 0;
+      do {
+        b = t.charCodeAt(index++) - 63;
+        result |= (b & 0x1f) << shift;
+        shift += 5;
+      } while (b >= 0x20);
+      let dlng = result & 1 ? ~(result >> 1) : result >> 1;
+      lng += dlng;
+
+      points.push({ latitude: lat / 1e5, longitude: lng / 1e5 });
+    }
+    return points;
+  };
 
   const vehicleOptions = [
     { type: 'Mini Van', description: 'Small packages, quick errands' },
@@ -47,37 +114,53 @@ export default function Dashboard({ navigation }) {
 
   return (
     <ScrollView style={styles.container}>
-      {/* Welcome */}
       <View style={styles.section}>
         <Text style={styles.title}>Welcome, {username} 👋</Text>
         <Text style={styles.subtitle}>Book your delivery or explore your options below.</Text>
       </View>
 
-      {/* Map Booking Section */}
       <View style={styles.section}>
         <Text style={styles.heading}>Go Anywhere with Luba</Text>
         <MapView
           style={styles.map}
-          initialRegion={{
-            latitude: -26.2041,
-            longitude: 28.0473,
-            latitudeDelta: 0.1,
-            longitudeDelta: 0.1,
-          }}
+          region={
+            location
+              ? {
+                  latitude: location.latitude,
+                  longitude: location.longitude,
+                  latitudeDelta: 0.01,
+                  longitudeDelta: 0.01,
+                }
+              : {
+                  latitude: -26.2041,
+                  longitude: 28.0473,
+                  latitudeDelta: 0.1,
+                  longitudeDelta: 0.1,
+                }
+          }
         >
-          <Marker coordinate={{ latitude: -26.2041, longitude: 28.0473 }} title="Current Location" />
+          {location && <Marker coordinate={location} title="You are here" pinColor="green" />}
+          {routeCoords.length > 0 && (
+            <Polyline coordinates={routeCoords} strokeWidth={4} strokeColor="#D90D32" />
+          )}
         </MapView>
 
         <TextInput
           placeholder="📍 Pickup Location"
           value={pickup}
-          onChangeText={setPickup}
+          onChangeText={(text) => {
+            setPickup(text);
+            fetchRoute();
+          }}
           style={styles.input}
         />
         <TextInput
           placeholder="📦 Dropoff Location"
           value={dropoff}
-          onChangeText={setDropoff}
+          onChangeText={(text) => {
+            setDropoff(text);
+            fetchRoute();
+          }}
           style={styles.input}
         />
 
@@ -106,21 +189,17 @@ export default function Dashboard({ navigation }) {
           />
         )}
 
-        <TouchableOpacity style={styles.confirmButton}>
+        <TouchableOpacity style={styles.confirmButton} onPress={fetchRoute}>
           <Text style={styles.confirmButtonText}>See Prices</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Vehicle Selection */}
       <View style={styles.section}>
         <Text style={styles.heading}>Choose a Vehicle</Text>
         {vehicleOptions.map((v, index) => (
           <TouchableOpacity
             key={index}
-            style={[
-              styles.vehicleCard,
-              selectedVehicle === v.type && styles.selectedVehicle,
-            ]}
+            style={[styles.vehicleCard, selectedVehicle === v.type && styles.selectedVehicle]}
             onPress={() => setSelectedVehicle(v.type)}
           >
             <Text style={styles.vehicleType}>{v.type}</Text>
@@ -133,7 +212,6 @@ export default function Dashboard({ navigation }) {
         </View>
       </View>
 
-      {/* Ride Types / Suggestions */}
       <View style={styles.section}>
         <Text style={styles.heading}>Suggestions</Text>
         <View style={styles.suggestionBox}>
@@ -150,23 +228,16 @@ export default function Dashboard({ navigation }) {
         </View>
       </View>
 
-      {/* Become Driver */}
       <View style={styles.section}>
         <Text style={styles.heading}>Want to earn with Luba?</Text>
-        <TouchableOpacity 
-         style={styles.driverButton}
-          onPress={() => navigation.navigate('DriverApplication')}
-          >
-        <Text style={styles.driverButtonText}>Become a Driver 🚗</Text>
-       </TouchableOpacity>
-
+        <TouchableOpacity style={styles.driverButton} onPress={() => navigation.navigate('DriverApplication')}>
+          <Text style={styles.driverButtonText}>Become a Driver 🚗</Text>
+        </TouchableOpacity>
       </View>
 
-      {/* Account Info */}
       <View style={styles.section}>
         <Text style={styles.heading}>Account Settings ⚙️</Text>
         <Text style={styles.infoLine}>Username: {username}</Text>
-      
       </View>
     </ScrollView>
   );

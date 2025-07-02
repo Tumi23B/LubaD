@@ -1,20 +1,53 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, FlatList } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, FlatList, Alert } from 'react-native';
+import { auth, database } from '../firebase';
+import { ref, get } from 'firebase/database';
+import MapView, { Marker } from 'react-native-maps';
+import * as Location from 'expo-location';
 
 export default function DriverDashboard({ navigation }) {
   const [isOnline, setIsOnline] = useState(false);
-  const [driverName, setDriverName] = useState('John Doe'); // Replace with real user data
-  const [isApproved, setIsApproved] = useState(true); // Set true or false based on admin approval
+  const [driverName, setDriverName] = useState('Driver');
+  const [isApproved, setIsApproved] = useState(false);
+  const [rides, setRides] = useState([]);
+  const [driverLocation, setDriverLocation] = useState(null);
 
-  // Example rides data (empty for now)
-  const [rides, setRides] = useState([
-    // Sample ride structure:
-    // { id: '1', customer: 'Alice', pickup: 'Location A', dropoff: 'Location B', status: 'Pending' },
-  ]);
+  const toggleOnlineStatus = () => setIsOnline(!isOnline);
 
-  const toggleOnlineStatus = () => {
-    setIsOnline(!isOnline);
-  };
+  useEffect(() => {
+    const fetchDriverStatus = async () => {
+      const user = auth.currentUser;
+      if (!user) return;
+
+      try {
+        const snapshot = await get(ref(database, 'driverApplications/' + user.uid));
+        if (snapshot.exists()) {
+          const data = snapshot.val();
+          setDriverName(data.fullName || 'Driver');
+          setIsApproved(data.status === 'approved');
+        }
+      } catch (error) {
+        console.warn('Error fetching driver data:', error);
+        setIsApproved(false);
+      }
+    };
+
+    const getLocation = async () => {
+      let { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission denied', 'Location permission is required.');
+        return;
+      }
+      let location = await Location.getCurrentPositionAsync({});
+      setDriverLocation({
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude,
+      });
+    };
+
+    fetchDriverStatus();
+    getLocation();
+  }, []);
 
   return (
     <View style={styles.container}>
@@ -31,8 +64,7 @@ export default function DriverDashboard({ navigation }) {
         <>
           <View style={styles.earningsContainer}>
             <Text style={styles.earningsTitle}>Earnings Summary</Text>
-            <Text style={styles.earningsAmount}>R 0.00</Text> 
-            {/* Replace with real earnings from backend */}
+            <Text style={styles.earningsAmount}>R 0.00</Text>
           </View>
 
           <View style={styles.ridesContainer}>
@@ -55,6 +87,23 @@ export default function DriverDashboard({ navigation }) {
             )}
           </View>
 
+          {driverLocation && (
+            <View style={styles.mapContainer}>
+              <Text style={styles.sectionTitle}>Navigation</Text>
+              <MapView
+                style={styles.map}
+                initialRegion={{
+                  latitude: driverLocation.latitude,
+                  longitude: driverLocation.longitude,
+                  latitudeDelta: 0.05,
+                  longitudeDelta: 0.05,
+                }}
+              >
+                <Marker coordinate={driverLocation} title="Your Location" pinColor="green" />
+              </MapView>
+            </View>
+          )}
+
           <TouchableOpacity
             style={[styles.onlineButton, isOnline ? styles.online : styles.offline]}
             onPress={toggleOnlineStatus}
@@ -73,9 +122,8 @@ export default function DriverDashboard({ navigation }) {
       <TouchableOpacity
         style={styles.logoutButton}
         onPress={() => {
-          // Your logout logic here
-          // For example: auth.signOut() and navigation.navigate('Login')
-          alert('Logout pressed');
+          auth.signOut();
+          navigation.navigate('Login');
         }}
       >
         <Text style={styles.logoutButtonText}>Logout</Text>
@@ -92,37 +140,39 @@ const styles = StyleSheet.create({
   statusText: { fontWeight: 'bold' },
   approved: { color: 'green' },
   pending: { color: 'orange' },
-  earningsContainer: { marginBottom: 20, padding: 15, backgroundColor: '#f5f5f5', borderRadius: 8 },
+  earningsContainer: {
+    marginBottom: 20, padding: 15, backgroundColor: '#f5f5f5', borderRadius: 8,
+  },
   earningsTitle: { fontSize: 18, fontWeight: '600', marginBottom: 8 },
   earningsAmount: { fontSize: 24, fontWeight: 'bold', color: '#D90D32' },
   ridesContainer: { flex: 1 },
   sectionTitle: { fontSize: 20, fontWeight: '600', marginBottom: 10 },
   noRidesText: { fontStyle: 'italic', color: '#555' },
   rideCard: {
-    padding: 15,
-    marginBottom: 10,
-    backgroundColor: '#fafafa',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#ddd',
+    padding: 15, marginBottom: 10, backgroundColor: '#fafafa',
+    borderRadius: 8, borderWidth: 1, borderColor: '#ddd',
   },
   rideCustomer: { fontWeight: 'bold', marginBottom: 4 },
-  onlineButton: {
-    padding: 15,
-    borderRadius: 8,
+  mapContainer: {
+    height: 250,
     marginTop: 20,
-    alignItems: 'center',
+  },
+  map: {
+    flex: 1,
+    borderRadius: 10,
+  },
+  onlineButton: {
+    padding: 15, borderRadius: 8, marginTop: 20, alignItems: 'center',
   },
   online: { backgroundColor: '#28a745' },
   offline: { backgroundColor: '#dc3545' },
   onlineButtonText: { color: '#fff', fontWeight: 'bold', fontSize: 18 },
-  pendingMessage: { textAlign: 'center', fontSize: 16, color: 'orange', marginTop: 40 },
+  pendingMessage: {
+    textAlign: 'center', fontSize: 16, color: 'orange', marginTop: 40,
+  },
   logoutButton: {
-    marginTop: 30,
-    padding: 15,
-    borderRadius: 8,
-    backgroundColor: '#D90D32',
-    alignItems: 'center',
+    marginTop: 30, padding: 15, borderRadius: 8,
+    backgroundColor: '#D90D32', alignItems: 'center',
   },
   logoutButtonText: { color: '#FFD700', fontWeight: 'bold', fontSize: 16 },
 });
