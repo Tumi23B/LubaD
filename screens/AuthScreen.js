@@ -3,6 +3,8 @@ import { View, Text, TextInput, Button, StyleSheet, TouchableOpacity, KeyboardAv
 import { auth, database } from '../firebase';
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
 import { ref, set } from 'firebase/database';
+import { LinearGradient } from 'expo-linear-gradient';
+
 
 // AuthScreen handles both Login and Sign Up logic and interface
 export default function AuthScreen() {
@@ -128,17 +130,28 @@ export default function AuthScreen() {
 
           {/* Tab Switcher for Login/Sign Up */}
           <View style={styles.tab}>
-            <TouchableOpacity
-              style={[styles.tabButton, isLogin && styles.activeTab]}
-              onPress={() => { setIsLogin(true); setErrors({}); setFirebaseError(''); }}
-            >
-              <Text style={[styles.tabText, isLogin && styles.activeText]}>Login</Text>
+            {/*Added a gradient gold color*/}
+            <TouchableOpacity onPress={() => { setIsLogin(true); setErrors({}); setFirebaseError(''); }}>
+              <LinearGradient
+                colors={isLogin ? ['#7B0000', '#990000', '#B30000', '#CC0000', '#E60000'] : ['#f0f0f0'/*'#f3eee2'*/, '#f0f0f0'/*'#f3eee2'*/]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.gradientTab}
+              >
+                <Text style={[styles.tabText, isLogin && styles.activeText]}>Login</Text>
+              </LinearGradient>
             </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.tabButton, !isLogin && styles.activeTab]}
-              onPress={() => { setIsLogin(false); setErrors({}); setFirebaseError(''); }}
-            >
-              <Text style={[styles.tabText, !isLogin && styles.activeText]}>Sign Up</Text>
+
+            {/*Added a gradient gold color*/}
+            <TouchableOpacity onPress={() => { setIsLogin(false); setErrors({}); setFirebaseError(''); }}>
+              <LinearGradient
+                colors={!isLogin ? ['#7B0000', '#990000', '#B30000', '#CC0000', '#E60000'] : ['#f0f0f0'/*'#f3eee2'*/, '#f0f0f0'/*'#f3eee2'*/]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.gradientTab}
+              >
+                <Text style={[styles.tabText, !isLogin && styles.activeText]}>Sign Up</Text>
+              </LinearGradient>
             </TouchableOpacity>
           </View>
 
@@ -211,11 +224,19 @@ export default function AuthScreen() {
           <View style={{ height: 16 }} />
 
           {/* Login or Sign Up button */}
-          <Button
-            title={isLogin ? 'Login' : 'Sign Up'}
-            color="#D90D32"
-            onPress={handleAuth}
-          />
+          <TouchableOpacity onPress={handleAuth} activeOpacity={0.85}>
+            <LinearGradient
+              colors={['#ebd197', '#b48811', '#a2790d', '#bb9b49']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.authButton}
+            >
+              <Text style={styles.authButtonText}>
+                {isLogin ? 'Login' : 'Sign Up'}
+              </Text>
+            </LinearGradient>
+          </TouchableOpacity>
+
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -226,41 +247,49 @@ export default function AuthScreen() {
 const styles = StyleSheet.create({
   container: {
     padding: 30,
+    backgroundColor: '#f0f0f0', // '#FFFAF1' Light background color
     flex: 1,
     justifyContent: 'center',
   },
   logo: {
     fontSize: 36,
     fontWeight: 'bold',
-    color: '#D90D32',
+    color: '#b80000',
     textAlign: 'center',
   },
   tagline: {
     fontSize: 16,
     textAlign: 'center',
     marginBottom: 40,
+    color:'#c5a34f', // Gold color for tagline
   },
   tab: {
     flexDirection: 'row',
     justifyContent: 'center',
     marginBottom: 25,
-    backgroundColor: '#f0f0f0',
+    backgroundColor: '#f0f0f0', //'#f3eee2'
     borderRadius: 12,
     overflow: 'hidden',
   },
   tabButton: {
     paddingVertical: 10,
     paddingHorizontal: 30,
+    shadowColor: '#000', // Tab shadow
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 1,
   },
   tabText: {
     fontWeight: '500',
-    color: '#333',
+    color: '#333', // toggle button text
+    fontSize: 16,
   },
   activeTab: {
     backgroundColor: '#FFD700',
   },
   activeText: {
-    color: '#fff',
+    color: '#c5a34f',
     fontWeight: 'bold',
   },
   field: {
@@ -268,20 +297,20 @@ const styles = StyleSheet.create({
   },
   input: {
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: '#c5a34f',
     padding: 10,
     borderRadius: 8,
     backgroundColor: '#f9f9f9',
   },
   error: {
-    color: 'red',
+    color: '#b80000',
     fontSize: 13,
     marginTop: 4,
     marginLeft: 4,
   },
   infoMsg: {
-    fontSize: 10,
-    color: 'red',
+    fontSize: 12,
+    color: '#b80000',
     textAlign: 'center',
     marginBottom: 20,
   },
@@ -291,4 +320,35 @@ const styles = StyleSheet.create({
     marginTop: 10,
     textAlign: 'center',
   },
+
+  gradientTab: {
+  paddingVertical: 10,
+  paddingHorizontal: 30,
+  borderRadius: 12,
+  marginHorizontal: 2,
+},
+
+//Login & Sign Up Button Style
+authButton: {
+  width: 180, // Set your preferred width
+  paddingVertical: 10,
+  borderRadius: 30,
+  alignItems: 'center',
+  justifyContent: 'center',
+  alignSelf: 'center', // Centers the button horizontally
+  shadowColor: '#000',
+  shadowOffset: { width: 0, height: 1 },
+  shadowOpacity: 0.1,
+  shadowRadius: 4,
+  elevation: 1,
+  marginTop: 16,
+},
+
+authButtonText: {
+  color: '#f0f0f0',
+  fontWeight: '500',
+  fontSize: 16,
+  letterSpacing: 1,
+},
+
 });

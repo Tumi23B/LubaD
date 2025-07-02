@@ -24,7 +24,7 @@ export default function App() {
 function HomeScreen({ navigation }) {
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Welcome to Luba Delivery</Text>
+      <Text style={styles.title}>Welcome To Luba Delivery!</Text>
 
       <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('Auth')}>
         <Text style={styles.buttonText}>GET STARTED</Text>
@@ -36,7 +36,7 @@ function HomeScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFD700 ',
+    backgroundColor: '#f0f0f0', //'#FFFAF1'
     alignItems: 'center',
     justifyContent: 'center',
     padding: 30,
@@ -44,17 +44,24 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 22,
     marginBottom: 20,
+    fontWeight: 'bold',
+    color: '#b80000', // Red text
   },
   button: {
-  backgroundColor: '#D90D32', // Red background
+  backgroundColor: '#b80000', // Red background
   paddingVertical: 12,
   paddingHorizontal: 25,
   borderRadius: 8,
 },
 buttonText: {
-  color: '#FFD700', // Gold text
+  color: '#c5a34f', // Gold text
   fontWeight: 'bold',
   fontSize: 16,
+  shadowColor: '#000',
+  shadowOffset: { width: 0, height: 1 },
+  shadowOpacity: 0.1,
+  shadowRadius: 4,
+  elevation: 1,
 },
 
 });
