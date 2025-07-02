@@ -88,22 +88,28 @@ export default function AuthScreen() {
         }
       }
     } else {
-      // Sign Up logic: create user and store username/email in database
-      try {
-        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-        const userId = userCredential.user.uid;
-        // Store username and email in Realtime Database (never store password)
-        await set(ref(database, 'users/' + userId), {
-          username: username,
-          email: email
-        });
-        setSuccessMsg('Successfully Signed Up!'); // Show success message
-        // Success: navigate to app home or show success message
-      } catch (error) {
-        setFirebaseError(error.message); // Show Firebase error
+  // Sign Up logic: create user and store user details in database
+  try {
+    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+    const userId = userCredential.user.uid;
+
+    // Store complete user data with default customer role
+    await set(ref(database, 'users/' + userId), {
+      username: username,
+      email: email,
+      role: 'customer',
+      driverApplication: {
+        status: 'not_applied'
       }
-    }
-  };
+    });
+
+    setSuccessMsg('Successfully Signed Up!');
+    // Optionally navigate to customer dashboard here
+  } catch (error) {
+    setFirebaseError(error.message);
+  }
+}
+};
 
   return (
     <KeyboardAvoidingView
