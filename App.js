@@ -1,33 +1,44 @@
 import { StatusBar } from 'expo-status-bar';
 import React from 'react';
-import { Button, Text, View, StyleSheet } from 'react-native';
+import { Button, Text, View, StyleSheet, TouchableOpacity } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { TouchableOpacity } from 'react-native';
+import { StripeProvider } from '@stripe/stripe-react-native'; // <-- import StripeProvider
+
 import Dashboard from './screens/Dashboard';
 import AuthScreen from './screens/AuthScreen';
 import DriverApplication from './screens/DriverApplication'; 
 import DriverDashboard from './screens/DriverDashboard';
+import Checkout from './screens/Checkout';
+import Payment from './screens/Payment';
+import Settings from './screens/Settings';
 
 const Stack = createNativeStackNavigator();
 
 export default function App() {
   return (
-    <NavigationContainer>
-      <Stack.Navigator initialRouteName="Home">
-        <Stack.Screen name="Home" component={HomeScreen}
-         options={{ headerShown: false, title: 'Home' }} />
-        <Stack.Screen name="Auth" component={AuthScreen}
-         options={{ headerShown: false, title: 'Auth Screen' }} />
-        <Stack.Screen name="Dashboard" component={Dashboard}
-         /> 
-        <Stack.Screen name="DriverApplication" component={DriverApplication} 
-        options={{ headerShown: false, title: 'Driver Application' }} />
-      <Stack.Screen name="DriverDashboard" component={DriverDashboard} 
-       options={{ headerShown: false, title: ' Dashboard' }}/>
-      </Stack.Navigator>
-      <StatusBar style="auto" />
-    </NavigationContainer>
+    <StripeProvider publishableKey="pk_test_YourPublishableKeyHere">  {/* <-- add your Stripe publishable key */}
+      <NavigationContainer>
+        <Stack.Navigator initialRouteName="Home">
+          <Stack.Screen name="Home" component={HomeScreen}
+            options={{ headerShown: false, title: 'Home' }} />
+          <Stack.Screen name="Auth" component={AuthScreen}
+            options={{ headerShown: false, title: 'Auth Screen' }} />
+          <Stack.Screen name="Dashboard" component={Dashboard} /> 
+          <Stack.Screen name="DriverApplication" component={DriverApplication} 
+            options={{ headerShown: false, title: 'Driver Application' }} />
+          <Stack.Screen name="DriverDashboard" component={DriverDashboard} 
+            options={{ headerShown: false, title: 'Dashboard' }}/>
+          <Stack.Screen name="Checkout" component={Checkout} 
+            options={{ headerShown:false, title: 'Checkout' }}/>
+          <Stack.Screen name="Payment" component={Payment} 
+            options={{ headerShown:false, title: 'Payment' }}/>
+            <Stack.Screen name="Settings" component={Settings}
+            options={{ headerShown:false, title:'Settings' }} />
+        </Stack.Navigator>
+        <StatusBar style="auto" />
+      </NavigationContainer>
+    </StripeProvider>
   );
 }
 
@@ -58,20 +69,19 @@ const styles = StyleSheet.create({
     color: '#b80000', // Red text
   },
   button: {
-  backgroundColor: '#b80000', // Red background
-  paddingVertical: 12,
-  paddingHorizontal: 25,
-  borderRadius: 8,
-},
-buttonText: {
-  color: '#c5a34f', // Gold text
-  fontWeight: 'bold',
-  fontSize: 16,
-  shadowColor: '#000',
-  shadowOffset: { width: 0, height: 1 },
-  shadowOpacity: 0.1,
-  shadowRadius: 4,
-  elevation: 1,
-},
-
+    backgroundColor: '#b80000', // Red background
+    paddingVertical: 12,
+    paddingHorizontal: 25,
+    borderRadius: 8,
+  },
+  buttonText: {
+    color: '#c5a34f', // Gold text
+    fontWeight: 'bold',
+    fontSize: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 1,
+  },
 });

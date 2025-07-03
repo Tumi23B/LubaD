@@ -5,20 +5,19 @@ import {
   ScrollView,
   StyleSheet,
   TouchableOpacity,
-  Switch,
   TextInput,
   Platform,
 } from 'react-native';
 import { auth, database } from '../firebase';
-import { ref, get } from 'firebase/database';
+import { ref, get, onValue } from 'firebase/database';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import MapView, { Marker, Polyline } from 'react-native-maps';
 import * as Location from 'expo-location';
 import axios from 'axios';
+import { Ionicons } from '@expo/vector-icons';
 
 export default function Dashboard({ navigation }) {
   const [username, setUsername] = useState('');
-  const [loadingHelp, setLoadingHelp] = useState(false);
   const [selectedVehicle, setSelectedVehicle] = useState(null);
   const [pickup, setPickup] = useState('');
   const [dropoff, setDropoff] = useState('');
@@ -27,17 +26,27 @@ export default function Dashboard({ navigation }) {
   const [timeNow, setTimeNow] = useState(true);
   const [location, setLocation] = useState(null);
   const [routeCoords, setRouteCoords] = useState([]);
+  const [recentRides, setRecentRides] = useState([]);
 
   const GOOGLE_MAPS_API_KEY = 'AIzaSyAhSvufBEInpH4J-ug01pOmTix7SFe3hZI';
 
   useEffect(() => {
-    const fetchUserNameAndLocation = async () => {
+    const fetchUserData = async () => {
       const user = auth.currentUser;
       if (user) {
         const snapshot = await get(ref(database, 'users/' + user.uid));
         if (snapshot.exists()) {
           setUsername(snapshot.val().username);
         }
+
+        const ridesRef = ref(database, `rides/${user.uid}`);
+        onValue(ridesRef, (snapshot) => {
+          if (snapshot.exists()) {
+            const data = snapshot.val();
+            const rideList = Object.values(data).reverse().slice(0, 5);
+            setRecentRides(rideList);
+          }
+        });
       }
 
       let { status } = await Location.requestForegroundPermissionsAsync();
@@ -52,7 +61,7 @@ export default function Dashboard({ navigation }) {
         longitude: currentLocation.coords.longitude,
       });
     };
-    fetchUserNameAndLocation();
+    fetchUserData();
   }, []);
 
   const fetchRoute = async () => {
@@ -62,9 +71,14 @@ export default function Dashboard({ navigation }) {
       const result = await axios.get(
         `https://maps.googleapis.com/maps/api/directions/json?origin=${pickup}&destination=${dropoff}&key=${GOOGLE_MAPS_API_KEY}`
       );
-      const points = result.data.routes[0].overview_polyline.points;
-      const steps = decodePolyline(points);
-      setRouteCoords(steps);
+      if (result.data.routes && result.data.routes.length > 0) {
+        const points = result.data.routes[0].overview_polyline.points;
+        const steps = decodePolyline(points);
+        setRouteCoords(steps);
+      } else {
+        setRouteCoords([]);
+        console.warn('No routes found between pickup and dropoff.');
+      }
     } catch (error) {
       console.error('Error fetching route:', error);
     }
@@ -105,11 +119,28 @@ export default function Dashboard({ navigation }) {
   };
 
   const vehicleOptions = [
-    { type: 'Mini Van', description: 'Small packages, quick errands' },
-    { type: 'Van', description: 'More space, bulky items' },
-    { type: 'Mini Truck', description: 'Light furniture, medium appliances' },
-    { type: 'Full Truck', description: 'Big moves and large items' },
-    { type: 'Passenger Van', description: 'People + belongings' },
+    { type: 'Mini Van', icon: 'car-outline' },
+    { type: 'Van', icon: 'bus-outline' },
+    { type: 'Mini Truck', icon: 'cube-outline' },
+    { type: 'Full Truck', icon: 'trail-sign-outline' },
+  ];
+
+  const suggestionOptions = [
+    {
+      title: 'Ride',
+      desc: 'Go anywhere with Luba. Request a ride, hop in, and go.',
+      icon: 'navigate-outline',
+    },
+    {
+      title: 'Reserve',
+      desc: 'Reserve your ride in advance.',
+      icon: 'calendar-outline',
+    },
+    {
+      title: 'Courier',
+      desc: 'Same-day delivery for your parcels.',
+      icon: 'mail-outline',
+    },
   ];
 
   return (
@@ -164,10 +195,7 @@ export default function Dashboard({ navigation }) {
           style={styles.input}
         />
 
-        <TouchableOpacity
-          style={styles.timeToggle}
-          onPress={() => setTimeNow(!timeNow)}
-        >
+        <TouchableOpacity style={styles.timeToggle} onPress={() => setTimeNow(!timeNow)}>
           <Text style={styles.linkText}>{timeNow ? 'Schedule for Later' : 'Use Current Time'}</Text>
         </TouchableOpacity>
 
@@ -189,137 +217,194 @@ export default function Dashboard({ navigation }) {
           />
         )}
 
-        <TouchableOpacity style={styles.confirmButton} onPress={fetchRoute}>
-          <Text style={styles.confirmButtonText}>See Prices</Text>
+        <TouchableOpacity
+          style={styles.checkoutButton}
+          onPress={() =>
+            navigation.navigate('Checkout', {
+              pickup,
+              dropoff,
+              date: date.toISOString,
+            })
+          }
+        >
+          <Text style={styles.checkoutButtonText}>Checkout</Text>
         </TouchableOpacity>
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.heading}>Choose a Vehicle</Text>
-        {vehicleOptions.map((v, index) => (
-          <TouchableOpacity
-            key={index}
-            style={[styles.vehicleCard, selectedVehicle === v.type && styles.selectedVehicle]}
-            onPress={() => setSelectedVehicle(v.type)}
-          >
-            <Text style={styles.vehicleType}>{v.type}</Text>
-            <Text style={styles.vehicleDesc}>{v.description}</Text>
-          </TouchableOpacity>
-        ))}
-        <View style={styles.switchRow}>
-          <Text style={styles.switchLabel}>Help with loading/unloading?</Text>
-          <Switch value={loadingHelp} onValueChange={setLoadingHelp} />
+        <Text style={styles.heading}>Our Vehicles</Text>
+        <View style={styles.vehicleGrid}>
+          {vehicleOptions.map((v, i) => (
+            <TouchableOpacity
+              key={i}
+              style={[styles.vehicleBox, selectedVehicle === v.type && styles.selectedVehicle]}
+              onPress={() => setSelectedVehicle(v.type)}
+            >
+              <Ionicons name={v.icon} size={30} color="#b80000" />
+              <Text style={styles.vehicleLabel}>{v.type}</Text>
+            </TouchableOpacity>
+          ))}
         </View>
       </View>
 
       <View style={styles.section}>
         <Text style={styles.heading}>Suggestions</Text>
-        <View style={styles.suggestionBox}>
-          <Text style={styles.bold}>Ride:</Text>
-          <Text>Go anywhere with Luba. Request a ride, hop in, and go.</Text>
-        </View>
-        <View style={styles.suggestionBox}>
-          <Text style={styles.bold}>Reserve:</Text>
-          <Text>Reserve your ride in advance so you can relax on delivery day.</Text>
-        </View>
-        <View style={styles.suggestionBox}>
-          <Text style={styles.bold}>Courier:</Text>
-          <Text>Same-day delivery made simple for your parcels or items.</Text>
+        <View style={styles.suggestionsRow}>
+          {suggestionOptions.map((s, i) => (
+            <View key={i} style={styles.suggestionCard}>
+              <Ionicons name={s.icon} size={26} color="#b80000" />
+              <Text style={styles.bold}>{s.title}</Text>
+              <Text style={styles.suggestionDesc}>{s.desc}</Text>
+            </View>
+          ))}
         </View>
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.heading}>Want to earn with Luba?</Text>
-        <TouchableOpacity style={styles.driverButton} onPress={() => navigation.navigate('DriverApplication')}>
-          <Text style={styles.driverButtonText}>Become a Driver 🚗</Text>
-        </TouchableOpacity>
+        <Text style={styles.heading}>Recent Activity</Text>
+        {recentRides.length === 0 ? (
+          <Text style={{ color: '#555' }}>No recent rides yet.</Text>
+        ) : (
+          recentRides.map((ride, index) => (
+            <View key={index} style={styles.suggestionCard}>
+              <Ionicons name="time-outline" size={22} color="#b80000" />
+              <Text style={styles.bold}>
+                {ride.pickup} ➡️ {ride.dropoff}
+              </Text>
+              <Text style={styles.suggestionDesc}>
+                {new Date(ride.date).toLocaleString()}
+              </Text>
+            </View>
+          ))
+        )}
       </View>
 
       <View style={styles.section}>
         <Text style={styles.heading}>Account Settings ⚙️</Text>
-        <Text style={styles.infoLine}>Username: {username}</Text>
+        <TouchableOpacity style={styles.settingLink} onPress={() => navigation.navigate('Settings')}>
+          <Ionicons name="settings-outline" size={20} color="#b80000" />
+          <Text style={styles.settingText}>Settings</Text>
+        </TouchableOpacity>
       </View>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { backgroundColor: '#fff', padding: 20 },
-  section: { marginBottom: 25 },
-  title: { fontSize: 24, fontWeight: 'bold', color: '#D90D32' },
-  subtitle: { fontSize: 16, marginTop: 4, color: '#333' },
-  heading: { fontSize: 18, fontWeight: '600', marginBottom: 12 },
+  container: {
+    backgroundColor: '#f0f0f0',
+    padding: 20,
+    flex: 1,
+  },
+  section: {
+    marginBottom: 25,
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginTop: 10,
+    color: '#b80000',
+  },
+  subtitle: {
+    fontSize: 16,
+    marginTop: 4,
+    color: '#333',
+  },
+  heading: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 12,
+    color: '#b80000',
+  },
   input: {
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: '#c5a34f',
     borderRadius: 8,
     padding: 10,
     marginBottom: 12,
-    backgroundColor: '#f9f9f9',
+    backgroundColor: '#fff',
   },
   timeToggle: {
     alignSelf: 'flex-end',
     marginBottom: 10,
   },
   linkText: {
-    color: '#D90D32',
+    color: '#b80000',
     textDecorationLine: 'underline',
+    fontWeight: '500',
   },
-  confirmButton: {
-    backgroundColor: '#D90D32',
+  checkoutButton: {
+    backgroundColor: '#b80000',
     padding: 12,
     borderRadius: 8,
     marginTop: 10,
   },
-  confirmButtonText: {
-    color: '#FFD700',
-    textAlign: 'center',
+  checkoutButtonText: {
+    color: '#c5a34f',
     fontWeight: 'bold',
+    textAlign: 'center',
+    fontSize: 16,
   },
   map: {
     height: 200,
     borderRadius: 10,
     marginBottom: 15,
   },
-  vehicleCard: {
+  vehicleGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  vehicleBox: {
+    width: '48%',
+    backgroundColor: '#fff',
     padding: 12,
     borderRadius: 10,
-    backgroundColor: '#f3f3f3',
+    alignItems: 'center',
     marginBottom: 10,
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: '#c5a34f',
   },
   selectedVehicle: {
-    borderColor: '#D90D32',
+    borderColor: '#b80000',
     backgroundColor: '#fff8f8',
   },
-  vehicleType: { fontWeight: 'bold', fontSize: 16 },
-  vehicleDesc: { fontSize: 13, color: '#555' },
-  switchRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 12,
-  },
-  switchLabel: { fontSize: 14, color: '#333' },
-  driverButton: {
-    backgroundColor: '#D90D32',
-    padding: 12,
-    borderRadius: 8,
-    marginTop: 8,
-  },
-  driverButtonText: {
-    color: '#FFD700',
+  vehicleLabel: {
     fontWeight: 'bold',
-    textAlign: 'center',
-    fontSize: 16,
+    marginTop: 8,
+    color: '#333',
   },
-  suggestionBox: {
-    backgroundColor: '#f5f5f5',
+  suggestionsRow: {
+    flexDirection: 'column',
+  },
+  suggestionCard: {
+    backgroundColor: '#fff',
+    padding: 16,
+    borderRadius: 10,
+    marginBottom: 12,
+    alignItems: 'flex-start',
+  },
+  bold: {
+    fontWeight: 'bold',
+    marginTop: 8,
+    color: '#333',
+  },
+  suggestionDesc: {
+    marginTop: 4,
+    fontSize: 14,
+    color: '#555',
+  },
+  settingLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: '#fff',
     padding: 12,
-    borderRadius: 8,
-    marginBottom: 10,
+    borderRadius: 10,
   },
-  bold: { fontWeight: 'bold', marginBottom: 4 },
-  infoLine: { fontSize: 14, color: '#333' },
+  settingText: {
+    color: '#333',
+    fontSize: 16,
+    fontWeight: '500',
+  },
 });

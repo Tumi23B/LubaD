@@ -161,29 +161,42 @@ export default function DriverApplication({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     padding: 20,
-    paddingBottom: 40, // enough bottom padding so last item isn't hidden behind button
-    backgroundColor: '#fff',
+    paddingBottom: 40,
+    backgroundColor: '#f0f0f0',
   },
-  title: { fontSize: 24, fontWeight: 'bold', marginBottom: 20, color: '#D90D32', textAlign: 'center' },
-  field: { marginBottom: 20 },
-  label: { fontWeight: '600', marginBottom: 8, color: '#333' },
+  title: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 20,
+    marginTop:40,
+    color: '#b80000',
+    textAlign: 'center',
+  },
+  field: {
+    marginBottom: 20,
+  },
+  label: {
+    fontWeight: '600',
+    marginBottom: 8,
+    color: '#333',
+  },
   input: {
     height: 50,
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: '#c5a34f',
     borderRadius: 8,
     paddingHorizontal: 10,
-    backgroundColor: '#fafafa',
+    backgroundColor: '#fff',
   },
   uploadButton: {
-    backgroundColor: '#D90D32',
+    backgroundColor: '#b80000',
     padding: 12,
     borderRadius: 8,
     alignItems: 'center',
     marginTop: 10,
   },
   uploadButtonText: {
-    color: '#FFD700',
+    color: '#c5a34f',
     fontWeight: '600',
     fontSize: 16,
   },
@@ -195,7 +208,7 @@ const styles = StyleSheet.create({
   placeholder: {
     height: 180,
     borderRadius: 10,
-    backgroundColor: '#eee',
+    backgroundColor: '#e0e0e0',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -204,7 +217,7 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
   },
   submitButton: {
-    backgroundColor: '#D90D32',
+    backgroundColor: '#b80000',
     paddingVertical: 15,
     paddingHorizontal: 40,
     borderRadius: 8,
@@ -212,7 +225,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   submitButtonText: {
-    color: '#FFD700',
+    color: '#c5a34f',
     fontWeight: 'bold',
     fontSize: 18,
   },

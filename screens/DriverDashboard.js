@@ -134,7 +134,7 @@ export default function DriverDashboard({ navigation }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 20, backgroundColor: '#fff' },
-  title: { fontSize: 24, fontWeight: 'bold', marginBottom: 20, color: '#D90D32' },
+  title: { fontSize: 24, fontWeight: 'bold', marginBottom: 20, marginTop:40, color: '#D90D32' },
   statusContainer: { flexDirection: 'row', marginBottom: 20, alignItems: 'center' },
   statusLabel: { fontWeight: '600', marginRight: 8 },
   statusText: { fontWeight: 'bold' },
@@ -166,7 +166,7 @@ const styles = StyleSheet.create({
   },
   online: { backgroundColor: '#28a745' },
   offline: { backgroundColor: '#dc3545' },
-  onlineButtonText: { color: '#fff', fontWeight: 'bold', fontSize: 18 },
+  onlineButtonText: { color: '#FFD700', fontWeight: 'bold', fontSize: 18 },
   pendingMessage: {
     textAlign: 'center', fontSize: 16, color: 'orange', marginTop: 40,
   },
