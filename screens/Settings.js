@@ -21,6 +21,15 @@ export default function Settings({ navigation }) {
           <Ionicons name="key-outline" size={20} color="#b80000" />
           <Text style={styles.settingText}>Change Password</Text>
         </TouchableOpacity>
+
+        {/* Become a Driver button as another settingLink */}
+        <TouchableOpacity
+          style={styles.settingLink}
+          onPress={() => navigation.navigate('DriverApplication')}
+        >
+          <Ionicons name="car-outline" size={20} color="#b80000" />
+          <Text style={styles.settingText}>Become a Driver</Text>
+        </TouchableOpacity>
       </View>
 
       <View style={styles.section}>
@@ -106,3 +115,4 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
 });
+ 
