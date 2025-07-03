@@ -1,10 +1,9 @@
 import { StatusBar } from 'expo-status-bar';
 import React from 'react';
-import { Button, Text, View, StyleSheet, TouchableOpacity } from 'react-native';
+import { Button, Text, View, StyleSheet, TouchableOpacity , Image} from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { StripeProvider } from '@stripe/stripe-react-native'; // <-- import StripeProvider
-
 import Dashboard from './screens/Dashboard';
 import AuthScreen from './screens/AuthScreen';
 import DriverApplication from './screens/DriverApplication'; 
@@ -47,6 +46,12 @@ function HomeScreen({ navigation }) {
     <View style={styles.container}>
       <Text style={styles.title}>Welcome To Luba Delivery!</Text>
 
+      <Image
+        source={require('./assets/logotransparent.png')} // adjust the path to your actual logo location
+        style={styles.logoImg}
+        resizeMode="contain"
+      />
+
       <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('Auth')}>
         <Text style={styles.buttonText}>GET STARTED</Text>
       </TouchableOpacity>
@@ -54,14 +59,22 @@ function HomeScreen({ navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
+// Styles Sheet
+export const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f0f0f0', //'#FFFAF1'
+    backgroundColor: '#b80000', //'#FFFAF1'
     alignItems: 'center',
     justifyContent: 'center',
     padding: 30,
   },
+// logo image style
+  logoImg: {
+  width: 200,
+  height: 200,
+  marginVertical: 15,
+  },
+
   title: {
     fontSize: 22,
     marginBottom: 20,
@@ -69,13 +82,13 @@ const styles = StyleSheet.create({
     color: '#b80000', // Red text
   },
   button: {
-    backgroundColor: '#b80000', // Red background
+    backgroundColor: '#c5a34f', // Red background
     paddingVertical: 12,
     paddingHorizontal: 25,
     borderRadius: 8,
   },
   buttonText: {
-    color: '#c5a34f', // Gold text
+    color: '#f0f0f0', // Gold text
     fontWeight: 'bold',
     fontSize: 16,
     shadowColor: '#000',

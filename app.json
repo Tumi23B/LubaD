@@ -4,7 +4,7 @@
     "slug": "LubaD",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.jpeg",
+    "logo":"./assets/logo.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
@@ -21,13 +21,13 @@
         "ACCESS_COARSE_LOCATION"
       ],
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
+        "foregroundImage": "./assets/logo.png",
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/logo.png"
     }
   }
 }

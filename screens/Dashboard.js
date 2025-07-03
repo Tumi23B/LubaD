@@ -147,11 +147,9 @@ export default function Dashboard({ navigation }) {
     <ScrollView style={styles.container}>
       <View style={styles.section}>
         <Text style={styles.title}>Welcome, {username} 👋</Text>
-        <Text style={styles.subtitle}>Book your delivery or explore your options below.</Text>
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.heading}>Go Anywhere with Luba</Text>
         <MapView
           style={styles.map}
           region={
@@ -305,17 +303,17 @@ const styles = StyleSheet.create({
     marginTop: 10,
     color: '#b80000',
   },
-  subtitle: {
+  /*subtitle: {
     fontSize: 16,
     marginTop: 4,
     color: '#333',
-  },
-  heading: {
+  },*/
+  /*heading: {
     fontSize: 18,
     fontWeight: '600',
     marginBottom: 12,
     color: '#b80000',
-  },
+  },*/
   input: {
     borderWidth: 1,
     borderColor: '#c5a34f',

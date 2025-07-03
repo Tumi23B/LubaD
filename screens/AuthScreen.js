@@ -1,20 +1,7 @@
 import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  Button,
-  StyleSheet,
-  TouchableOpacity,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-} from 'react-native';
+import { View, Text, TextInput, StyleSheet, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView, Image } from 'react-native';
 import { auth, database } from '../firebase'; // Assuming '../firebase' exports 'auth' and 'database'
-import {
-  createUserWithEmailAndPassword,
-  signInWithEmailAndPassword,
-} from 'firebase/auth';
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
 import { ref, set, get } from 'firebase/database';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient'; // Ensure expo-linear-gradient is installed
@@ -127,6 +114,13 @@ export default function AuthScreen() {
         <View style={styles.container}>
           <Text style={styles.logo}>Luba Delivery</Text>
           <Text style={styles.tagline}>Your Logistics Partner</Text>
+
+          {/* Logo Image*/}
+          <Image
+            source={require('../assets/logotransparent.png')} // Corrected path here
+            style={styles.logoImg}
+            resizeMode="contain"
+          />
 
           <View style={styles.tab}>
             {/* Login Tab */}
@@ -293,6 +287,14 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     backgroundColor: '#f9f9f9',
   },
+// Logo Image Style
+  logoImg: {
+  width: 160,
+  height: 160,
+  marginVertical: 12,
+  alignSelf: 'center', // Center the image
+  },
+
   error: {
     color: '#b80000',
     fontSize: 13,

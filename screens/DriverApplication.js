@@ -1,7 +1,5 @@
 import React, { useState } from 'react';
-import { 
-  View, Text, TextInput, TouchableOpacity, StyleSheet, Image, Alert, ScrollView, KeyboardAvoidingView, Platform 
-} from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Image, Alert, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { auth, database } from '../firebase';
 import { ref, set } from 'firebase/database';
@@ -76,6 +74,13 @@ export default function DriverApplication({ navigation }) {
     >
       <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
         <Text style={styles.title}>Driver Application</Text>
+
+        {/* Logo Image*/}
+          <Image
+            source={require('../assets/logotransparent.png')} 
+            style={styles.logoImg}
+            resizeMode="contain"
+          />
 
         <View style={styles.field}>
           <Text style={styles.label}>Full Name</Text>
@@ -228,5 +233,13 @@ const styles = StyleSheet.create({
     color: '#c5a34f',
     fontWeight: 'bold',
     fontSize: 18,
+  },
+
+  //Logo Image Style
+  logoImg: {
+  width: 200,
+  alignSelf: 'center', 
+  height: 200,
+  marginVertical: 12,
   },
 });
