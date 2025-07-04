@@ -1,8 +1,18 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Alert,
+  ScrollView,
+} from 'react-native';
 
-export default function Payment() {
+export default function Payment({ route, navigation }) {
+  const { vehicle, pickup, dropoff, date, helpWithLoading } = route.params;
+
   const [selectedMethod, setSelectedMethod] = useState(null);
+  const [paymentDone, setPaymentDone] = useState(false);
 
   const methods = ['Cash', 'Card', 'Apple Pay'];
 
@@ -12,60 +22,94 @@ export default function Payment() {
       return;
     }
 
-    switch (selectedMethod) {
-      case 'Cash':
-        Alert.alert('Cash Payment', 'You chose to pay with cash on delivery.');
-        break;
-      case 'Card':
-        Alert.alert('Card Payment', 'Card payment option selected. (No real payment logic yet)');
-        break;
-      case 'Apple Pay':
-        Alert.alert('Apple Pay', 'Apple Pay option selected. (No real payment logic yet)');
-        break;
-      default:
-        Alert.alert('Error', 'Unknown payment method selected.');
-    }
+    Alert.alert('Payment Successful', `You selected ${selectedMethod}.`);
+    setPaymentDone(true);
+  };
+
+  const handleChatPress = () => {
+    navigation.navigate('ChatScreen', {
+      bookingId: 'ABC123',
+      driverName: 'John Doe',
+      driverPhone: '+1234567890',
+    });
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Choose Payment Method</Text>
+    <ScrollView contentContainerStyle={styles.container}>
+      {!paymentDone ? (
+        <>
+          <Text style={styles.title}>Choose Payment Method</Text>
+          {methods.map((method, index) => (
+            <TouchableOpacity
+              key={index}
+              style={[
+                styles.methodButton,
+                selectedMethod === method && styles.selectedMethod,
+              ]}
+              onPress={() => setSelectedMethod(method)}
+            >
+              <Text
+                style={[
+                  styles.methodText,
+                  selectedMethod === method && styles.selectedMethodText,
+                ]}
+              >
+                {method}
+              </Text>
+            </TouchableOpacity>
+          ))}
+          <TouchableOpacity style={styles.confirmButton} onPress={handlePayPress}>
+            <Text style={styles.confirmButtonText}>Pay Now</Text>
+          </TouchableOpacity>
+        </>
+      ) : (
+        <>
+          <Text style={styles.title}>Booking Summary</Text>
 
-      {methods.map((method, index) => (
-        <TouchableOpacity
-          key={index}
-          style={[
-            styles.methodButton,
-            selectedMethod === method && styles.selectedMethod,
-          ]}
-          onPress={() => setSelectedMethod(method)}
-        >
-          <Text
-            style={[
-              styles.methodText,
-              selectedMethod === method && styles.selectedMethodText,
-            ]}
-          >
-            {method}
-          </Text>
-        </TouchableOpacity>
-      ))}
+          <View style={styles.infoBox}>
+            <Text style={styles.label}>Pickup Location:</Text>
+            <Text style={styles.value}>{pickup}</Text>
 
-      <TouchableOpacity style={styles.confirmButton} onPress={handlePayPress}>
-        <Text style={styles.confirmButtonText}>Pay Now</Text>
-      </TouchableOpacity>
-    </View>
+            <Text style={styles.label}>Dropoff Location:</Text>
+            <Text style={styles.value}>{dropoff}</Text>
+
+            <Text style={styles.label}>Date & Time:</Text>
+            <Text style={styles.value}>{new Date(date).toLocaleString()}</Text>
+
+            <Text style={styles.label}>Vehicle Selected:</Text>
+            <Text style={styles.value}>{vehicle || 'N/A'}</Text>
+
+            <Text style={styles.label}>Payment Method:</Text>
+            <Text style={styles.value}>{selectedMethod}</Text>
+
+            <Text style={styles.label}>Assistance Needed:</Text>
+            <Text style={styles.value}>
+              {helpWithLoading ? 'Yes, help with loading/unloading' : 'No'}
+            </Text>
+          </View>
+
+          <TouchableOpacity style={styles.chatButton} onPress={handleChatPress}>
+            <Text style={styles.chatButtonText}>Chat with Driver</Text>
+          </TouchableOpacity>
+        </>
+      )}
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { padding: 20, backgroundColor: '#f0f0f0', flex: 1 },
+  container: {
+    padding: 20,
+    backgroundColor: '#f0f0f0',
+    flexGrow: 1,
+    justifyContent: 'flex-start',
+  },
   title: {
     fontSize: 22,
     fontWeight: 'bold',
     color: '#b80000',
     marginBottom: 20,
-    marginTop:40,
+    marginTop: 30,
     textAlign: 'center',
   },
   methodButton: {
@@ -100,6 +144,35 @@ const styles = StyleSheet.create({
     color: '#c5a34f',
     fontWeight: 'bold',
     fontSize: 16,
+    textAlign: 'center',
+  },
+  infoBox: {
+    backgroundColor: '#fff',
+    padding: 15,
+    borderRadius: 10,
+    borderColor: '#c5a34f',
+    borderWidth: 1,
+    marginTop: 20,
+  },
+  label: {
+    fontWeight: '600',
+    color: '#333',
+    marginTop: 10,
+  },
+  value: {
+    color: '#555',
+    marginTop: 4,
+  },
+  chatButton: {
+    backgroundColor: '#b80000',
+    padding: 14,
+    borderRadius: 10,
+    marginTop: 30,
+  },
+  chatButtonText: {
+    color: '#c5a34f',
+    fontWeight: 'bold',
+    fontSize: 18,
     textAlign: 'center',
   },
 });

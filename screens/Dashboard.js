@@ -28,7 +28,7 @@ export default function Dashboard({ navigation }) {
   const [routeCoords, setRouteCoords] = useState([]);
   const [recentRides, setRecentRides] = useState([]);
 
-  const GOOGLE_MAPS_API_KEY = 'AIzaSyAhSvufBEInpH4J-ug01pOmTix7SFe3hZI';
+  const GOOGLE_MAPS_API_KEY = 'YOUR_API_KEY_HERE';
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -71,37 +71,30 @@ export default function Dashboard({ navigation }) {
       const result = await axios.get(
         `https://maps.googleapis.com/maps/api/directions/json?origin=${pickup}&destination=${dropoff}&key=${GOOGLE_MAPS_API_KEY}`
       );
-      if (result.data.routes && result.data.routes.length > 0) {
+      if (result.data.routes.length > 0) {
         const points = result.data.routes[0].overview_polyline.points;
         const steps = decodePolyline(points);
         setRouteCoords(steps);
       } else {
         setRouteCoords([]);
-        console.warn('No routes found between pickup and dropoff.');
       }
     } catch (error) {
-      console.error('Error fetching route:', error);
+      console.error('Route error:', error);
     }
   };
 
   const decodePolyline = (t) => {
     let points = [];
-    let index = 0,
-      len = t.length;
-    let lat = 0,
-      lng = 0;
+    let index = 0, lat = 0, lng = 0;
 
-    while (index < len) {
-      let b,
-        shift = 0,
-        result = 0;
+    while (index < t.length) {
+      let b, shift = 0, result = 0;
       do {
         b = t.charCodeAt(index++) - 63;
         result |= (b & 0x1f) << shift;
         shift += 5;
       } while (b >= 0x20);
-      let dlat = result & 1 ? ~(result >> 1) : result >> 1;
-      lat += dlat;
+      lat += result & 1 ? ~(result >> 1) : result >> 1;
 
       shift = 0;
       result = 0;
@@ -110,8 +103,7 @@ export default function Dashboard({ navigation }) {
         result |= (b & 0x1f) << shift;
         shift += 5;
       } while (b >= 0x20);
-      let dlng = result & 1 ? ~(result >> 1) : result >> 1;
-      lng += dlng;
+      lng += result & 1 ? ~(result >> 1) : result >> 1;
 
       points.push({ latitude: lat / 1e5, longitude: lng / 1e5 });
     }
@@ -123,24 +115,6 @@ export default function Dashboard({ navigation }) {
     { type: 'Van', icon: 'bus-outline' },
     { type: 'Mini Truck', icon: 'cube-outline' },
     { type: 'Full Truck', icon: 'trail-sign-outline' },
-  ];
-
-  const suggestionOptions = [
-    {
-      title: 'Ride',
-      desc: 'Go anywhere with Luba. Request a ride, hop in, and go.',
-      icon: 'navigate-outline',
-    },
-    {
-      title: 'Reserve',
-      desc: 'Reserve your ride in advance.',
-      icon: 'calendar-outline',
-    },
-    {
-      title: 'Courier',
-      desc: 'Same-day delivery for your parcels.',
-      icon: 'mail-outline',
-    },
   ];
 
   return (
@@ -170,9 +144,9 @@ export default function Dashboard({ navigation }) {
                 }
           }
         >
-          {location && <Marker coordinate={location} title="You are here" pinColor="green" />}
+          {location && <Marker coordinate={location} title="You are here" />}
           {routeCoords.length > 0 && (
-            <Polyline coordinates={routeCoords} strokeWidth={4} strokeColor="#D90D32" />
+            <Polyline coordinates={routeCoords} strokeWidth={4} strokeColor="#b80000" />
           )}
         </MapView>
 
@@ -210,9 +184,8 @@ export default function Dashboard({ navigation }) {
             mode="datetime"
             display={Platform.OS === 'ios' ? 'spinner' : 'default'}
             onChange={(e, selectedDate) => {
-              const currentDate = selectedDate || date;
-              setShowDatePicker(Platform.OS === 'ios');
-              setDate(currentDate);
+              if (selectedDate) setDate(selectedDate);
+              setShowDatePicker(false);
             }}
           />
         )}
@@ -223,7 +196,8 @@ export default function Dashboard({ navigation }) {
             navigation.navigate('Checkout', {
               pickup,
               dropoff,
-              date: date.toISOString,
+              date: date.toISOString(),
+              vehicle: selectedVehicle,
             })
           }
         >
@@ -237,7 +211,10 @@ export default function Dashboard({ navigation }) {
           {vehicleOptions.map((v, i) => (
             <TouchableOpacity
               key={i}
-              style={[styles.vehicleBox, selectedVehicle === v.type && styles.selectedVehicle]}
+              style={[
+                styles.vehicleBox,
+                selectedVehicle === v.type && styles.selectedVehicle,
+              ]}
               onPress={() => setSelectedVehicle(v.type)}
             >
               <Ionicons name={v.icon} size={30} color="#b80000" />
@@ -248,29 +225,20 @@ export default function Dashboard({ navigation }) {
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.heading}>Suggestions</Text>
-        <View style={styles.suggestionsRow}>
-          {suggestionOptions.map((s, i) => (
-            <View key={i} style={styles.suggestionCard}>
-              <Ionicons name={s.icon} size={26} color="#b80000" />
-              <Text style={styles.bold}>{s.title}</Text>
-              <Text style={styles.suggestionDesc}>{s.desc}</Text>
-            </View>
-          ))}
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Text style={styles.heading}>Recent Activity</Text>
+          <TouchableOpacity onPress={() => navigation.navigate('BookingHistory')}>
+            <Text style={styles.linkText}>View All</Text>
+          </TouchableOpacity>
         </View>
-      </View>
 
-      <View style={styles.section}>
-        <Text style={styles.heading}>Recent Activity</Text>
         {recentRides.length === 0 ? (
           <Text style={{ color: '#555' }}>No recent rides yet.</Text>
         ) : (
           recentRides.map((ride, index) => (
             <View key={index} style={styles.suggestionCard}>
               <Ionicons name="time-outline" size={22} color="#b80000" />
-              <Text style={styles.bold}>
-                {ride.pickup} ➡️ {ride.dropoff}
-              </Text>
+              <Text style={styles.bold}>{ride.pickup} ➡️ {ride.dropoff}</Text>
               <Text style={styles.suggestionDesc}>
                 {new Date(ride.date).toLocaleString()}
               </Text>
@@ -373,9 +341,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginTop: 8,
     color: '#333',
-  },
-  suggestionsRow: {
-    flexDirection: 'column',
   },
   suggestionCard: {
     backgroundColor: '#fff',

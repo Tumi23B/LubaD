@@ -12,6 +12,18 @@ import DriverDashboard from './screens/DriverDashboard';
 import Checkout from './screens/Checkout';
 import Payment from './screens/Payment';
 import Settings from './screens/Settings';
+import Profile from './screens/Profile';
+import Notifications from './screens/Notifications';
+import AppThemeScreen from './screens/AppThemeScreen';
+import HelpCenter from './screens/HelpCenter';
+import Feedback from './screens/Feedback';
+import PrivacyPolicy from './screens/PrivacyPolicy';
+import TermsOfService from './screens/TermsOfService';
+import BookingHistory from './screens/BookingHistory';
+import ChatScreen from './screens/ChatScreen';
+import DriverProfile from './screens/DriverProfile';
+import DriverChat from './screens/DriverChat';
+
 
 const Stack = createNativeStackNavigator();
 
@@ -35,6 +47,41 @@ export default function App() {
             options={{ headerShown:false, title: 'Payment' }}/>
             <Stack.Screen name="Settings" component={Settings}
             options={{ headerShown:false, title:'Settings' }} />
+
+            <Stack.Screen name="Profile" component={Profile}
+            options={{ headerShown:false, title:'Profile' }} />
+
+            <Stack.Screen name="Notifications" component={Notifications}
+            options={{ headerShown:false, title: 'Notifications'}}/>
+
+             <Stack.Screen name="AppThemeScreen" component={AppThemeScreen}
+            options={{ headerShown:false, title: 'App Theme'}}/>
+
+             <Stack.Screen name="HelpCenter" component={HelpCenter}
+            options={{ headerShown:false, title: 'Help Center'}}/>
+
+             <Stack.Screen name="Feedback" component={Feedback}
+            options={{ headerShown:false, title: 'Feedback'}}/>
+            <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicy}
+            options={{ headerShown:false, title: 'Privacy Policy'}}/>
+
+
+            <Stack.Screen name="Terms" component={TermsOfService}
+            options={{ headerShown:false, title: 'Terms Of Service'}}/>
+            <Stack.Screen name="BookingHistory" component={BookingHistory}
+            options={{ headerShown:false, title:'Booking History'}}/>
+
+            <Stack.Screen name="ChatScreen" component={ChatScreen}
+            options={{ headerShown:false, title:'Chat'}}/>
+
+
+            <Stack.Screen name="DriverProfile" component={DriverProfile}
+            options={{ headerShown:false, title:'Driver Profile'}}/>
+
+
+            <Stack.Screen name="DriverChat" component={DriverChat}
+            options={{ headerShown:false, title:' Driver Chat'}}/>
+            
         </Stack.Navigator>
         <StatusBar style="auto" />
       </NavigationContainer>
@@ -65,8 +112,9 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 22,
     marginBottom: 20,
+    marginTop:30,
     fontWeight: 'bold',
-    color: '#b80000', // Red text
+    color: '#b80000', 
   },
   button: {
     backgroundColor: '#b80000', // Red background

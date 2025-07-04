@@ -17,12 +17,8 @@ export default function Settings({ navigation }) {
           <Text style={styles.settingText}>Profile Info</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.settingLink} onPress={() => navigation.navigate('ChangePassword')}>
-          <Ionicons name="key-outline" size={20} color="#b80000" />
-          <Text style={styles.settingText}>Change Password</Text>
-        </TouchableOpacity>
+    
 
-        {/* Become a Driver button as another settingLink */}
         <TouchableOpacity
           style={styles.settingLink}
           onPress={() => navigation.navigate('DriverApplication')}
@@ -39,7 +35,7 @@ export default function Settings({ navigation }) {
           <Text style={styles.settingText}>Notifications</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.settingLink} onPress={() => navigation.navigate('Theme')}>
+        <TouchableOpacity style={styles.settingLink} onPress={() => navigation.navigate('AppThemeScreen')}>
           <Ionicons name="color-palette-outline" size={20} color="#b80000" />
           <Text style={styles.settingText}>App Theme</Text>
         </TouchableOpacity>
@@ -47,7 +43,7 @@ export default function Settings({ navigation }) {
 
       <View style={styles.section}>
         <Text style={styles.heading}>Support</Text>
-        <TouchableOpacity style={styles.settingLink} onPress={() => navigation.navigate('Help')}>
+        <TouchableOpacity style={styles.settingLink} onPress={() => navigation.navigate('HelpCenter')}>
           <Ionicons name="help-circle-outline" size={20} color="#b80000" />
           <Text style={styles.settingText}>Help Center</Text>
         </TouchableOpacity>
@@ -60,7 +56,7 @@ export default function Settings({ navigation }) {
 
       <View style={styles.section}>
         <Text style={styles.heading}>Legal</Text>
-        <TouchableOpacity style={styles.settingLink} onPress={() => navigation.navigate('Privacy')}>
+        <TouchableOpacity style={styles.settingLink} onPress={() => navigation.navigate('PrivacyPolicy')}>
           <Ionicons name="document-text-outline" size={20} color="#b80000" />
           <Text style={styles.settingText}>Privacy Policy</Text>
         </TouchableOpacity>
@@ -115,4 +111,3 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
 });
- 

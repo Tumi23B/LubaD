@@ -15,27 +15,30 @@ export default function DriverApplication({ navigation }) {
   const [carImage, setCarImage] = useState(null);
 
   const pickImage = async (setImage) => {
-  // Request media library permission first
-  const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-  if (status !== 'granted') {
-    Alert.alert('Permission denied', 'Sorry, we need media library permissions to make this work!');
-    return;
-  }
+    try {
+      // Request permission to access media library
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission required', 'Please grant media library permissions to select an image.');
+        return;
+      }
 
-  try {
-    let result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images, // or use ImagePicker.MediaType.Images
-      allowsEditing: true,
-      quality: 0.7,
-    });
+      // Launch image library picker
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        quality: 0.7,
+      });
 
-    if (!result.canceled) {
-      setImage(result.assets[0].uri);
+      if (!result.canceled) {
+        // Assign selected image URI
+        setImage(result.assets[0].uri);
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Could not open image gallery. Please try again.');
+      console.error('ImagePicker error:', error);
     }
-  } catch (error) {
-    Alert.alert('Error', 'Could not open image library');
-  }
-};
+  };
 
   const handleSubmit = async () => {
     if (!fullName || !phoneNumber || !address || !driverImage || !licensePhoto || !carImage) {
@@ -55,7 +58,7 @@ export default function DriverApplication({ navigation }) {
         phoneNumber,
         address,
         status: 'approved', // Temporary auto-approval for testing
-        driverImage,  // just the local URI saved temporarily
+        driverImage,
         licensePhoto,
         carImage,
       });
@@ -168,7 +171,7 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     marginBottom: 20,
-    marginTop:40,
+    marginTop: 40,
     color: '#b80000',
     textAlign: 'center',
   },
