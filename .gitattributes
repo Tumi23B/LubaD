@@ -43,13 +43,6 @@ pnpm-lock.yaml   text eol=lf
 *.p8  binary
 *.jks binary
 
-# Binary files
-*.png binary
-*.jpg binary
-*.ttf binary
-*.woff2 binary
-
-
 # Optional: Avoid diffs on Expo and build artifacts
 .expo/** binary
 dist/** binary

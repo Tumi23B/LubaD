@@ -1,10 +1,9 @@
 import React, { useState } from 'react';
-import { 
-  View, Text, TextInput, TouchableOpacity, StyleSheet, Image, Alert, ScrollView, KeyboardAvoidingView, Platform 
-} from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Image, Alert, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { auth, database } from '../firebase';
 import { ref, set } from 'firebase/database';
+import { uploadToCloudinary } from '../utils/cloudinary.js';
 
 export default function DriverApplication({ navigation }) {
   const [fullName, setFullName] = useState('');
@@ -15,15 +14,13 @@ export default function DriverApplication({ navigation }) {
   const [carImage, setCarImage] = useState(null);
 
   const pickImage = async (setImage) => {
-    try {
-      // Request permission to access media library
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Permission required', 'Please grant media library permissions to select an image.');
-        return;
-      }
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission denied', 'Sorry, we need media library permissions to make this work!');
+      return;
+    }
 
-      // Launch image library picker
+    try {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
@@ -31,12 +28,10 @@ export default function DriverApplication({ navigation }) {
       });
 
       if (!result.canceled) {
-        // Assign selected image URI
         setImage(result.assets[0].uri);
       }
     } catch (error) {
-      Alert.alert('Error', 'Could not open image gallery. Please try again.');
-      console.error('ImagePicker error:', error);
+      Alert.alert('Error', 'Could not open image library');
     }
   };
 
@@ -53,14 +48,24 @@ export default function DriverApplication({ navigation }) {
     }
 
     try {
+      // Upload images to Cloudinary
+      const [driverImageUrl, licensePhotoUrl, carImageUrl] = await Promise.all([
+        uploadToCloudinary(driverImage),
+        uploadToCloudinary(licensePhoto),
+        uploadToCloudinary(carImage),
+      ]);
+
+      // Save application data to Realtime DB
       await set(ref(database, 'driverApplications/' + user.uid), {
         fullName,
         phoneNumber,
         address,
-        status: 'approved', // Temporary auto-approval for testing
-        driverImage,
-        licensePhoto,
-        carImage,
+        status: 'approved',
+        images: {
+          driver: driverImageUrl,
+          license: licensePhotoUrl,
+          car: carImageUrl,
+        },
       });
 
       Alert.alert('Application Submitted', 'You can now access the Driver Dashboard.');
@@ -79,6 +84,12 @@ export default function DriverApplication({ navigation }) {
     >
       <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
         <Text style={styles.title}>Driver Application</Text>
+
+        <Image
+          source={require('../assets/logotransparent.png')}
+          style={styles.logoImg}
+          resizeMode="contain"
+        />
 
         <View style={styles.field}>
           <Text style={styles.label}>Full Name</Text>
@@ -111,53 +122,48 @@ export default function DriverApplication({ navigation }) {
           />
         </View>
 
-        <View style={styles.field}>
-          <Text style={styles.label}>Driver Photo</Text>
-          {driverImage ? (
-            <Image source={{ uri: driverImage }} style={styles.previewImage} />
-          ) : (
-            <View style={styles.placeholder}>
-              <Text style={styles.placeholderText}>No driver photo selected</Text>
-            </View>
-          )}
-          <TouchableOpacity style={styles.uploadButton} onPress={() => pickImage(setDriverImage)}>
-            <Text style={styles.uploadButtonText}>Select Driver Photo</Text>
-          </TouchableOpacity>
-        </View>
+        <PhotoInput
+          label="Driver Photo"
+          image={driverImage}
+          onSelect={() => pickImage(setDriverImage)}
+        />
 
-        <View style={styles.field}>
-          <Text style={styles.label}>Driver License Photo</Text>
-          {licensePhoto ? (
-            <Image source={{ uri: licensePhoto }} style={styles.previewImage} />
-          ) : (
-            <View style={styles.placeholder}>
-              <Text style={styles.placeholderText}>No license photo selected</Text>
-            </View>
-          )}
-          <TouchableOpacity style={styles.uploadButton} onPress={() => pickImage(setLicensePhoto)}>
-            <Text style={styles.uploadButtonText}>Select License Photo</Text>
-          </TouchableOpacity>
-        </View>
+        <PhotoInput
+          label="Driver License Photo"
+          image={licensePhoto}
+          onSelect={() => pickImage(setLicensePhoto)}
+        />
 
-        <View style={styles.field}>
-          <Text style={styles.label}>Car Photo</Text>
-          {carImage ? (
-            <Image source={{ uri: carImage }} style={styles.previewImage} />
-          ) : (
-            <View style={styles.placeholder}>
-              <Text style={styles.placeholderText}>No car photo selected</Text>
-            </View>
-          )}
-          <TouchableOpacity style={styles.uploadButton} onPress={() => pickImage(setCarImage)}>
-            <Text style={styles.uploadButtonText}>Select Car Photo</Text>
-          </TouchableOpacity>
-        </View>
+        <PhotoInput
+          label="Car Photo"
+          image={carImage}
+          onSelect={() => pickImage(setCarImage)}
+        />
 
         <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
           <Text style={styles.submitButtonText}>Submit Application</Text>
         </TouchableOpacity>
       </ScrollView>
     </KeyboardAvoidingView>
+  );
+}
+
+// 🔁 Reusable photo field component (inline for now)
+function PhotoInput({ label, image, onSelect }) {
+  return (
+    <View style={styles.field}>
+      <Text style={styles.label}>{label}</Text>
+      {image ? (
+        <Image source={{ uri: image }} style={styles.previewImage} />
+      ) : (
+        <View style={styles.placeholder}>
+          <Text style={styles.placeholderText}>No photo selected</Text>
+        </View>
+      )}
+      <TouchableOpacity style={styles.uploadButton} onPress={onSelect}>
+        <Text style={styles.uploadButtonText}>Select Photo</Text>
+      </TouchableOpacity>
+    </View>
   );
 }
 
@@ -231,5 +237,11 @@ const styles = StyleSheet.create({
     color: '#c5a34f',
     fontWeight: 'bold',
     fontSize: 18,
+  },
+  logoImg: {
+    width: 200,
+    alignSelf: 'center',
+    height: 200,
+    marginVertical: 12,
   },
 });
