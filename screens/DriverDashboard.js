@@ -112,6 +112,47 @@ useEffect(() => {
   return () => unsubscribe();
 }, []);
 
+// Ride Management Functions
+const acceptRide = async (rideId) => {
+  try {
+    await update(ref(database, 'rideRequests/' + rideId), {
+      status: 'accepted',
+      acceptedAt: Date.now(),
+    });
+  } catch (error) {
+    console.warn('Error accepting ride:', error);
+  }
+};
+
+const declineRide = async (rideId) => {
+  const user = auth.currentUser;
+  if (!user) return;
+
+  try {
+    await update(ref(database, 'rideRequests/' + rideId), {
+      status: 'unassigned',
+      driverId: null,
+    });
+
+    await update(ref(database, 'driverRides/' + user.uid), {
+      [rideId]: null,
+    });
+  } catch (error) {
+    console.warn('Error declining ride:', error);
+  }
+};
+
+const completeRide = async (rideId) => {
+  try {
+    await update(ref(database, 'rideRequests/' + rideId), {
+      status: 'completed',
+      completedAt: Date.now(),
+    });
+  } catch (error) {
+    console.warn('Error completing ride:', error);
+  }
+};
+
   return (
     <ScrollView contentContainerStyle={styles.scrollContainer}>
       <View style={styles.container}>
@@ -183,6 +224,34 @@ useEffect(() => {
                       <Text>Pickup: {item.pickup}</Text>
                       <Text>Dropoff: {item.dropoff}</Text>
                       <Text>Status: {item.status}</Text>
+
+                      {/* Conditional buttons based on ride status */}
+                      {item.status === 'assigned' && (
+                        <View style={styles.actionRow}>
+                          <TouchableOpacity
+                            style={[styles.actionButton, { backgroundColor: 'green' }]}
+                            onPress={() => acceptRide(item.id)}
+                          >
+                            <Text style={styles.buttonText}>Accept</Text>
+                          </TouchableOpacity>
+
+                          <TouchableOpacity
+                            style={[styles.actionButton, { backgroundColor: 'gray' }]}
+                            onPress={() => declineRide(item.id)}
+                          >
+                            <Text style={styles.buttonText}>Decline</Text>
+                          </TouchableOpacity>
+                        </View>
+                      )}
+
+                      {item.status === 'accepted' && (
+                        <TouchableOpacity
+                          style={[styles.actionButton, { backgroundColor: '#0057D9', marginTop: 10 }]}
+                          onPress={() => completeRide(item.id)}
+                        >
+                          <Text style={styles.buttonText}>Mark as Complete</Text>
+                        </TouchableOpacity>
+                      )}
                     </View>
                   )}
                 />
@@ -326,4 +395,20 @@ const styles = StyleSheet.create({
     backgroundColor: '#D90D32',
     alignItems: 'center',
   },
+
+  // Action Row
+  actionRow: {
+  flexDirection: 'row',
+  justifyContent: 'space-between',
+  marginTop: 10,
+},
+
+actionButton: {
+  flex: 1,
+  padding: 10,
+  marginHorizontal: 5,
+  borderRadius: 6,
+  alignItems: 'center',
+},
+
 });
