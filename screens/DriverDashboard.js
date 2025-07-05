@@ -86,6 +86,32 @@ useEffect(() => {
     getLocation();
   }, []);
 
+// Fetch rides assigned to the driver uses a efficient listener to only load rides mapped to this driver
+useEffect(() => {
+  const user = auth.currentUser;
+  if (!user) return;
+
+  const driverRidesRef = ref(database, 'driverRides/' + user.uid);
+
+  const unsubscribe = onValue(driverRidesRef, async (snapshot) => {
+    const rideKeys = snapshot.val();
+    if (!rideKeys) {
+      setRides([]);
+      return;
+    }
+
+    const ridePromises = Object.keys(rideKeys).map(async (rideId) => {
+      const rideSnap = await get(ref(database, 'rideRequests/' + rideId));
+      return { id: rideId, ...rideSnap.val() };
+    });
+
+    const rideData = await Promise.all(ridePromises);
+    setRides(rideData);
+  });
+
+  return () => unsubscribe();
+}, []);
+
   return (
     <ScrollView contentContainerStyle={styles.scrollContainer}>
       <View style={styles.container}>
