@@ -5,13 +5,15 @@ import { ref, get, update, onValue} from 'firebase/database';
 import MapView, { Marker } from 'react-native-maps';
 import * as Location from 'expo-location';
 
-
+// states
 export default function DriverDashboard({ navigation }) {
   const [isOnline, setIsOnline] = useState(false);
   const [driverName, setDriverName] = useState('Driver');
   const [isApproved, setIsApproved] = useState(false);
   const [rides, setRides] = useState([]);
   const [driverLocation, setDriverLocation] = useState(null);
+  const [totalEarnings, setTotalEarnings] = useState(0);
+
 
   // logic to update the driver's online status
   const toggleOnlineStatus = async () => {
@@ -83,6 +85,25 @@ useEffect(() => {
     };
 
     fetchDriverStatus();
+    // Fetch earnings for the driver
+        const fetchEarnings = async () => {
+      const user = auth.currentUser;
+      if (!user) return;
+
+      try {
+        const earningsSnap = await get(ref(database, 'driverEarnings/' + user.uid));
+        if (earningsSnap.exists()) {
+          const earnings = earningsSnap.val();
+          setTotalEarnings(earnings.total || 0);
+        }
+      } catch (error) {
+        console.warn('Error fetching earnings:', error);
+        setTotalEarnings(0); // fallback
+      }
+    };
+
+    fetchEarnings();
+// Fetch driverlocation
     getLocation();
   }, []);
 
@@ -205,7 +226,7 @@ const completeRide = async (rideId) => {
             {/* Earnings */}
             <View style={styles.earningsContainer}>
               <Text style={styles.earningsTitle}>Earnings Summary</Text>
-              <Text style={styles.earningsAmount}>R 0.00</Text>
+              <Text style={styles.earningsAmount}>R {totalEarnings.toFixed(2)}</Text>
             </View>
 
             {/* Rides */}
