@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, FlatList, Alert, ScrollView } from 'react-native';
 import { auth, database } from '../firebase';
-import { ref, get } from 'firebase/database';
+import { ref, get, update, onValue} from 'firebase/database';
 import MapView, { Marker } from 'react-native-maps';
 import * as Location from 'expo-location';
+
 
 export default function DriverDashboard({ navigation }) {
   const [isOnline, setIsOnline] = useState(false);
@@ -12,8 +13,44 @@ export default function DriverDashboard({ navigation }) {
   const [rides, setRides] = useState([]);
   const [driverLocation, setDriverLocation] = useState(null);
 
-  const toggleOnlineStatus = () => setIsOnline(!isOnline);
+  // logic to update the driver's online status
+  const toggleOnlineStatus = async () => {
+  const user = auth.currentUser;
+  if (!user) return;
 
+  const newStatus = !isOnline;
+  setIsOnline(newStatus);
+
+  try {
+    await update(ref(database, 'driverStatus/' + user.uid), {
+      isOnline: newStatus,
+      timestamp: Date.now(),
+      location: driverLocation || null,
+    });
+  } catch (error) {
+    console.warn('Failed to update driver status:', error);
+    setIsOnline(!newStatus); // rollback UI if update fails
+  }
+};
+
+// Listen for changes in driver's online status and update local state automatically
+useEffect(() => {
+  const user = auth.currentUser;
+  if (!user) return;
+
+  const statusRef = ref(database, 'driverStatus/' + user.uid);
+
+  const unsubscribe = onValue(statusRef, (snapshot) => {
+    const data = snapshot.val();
+    if (data?.isOnline !== undefined) {
+      setIsOnline(data.isOnline); // Sync local state with Firebase
+    }
+  });
+
+  return () => unsubscribe(); // Cleanup on unmount
+}, []);
+
+// Fetch driver data and location on mount
   useEffect(() => {
     const fetchDriverStatus = async () => {
       const user = auth.currentUser;
