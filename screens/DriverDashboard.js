@@ -174,6 +174,45 @@ const completeRide = async (rideId) => {
   }
 };
 
+// Location updates for the driver. This will run every 10 seconds to update the driver's location in Firebase. Only runs if the driver is online
+useEffect(() => {
+  const user = auth.currentUser;
+  if (!user || !isOnline) return;
+
+  let locationInterval;
+
+  const startLocationUpdates = () => {
+    locationInterval = setInterval(async () => {
+      try {
+        const location = await Location.getCurrentPositionAsync({});
+        const coords = {
+          latitude: location.coords.latitude,
+          longitude: location.coords.longitude,
+        };
+
+        // Update Firebase location
+        await update(ref(database, 'driverStatus/' + user.uid), {
+          location: coords,
+          timestamp: Date.now(),
+        });
+
+        // Optionally update state if you want to reflect latest location locally
+        setDriverLocation(coords);
+      } catch (error) {
+        console.warn('Error updating location:', error);
+      }
+    }, 10000); // every 10 seconds
+  };
+
+  startLocationUpdates();
+
+  return () => {
+    if (locationInterval) {
+      clearInterval(locationInterval);
+    }
+  };
+}, [isOnline]);
+
   return (
     <ScrollView contentContainerStyle={styles.scrollContainer}>
       <View style={styles.container}>
