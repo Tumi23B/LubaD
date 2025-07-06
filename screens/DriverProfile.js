@@ -17,6 +17,11 @@ export default function DriverProfile() {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [reactivating, setReactivating] = useState(false);
+  // Add editable fields for validation and editing
+  const [fullName, setFullName] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [address, setAddress] = useState('');
+  const [profileErrors, setProfileErrors] = useState({});
 
   // Get navigation object
   const navigation = useNavigation();
@@ -28,13 +33,16 @@ export default function DriverProfile() {
 
       try {
         const snapshot = await get(ref(database, 'driverApplications/' + user.uid));
-        
         if (snapshot.exists()) {
           const data = snapshot.val();
           setProfile(data);
           setDriverImage(data.driverImage || null);
           setLicensePhoto(data.licensePhoto || null);
           setCarImage(data.carImage || null);
+          // Set editable fields
+          setFullName(data.fullName || '');
+          setPhoneNumber(data.phoneNumber || '');
+          setAddress(data.address || '');
         }
       } catch (error) {
         console.warn('Failed to fetch profile:', error);
@@ -46,6 +54,55 @@ export default function DriverProfile() {
 
     fetchProfile();
   }, []);
+
+  // Validation logic for profile fields
+  const validateProfileFields = () => {
+    let errors = {};
+    let valid = true;
+
+    if (!fullName.trim() || fullName.trim().length < 3) {
+      errors.fullName = 'Full name must be at least 3 characters.';
+      valid = false;
+    }
+    if (!phoneNumber.trim() || !/^\d{10,15}$/.test(phoneNumber.trim())) {
+      errors.phoneNumber = 'Enter a valid phone number (10-15 digits).';
+      valid = false;
+    }
+    if (!address.trim() || address.trim().length < 5) {
+      errors.address = 'Address must be at least 5 characters.';
+      valid = false;
+    }
+
+    setProfileErrors(errors);
+    return valid;
+  };
+
+  // Save profile handler
+  const handleSaveProfile = async () => {
+    if (!validateProfileFields()) {
+      return;
+    }
+    const user = auth.currentUser;
+    if (!user) return;
+
+    try {
+      await update(ref(database, 'driverApplications/' + user.uid), {
+        fullName: fullName.trim(),
+        phoneNumber: phoneNumber.trim(),
+        address: address.trim(),
+      });
+      Alert.alert('Success', 'Profile updated successfully.');
+      setProfile({
+        ...profile,
+        fullName: fullName.trim(),
+        phoneNumber: phoneNumber.trim(),
+        address: address.trim(),
+      });
+      setProfileErrors({});
+    } catch (error) {
+      Alert.alert('Error', 'Failed to update profile.');
+    }
+  };
 
   const pickImage = async (type) => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -259,13 +316,42 @@ export default function DriverProfile() {
 
       <View style={styles.infoSection}>
         <Text style={styles.label}>Full Name:</Text>
-        <Text style={styles.infoText}>{profile.fullName || 'N/A'}</Text>
+        <TextInput
+          style={styles.input}
+          value={fullName}
+          onChangeText={setFullName}
+          placeholder="Full Name"
+        />
+        {profileErrors.fullName && (
+          <Text style={styles.errorText}>{profileErrors.fullName}</Text>
+        )}
 
         <Text style={styles.label}>Phone Number:</Text>
-        <Text style={styles.infoText}>{profile.phoneNumber || 'N/A'}</Text>
+        <TextInput
+          style={styles.input}
+          value={phoneNumber}
+          onChangeText={setPhoneNumber}
+          placeholder="Phone Number"
+          keyboardType="phone-pad"
+        />
+        {profileErrors.phoneNumber && (
+          <Text style={styles.errorText}>{profileErrors.phoneNumber}</Text>
+        )}
 
         <Text style={styles.label}>Address:</Text>
-        <Text style={styles.infoText}>{profile.address || 'N/A'}</Text>
+        <TextInput
+          style={styles.input}
+          value={address}
+          onChangeText={setAddress}
+          placeholder="Address"
+        />
+        {profileErrors.address && (
+          <Text style={styles.errorText}>{profileErrors.address}</Text>
+        )}
+
+        <TouchableOpacity style={styles.saveButton} onPress={handleSaveProfile}>
+          <Text style={styles.saveButtonText}>Save Profile</Text>
+        </TouchableOpacity>
 
         {/* Show reactivation button if account is inactive */}
         {profile.active === false && (
@@ -478,5 +564,11 @@ const styles = StyleSheet.create({
   noProfileText: {
     fontSize: 18,
     color: '#999',
+  },
+  errorText: {
+    color: '#b80000',
+    fontSize: 13,
+    marginBottom: 8,
+    marginLeft: 4,
   },
 });
