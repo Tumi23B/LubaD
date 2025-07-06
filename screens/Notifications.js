@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,14 +10,26 @@ import {
   FlatList,
   Alert
 } from 'react-native';
+import { Audio } from 'expo-av';
+import * as Haptics from 'expo-haptics';
+import * as Notifications from 'expo-notifications';
 
 const availableTones = [
   { id: 'tone1', name: 'Classic Beep' },
   { id: 'tone2', name: 'Soft Chime' },
   { id: 'tone3', name: 'Digital Alert' },
-  { id: 'tone4', name: 'Buzz' },
+  { id: 'tone4', name: 'Soft Buzz' },
   { id: 'tone5', name: 'Ping' },
 ];
+
+// Importing sound files
+const toneFiles = {
+  tone1: require('../assets/classic-beep.mp3'),
+  tone2: require('../assets/soft-chime.mp3'),
+  tone3: require('../assets/digital-alert.mp3'),
+  tone4: require('../assets/soft-buzz.mp3'),
+  tone5: require('../assets/ping.mp3'),
+};
 
 export default function Notifications() {
   const [orderUpdates, setOrderUpdates] = useState(true);
@@ -46,6 +58,38 @@ export default function Notifications() {
     }
     setTonePickerVisible(false);
   };
+
+  async function playNotificationTone(toneId) {
+    const soundObject = new Audio.Sound();
+    try {
+      await soundObject.loadAsync(toneFiles[toneId]);
+      await soundObject.playAsync();
+      // Optionally unload after playing
+      soundObject.setOnPlaybackStatusUpdate((status) => {
+        if (status.didJustFinish) {
+          soundObject.unloadAsync();
+        }
+      });
+    } catch (error) {
+      console.log('Error playing sound:', error);
+    }
+  }
+
+  function vibrateNotification() {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  }
+
+  useEffect(() => {
+    const subscription = Notifications.addNotificationReceivedListener(notification => {
+      // Play sound and vibrate based on user settings
+      if (soundEnabled) playNotificationTone(appAlertTone.id);
+      if (vibrationEnabled) vibrateNotification();
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [soundEnabled, vibrationEnabled, appAlertTone]);
 
   return (
     <ScrollView style={styles.container}>
@@ -177,6 +221,16 @@ export default function Notifications() {
           </View>
         </View>
       </Modal>
+
+      <TouchableOpacity
+        style={[styles.toneSelector, { backgroundColor: '#c5a34f' }]}
+        onPress={() => {
+          if (soundEnabled) playNotificationTone(appAlertTone.id);
+          if (vibrationEnabled) vibrateNotification();
+        }}
+      >
+        <Text style={{ color: '#fff', fontWeight: 'bold' }}>Test Notification</Text>
+      </TouchableOpacity>
     </ScrollView>
   );
 }
