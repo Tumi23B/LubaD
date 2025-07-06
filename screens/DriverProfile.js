@@ -16,6 +16,7 @@ export default function DriverProfile() {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [reactivating, setReactivating] = useState(false);
 
   // Get navigation object
   const navigation = useNavigation();
@@ -166,6 +167,27 @@ export default function DriverProfile() {
     );
   };
 
+  // Add this function for reactivation
+  const handleReactivateAccount = async () => {
+    const user = auth.currentUser;
+    if (!user) return;
+
+    setReactivating(true);
+    try {
+      await update(ref(database, 'driverApplications/' + user.uid), { active: true });
+      Alert.alert('Account Reactivated', 'Your account is now active again.');
+      // Optionally, refresh profile data
+      const snapshot = await get(ref(database, 'driverApplications/' + user.uid));
+      if (snapshot.exists()) {
+        setProfile(snapshot.val());
+      }
+    } catch (error) {
+      Alert.alert('Error', error.message);
+    } finally {
+      setReactivating(false);
+    }
+  };
+
   if (loading) {
     return (
       <View style={styles.center}>
@@ -244,6 +266,20 @@ export default function DriverProfile() {
 
         <Text style={styles.label}>Address:</Text>
         <Text style={styles.infoText}>{profile.address || 'N/A'}</Text>
+
+        {/* Show reactivation button if account is inactive */}
+        {profile.active === false && (
+          <TouchableOpacity
+            style={styles.reactivateButton}
+            onPress={handleReactivateAccount}
+            disabled={reactivating}
+          >
+            <Ionicons name="person-add-outline" size={18} color="#fff" />
+            <Text style={styles.logoutText}>
+              {reactivating ? 'Reactivating...' : 'Reactivate Account'}
+            </Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       <View style={styles.passwordSection}>
@@ -417,6 +453,16 @@ const styles = StyleSheet.create({
     gap: 8,
     alignItems: 'center',
     marginBottom: 40,
+  },
+  reactivateButton: {
+    backgroundColor: '#4caf50',
+    padding: 15,
+    borderRadius: 8,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 8,
+    alignItems: 'center',
+    marginBottom: 15,
   },
   logoutText: {
     color: '#fff',
