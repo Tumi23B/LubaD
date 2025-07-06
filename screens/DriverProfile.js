@@ -79,6 +79,31 @@ export default function DriverProfile() {
     return valid;
   };
 
+  // Helper to get user-friendly error messages
+  const getErrorMessage = (error) => {
+    if (!error) return 'An unknown error occurred.';
+    if (error.code) {
+      switch (error.code) {
+        case 'auth/network-request-failed':
+          return 'Network error. Please check your internet connection and try again.';
+        case 'auth/permission-denied':
+          return 'You do not have permission to perform this action.';
+        case 'auth/wrong-password':
+          return 'The current password you entered is incorrect.';
+        case 'auth/too-many-requests':
+          return 'Too many requests. Please try again later.';
+        case 'auth/user-not-found':
+          return 'User not found. Please log in again.';
+        default:
+          return error.message || 'An error occurred. Please try again.';
+      }
+    }
+    if (error.message && error.message.includes('Network')) {
+      return 'Network error. Please check your internet connection and try again.';
+    }
+    return error.message || 'An error occurred. Please try again.';
+  };
+
   // Save profile handler
   const handleSaveProfile = async () => {
     if (!validateProfileFields()) {
@@ -103,7 +128,10 @@ export default function DriverProfile() {
       setProfileErrors({});
       setEditMode(false); // Exit edit mode after saving
     } catch (error) {
-      Alert.alert('Error', 'Failed to update profile.');
+      Alert.alert('Error', getErrorMessage(error), [
+        { text: 'Retry', onPress: handleSaveProfile },
+        { text: 'Cancel', style: 'cancel' },
+      ]);
     }
   };
 
@@ -143,7 +171,6 @@ export default function DriverProfile() {
     if (!result.canceled) {
       const uri = result.assets[0].uri;
       try {
-        // Show loading indicator if you want
         const imageUrl = await uploadToCloudinary(uri);
 
         if (type === 'driverImage') setDriverImage(imageUrl);
@@ -156,8 +183,12 @@ export default function DriverProfile() {
           updateData[type] = imageUrl;
           await update(ref(database, 'driverApplications/' + user.uid), updateData);
         }
+        Alert.alert('Success', 'Image uploaded successfully');
       } catch (error) {
-        Alert.alert('Error', error.message || 'Failed to upload image.');
+        Alert.alert('Failed to upload image', getErrorMessage(error), [
+          { text: 'Retry', onPress: () => pickImage(type) },
+          { text: 'Cancel', style: 'cancel' },
+        ]);
       }
     }
   };
@@ -183,20 +214,25 @@ export default function DriverProfile() {
       setNewPassword('');
       setConfirmPassword('');
     } catch (error) {
-      Alert.alert('Error', error.message);
+      Alert.alert('Error', getErrorMessage(error), [
+        { text: 'Retry', onPress: handleChangePassword },
+        { text: 'Cancel', style: 'cancel' },
+      ]);
     }
   };
 
   const handleLogout = async () => {
     try {
       await signOut(auth);
-      // Navigate to AuthScreen and force login tab
       navigation.reset({
         index: 0,
         routes: [{ name: 'AuthScreen', params: { showLogin: true } }],
       });
     } catch (error) {
-      Alert.alert('Error', error.message);
+      Alert.alert('Error', getErrorMessage(error), [
+        { text: 'Retry', onPress: handleLogout },
+        { text: 'Cancel', style: 'cancel' },
+      ]);
     }
   };
 
@@ -215,13 +251,15 @@ export default function DriverProfile() {
             try {
               await update(ref(database, 'driverApplications/' + user.uid), { active: false });
               await signOut(auth);
-              // Navigate to App.js screen after deactivation
               navigation.reset({
                 index: 0,
                 routes: [{ name: 'App' }],
               });
             } catch (error) {
-              Alert.alert('Error', error.message);
+              Alert.alert('Error', getErrorMessage(error), [
+                { text: 'Retry', onPress: handleDeactivateAccount },
+                { text: 'Cancel', style: 'cancel' },
+              ]);
             }
           },
         },
@@ -244,13 +282,15 @@ export default function DriverProfile() {
             try {
               await remove(ref(database, 'driverApplications/' + user.uid));
               await deleteUser(user);
-              // Navigate to App.js screen after deletion
               navigation.reset({
                 index: 0,
                 routes: [{ name: 'App' }],
               });
             } catch (error) {
-              Alert.alert('Error', error.message);
+              Alert.alert('Error', getErrorMessage(error), [
+                { text: 'Retry', onPress: handleDeleteAccount },
+                { text: 'Cancel', style: 'cancel' },
+              ]);
             }
           },
         },
@@ -258,7 +298,6 @@ export default function DriverProfile() {
     );
   };
 
-  // Add this function for reactivation
   const handleReactivateAccount = async () => {
     const user = auth.currentUser;
     if (!user) return;
@@ -267,13 +306,15 @@ export default function DriverProfile() {
     try {
       await update(ref(database, 'driverApplications/' + user.uid), { active: true });
       Alert.alert('Account Reactivated', 'Your account is now active again.');
-      // Optionally, refresh profile data
       const snapshot = await get(ref(database, 'driverApplications/' + user.uid));
       if (snapshot.exists()) {
         setProfile(snapshot.val());
       }
     } catch (error) {
-      Alert.alert('Error', error.message);
+      Alert.alert('Error', getErrorMessage(error), [
+        { text: 'Retry', onPress: handleReactivateAccount },
+        { text: 'Cancel', style: 'cancel' },
+      ]);
     } finally {
       setReactivating(false);
     }
