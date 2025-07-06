@@ -18,6 +18,7 @@ export default function DriverProfile() {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [reactivating, setReactivating] = useState(false);
+  const [editMode, setEditMode] = useState(false);
   // Add editable fields for validation and editing
   const [fullName, setFullName] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -100,6 +101,7 @@ export default function DriverProfile() {
         address: address.trim(),
       });
       setProfileErrors({});
+      setEditMode(false); // Exit edit mode after saving
     } catch (error) {
       Alert.alert('Error', 'Failed to update profile.');
     }
@@ -347,12 +349,23 @@ export default function DriverProfile() {
       </ScrollView>
 
       <View style={styles.infoSection}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Text style={styles.label}>Profile Information</Text>
+          {!editMode ? (
+            <TouchableOpacity onPress={() => setEditMode(true)}>
+              <Ionicons name="create-outline" size={22} color="#b80000" />
+            </TouchableOpacity>
+          ) : null}
+        </View>
+
+        {/* Editable fields */}
         <Text style={styles.label}>Full Name:</Text>
         <TextInput
-          style={styles.input}
+          style={[styles.input, !editMode && { backgroundColor: '#f3f3f3', color: '#888' }]}
           value={fullName}
           onChangeText={setFullName}
           placeholder="Full Name"
+          editable={editMode}
         />
         {profileErrors.fullName && (
           <Text style={styles.errorText}>{profileErrors.fullName}</Text>
@@ -360,11 +373,12 @@ export default function DriverProfile() {
 
         <Text style={styles.label}>Phone Number:</Text>
         <TextInput
-          style={styles.input}
+          style={[styles.input, !editMode && { backgroundColor: '#f3f3f3', color: '#888' }]}
           value={phoneNumber}
           onChangeText={setPhoneNumber}
           placeholder="Phone Number"
           keyboardType="phone-pad"
+          editable={editMode}
         />
         {profileErrors.phoneNumber && (
           <Text style={styles.errorText}>{profileErrors.phoneNumber}</Text>
@@ -372,18 +386,36 @@ export default function DriverProfile() {
 
         <Text style={styles.label}>Address:</Text>
         <TextInput
-          style={styles.input}
+          style={[styles.input, !editMode && { backgroundColor: '#f3f3f3', color: '#888' }]}
           value={address}
           onChangeText={setAddress}
           placeholder="Address"
+          editable={editMode}
         />
         {profileErrors.address && (
           <Text style={styles.errorText}>{profileErrors.address}</Text>
         )}
 
-        <TouchableOpacity style={styles.saveButton} onPress={handleSaveProfile}>
-          <Text style={styles.saveButtonText}>Save Profile</Text>
-        </TouchableOpacity>
+        {/* Save and Cancel buttons in edit mode */}
+        {editMode && (
+          <View style={{ flexDirection: 'row', gap: 10, marginTop: 10 }}>
+            <TouchableOpacity style={styles.saveButton} onPress={handleSaveProfile}>
+              <Text style={styles.saveButtonText}>Save</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.saveButton, { backgroundColor: '#888' }]}
+              onPress={() => {
+                setFullName(profile.fullName || '');
+                setPhoneNumber(profile.phoneNumber || '');
+                setAddress(profile.address || '');
+                setProfileErrors({});
+                setEditMode(false);
+              }}
+            >
+              <Text style={styles.saveButtonText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
         {/* Show reactivation button if account is inactive */}
         {profile.active === false && (
