@@ -1,26 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  Image,
-  ScrollView,
-  TextInput,
-  TouchableOpacity,
-  Alert,
-  ActivityIndicator,
-} from 'react-native';
+import {View, Text, StyleSheet, Image, ScrollView, TextInput, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { auth, database } from '../firebase';
-import {
-  EmailAuthProvider,
-  reauthenticateWithCredential,
-  updatePassword,
-  signOut,
-  deleteUser,
-} from 'firebase/auth';
+import { EmailAuthProvider, reauthenticateWithCredential, updatePassword, signOut, deleteUser} from 'firebase/auth';
 import { ref, get, update, remove } from 'firebase/database';
+import { useNavigation } from '@react-navigation/native';
 
 export default function DriverProfile() {
   const [profile, setProfile] = useState(null);
@@ -32,6 +17,9 @@ export default function DriverProfile() {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
+  // Get navigation object
+  const navigation = useNavigation();
+
   useEffect(() => {
     const fetchProfile = async () => {
       const user = auth.currentUser;
@@ -39,6 +27,7 @@ export default function DriverProfile() {
 
       try {
         const snapshot = await get(ref(database, 'driverApplications/' + user.uid));
+        
         if (snapshot.exists()) {
           const data = snapshot.val();
           setProfile(data);
@@ -109,7 +98,11 @@ export default function DriverProfile() {
   const handleLogout = async () => {
     try {
       await signOut(auth);
-      Alert.alert('Logged out', 'You have been signed out.');
+      // Navigate to AuthScreen and force login tab
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'AuthScreen', params: { showLogin: true } }],
+      });
     } catch (error) {
       Alert.alert('Error', error.message);
     }
@@ -130,7 +123,11 @@ export default function DriverProfile() {
             try {
               await update(ref(database, 'driverApplications/' + user.uid), { active: false });
               await signOut(auth);
-              Alert.alert('Deactivated', 'Your account is now inactive.');
+              // Navigate to App.js screen after deactivation
+              navigation.reset({
+                index: 0,
+                routes: [{ name: 'App' }],
+              });
             } catch (error) {
               Alert.alert('Error', error.message);
             }
@@ -155,7 +152,11 @@ export default function DriverProfile() {
             try {
               await remove(ref(database, 'driverApplications/' + user.uid));
               await deleteUser(user);
-              Alert.alert('Deleted', 'Your account has been removed.');
+              // Navigate to App.js screen after deletion
+              navigation.reset({
+                index: 0,
+                routes: [{ name: 'App' }],
+              });
             } catch (error) {
               Alert.alert('Error', error.message);
             }

@@ -1,15 +1,18 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, StyleSheet, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView, Image } from 'react-native';
 import { auth, database } from '../firebase'; // Assuming '../firebase' exports 'auth' and 'database'
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
 import { ref, set, get } from 'firebase/database';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient'; // Ensure expo-linear-gradient is installed
 
 export default function AuthScreen() {
   const navigation = useNavigation();
+  const route = useRoute();
 
-  const [isLogin, setIsLogin] = useState(true);
+  // Use param to force login tab if present
+  const showLogin = route.params?.showLogin ?? false;
+  const [isLogin, setIsLogin] = useState(showLogin);
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -17,6 +20,10 @@ export default function AuthScreen() {
   const [errors, setErrors] = useState({});
   const [firebaseError, setFirebaseError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+
+  useEffect(() => {
+    if (showLogin) setIsLogin(true);
+  }, [showLogin]);
 
   const validate = () => {
     let valid = true;

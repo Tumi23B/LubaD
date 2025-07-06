@@ -1,13 +1,6 @@
+// Customer Dashboard Screen
 import React, { useEffect, useState } from 'react';
-import {
-  View,
-  Text,
-  ScrollView,
-  StyleSheet,
-  TouchableOpacity,
-  TextInput,
-  Platform,
-} from 'react-native';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, TextInput, Platform} from 'react-native';
 import { auth, database } from '../firebase';
 import { ref, get, onValue } from 'firebase/database';
 import DateTimePicker from '@react-native-community/datetimepicker';
