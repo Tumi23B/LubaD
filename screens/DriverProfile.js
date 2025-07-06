@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {View, Text, StyleSheet, Image, ScrollView, TextInput, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import axios from 'axios';
 import { auth, database } from '../firebase';
 import { EmailAuthProvider, reauthenticateWithCredential, updatePassword, signOut, deleteUser} from 'firebase/auth';
 import { ref, get, update, remove } from 'firebase/database';
@@ -104,6 +105,32 @@ export default function DriverProfile() {
     }
   };
 
+  // Cloudinary config (replace with your own unsigned upload preset and cloud name)
+  const CLOUDINARY_URL = 'https://api.cloudinary.com/v1_1/dvxycdr6l/image/upload';
+  const CLOUDINARY_UPLOAD_PRESET = 'driver profile images';
+
+  // Helper to upload image to Cloudinary and return the URL
+  const uploadToCloudinary = async (uri) => {
+    const formData = new FormData();
+    formData.append('file', {
+      uri,
+      type: 'image/jpeg',
+      name: 'upload.jpg',
+    });
+    formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
+
+    try {
+      const response = await axios.post(CLOUDINARY_URL, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      return response.data.secure_url;
+    } catch (error) {
+      console.warn('Cloudinary upload error:', error);
+      throw new Error('Failed to upload image.');
+    }
+  };
+
+  // Update pickImage to use Cloudinary
   const pickImage = async (type) => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -113,17 +140,22 @@ export default function DriverProfile() {
 
     if (!result.canceled) {
       const uri = result.assets[0].uri;
-      if (type === 'driverImage') setDriverImage(uri);
-      else if (type === 'licensePhoto') setLicensePhoto(uri);
-      else if (type === 'carImage') setCarImage(uri);
+      try {
+        // Show loading indicator if you want
+        const imageUrl = await uploadToCloudinary(uri);
 
-      const user = auth.currentUser;
-      if (user) {
-        const updateData = {};
-        updateData[type] = uri;
-        update(ref(database, 'driverApplications/' + user.uid), updateData).catch(() =>
-          Alert.alert('Error', 'Failed to update image.')
-        );
+        if (type === 'driverImage') setDriverImage(imageUrl);
+        else if (type === 'licensePhoto') setLicensePhoto(imageUrl);
+        else if (type === 'carImage') setCarImage(imageUrl);
+
+        const user = auth.currentUser;
+        if (user) {
+          const updateData = {};
+          updateData[type] = imageUrl;
+          await update(ref(database, 'driverApplications/' + user.uid), updateData);
+        }
+      } catch (error) {
+        Alert.alert('Error', error.message || 'Failed to upload image.');
       }
     }
   };
