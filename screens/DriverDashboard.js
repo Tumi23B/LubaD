@@ -1,11 +1,9 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, FlatList, ActivityIndicator, ScrollView, Modal } from 'react-native';
-// Import Firebase auth and database instances from your central firebase.js file
-import { auth, database } from '../firebase'; // <--- UPDATED: Import from your firebase.js
+import { auth, database } from '../firebase';
 
-// Firebase imports for Realtime Database functions (still needed for ref, get, update, onValue, remove)
 import { ref, get, update, onValue, remove } from 'firebase/database';
-import { onAuthStateChanged, signInAnonymously, signInWithCustomToken } from 'firebase/auth'; // Specific auth functions
+import { onAuthStateChanged, signInAnonymously, signInWithCustomToken } from 'firebase/auth';
 import MapView, { Marker } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { ThemeContext } from '../ThemeContext';
@@ -23,72 +21,57 @@ export default function DriverDashboard({ navigation }) {
   const [totalEarnings, setTotalEarnings] = useState(0);
   const [loading, setLoading] = useState(true);
 
-  // Firebase state
-  // db and auth are now directly imported, no longer managed by useState here for initialization
   const [userId, setUserId] = useState(null);
   const [isAuthReady, setIsAuthReady] = useState(false);
 
-  // Modal state for custom alerts/confirmations
   const [showModal, setShowModal] = useState(false);
   const [modalMessage, setModalMessage] = useState('');
   const [modalType, setModalType] = useState('info');
   const [modalAction, setModalAction] = useState(null);
 
-  // Initialize Firebase and authenticate
+  // Initialize Firebase (authentication part)
   useEffect(() => {
-    // No need for initializeApp or parsing firebaseConfig here, as it's done in firebase.js
-    try {
-      // Use the imported 'auth' instance directly
-      const unsubscribeAuth = onAuthStateChanged(auth, async (user) => { // <--- UPDATED: Use imported 'auth'
-        if (user) {
-          setUserId(user.uid);
-          setIsAuthReady(true);
-        } else {
-          try {
-            if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-              await signInWithCustomToken(auth, __initial_auth_token); // <--- UPDATED: Use imported 'auth'
-            } else {
-              await signInAnonymously(auth); // <--- UPDATED: Use imported 'auth'
-            }
-          } catch (error) {
-            console.error("Firebase authentication error:", error);
-            setModalMessage(`Authentication failed: ${error.message}`);
-            setModalType('error');
-            setShowModal(true);
-            setIsAuthReady(true);
-            setLoading(false);
+    const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        setUserId(user.uid);
+        setIsAuthReady(true);
+      } else {
+        try {
+          if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+            await signInWithCustomToken(auth, __initial_auth_token);
+          } else {
+            await signInAnonymously(auth);
           }
+        } catch (error) {
+          console.error("Firebase authentication error in DriverDashboard:", error);
+          setModalMessage(`Authentication failed: ${error.message}`);
+          setModalType('error');
+          setShowModal(true);
+          setIsAuthReady(true);
+          setLoading(false);
         }
-      });
+      }
+    });
 
-      return () => unsubscribeAuth();
-    } catch (error) {
-      console.error("Error initializing Firebase (from imported services):", error);
-      setModalMessage(`Firebase initialization error: ${error.message}`);
-      setModalType('error');
-      setShowModal(true);
-      setLoading(false);
-      setIsAuthReady(true);
-    }
-  }, []); // Empty dependency array means this runs once on mount
+    return () => unsubscribeAuth();
+  }, []);
 
   // Fetch driver data, earnings, and initial location
   useEffect(() => {
-    // Use the imported 'database' and 'auth' instances directly
-    if (!isAuthReady || !database || !userId) return; // <--- UPDATED: Use imported 'database'
+    if (!isAuthReady || !database || !userId) return;
 
     const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
     const fetchDriverProfileAndEarnings = async () => {
       try {
-        const driverAppSnap = await get(ref(database, `driverApplications/${userId}`)); // <--- UPDATED: Use imported 'database'
+        const driverAppSnap = await get(ref(database, `driverApplications/${userId}`));
         if (driverAppSnap.exists()) {
           const data = driverAppSnap.val();
           setDriverName(data.fullName || 'Driver');
           setIsApproved(data.status === 'approved');
         }
 
-        const earningsSnap = await get(ref(database, `driverEarnings/${userId}`)); // <--- UPDATED: Use imported 'database'
+        const earningsSnap = await get(ref(database, `driverEarnings/${userId}`));
         if (earningsSnap.exists()) {
           const earnings = earningsSnap.val();
           setTotalEarnings(earnings.total || 0);
@@ -116,14 +99,13 @@ export default function DriverDashboard({ navigation }) {
     fetchDriverProfileAndEarnings();
     getLocation();
     setLoading(false);
-  }, [isAuthReady, database, userId]); // <--- UPDATED: Depend on imported 'database'
+  }, [isAuthReady, database, userId]);
 
   // Listen for changes in driver's online status
   useEffect(() => {
-    // Use the imported 'database' instance directly
-    if (!isAuthReady || !database || !userId) return; // <--- UPDATED: Use imported 'database'
+    if (!isAuthReady || !database || !userId) return;
 
-    const statusRef = ref(database, `driverStatus/${userId}`); // <--- UPDATED: Use imported 'database'
+    const statusRef = ref(database, `driverStatus/${userId}`);
     const unsubscribe = onValue(statusRef, (snapshot) => {
       const data = snapshot.val();
       if (data?.isOnline !== undefined) {
@@ -131,23 +113,26 @@ export default function DriverDashboard({ navigation }) {
       }
     });
     return () => unsubscribe();
-  }, [isAuthReady, database, userId]); // <--- UPDATED: Depend on imported 'database'
+  }, [isAuthReady, database, userId]);
 
   // Listen for pending ride requests
   useEffect(() => {
-    // Use the imported 'database' instance directly
-    if (!isAuthReady || !database || !userId || !isApproved || !isOnline) { // <--- UPDATED: Use imported 'database'
+    console.log("DriverDashboard: Checking for pending requests. Online:", isOnline, "Approved:", isApproved, "AuthReady:", isAuthReady, "DB:", !!database, "UserID:", !!userId);
+
+    if (!isAuthReady || !database || !userId || !isApproved || !isOnline) {
       setPendingRequests([]);
+      console.log("DriverDashboard: Not ready to fetch pending requests. Clearing list.");
       return;
     }
 
     const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-    const pendingRequestsRef = ref(database, `artifacts/${appId}/ride_requests`); // <--- UPDATED: Use imported 'database'
+    const pendingRequestsRef = ref(database, `artifacts/${appId}/ride_requests`);
 
     const unsubscribe = onValue(pendingRequestsRef, (snapshot) => {
       const data = snapshot.val();
       const requestsList = [];
       if (data) {
+        console.log("DriverDashboard: Raw data from ride_requests:", data); // Log raw data
         Object.entries(data).forEach(([key, value]) => {
           if (value.status === 'pending') {
             requestsList.push({ id: key, ...value });
@@ -155,6 +140,7 @@ export default function DriverDashboard({ navigation }) {
         });
       }
       setPendingRequests(requestsList.reverse());
+      console.log("DriverDashboard: Filtered pending requests:", requestsList); // Log filtered data
     }, (error) => {
       console.error("Error fetching pending requests:", error);
       setModalMessage(`Failed to load new requests: ${error.message}`);
@@ -163,23 +149,26 @@ export default function DriverDashboard({ navigation }) {
     });
 
     return () => unsubscribe();
-  }, [isAuthReady, database, userId, isApproved, isOnline]); // <--- UPDATED: Depend on imported 'database'
+  }, [isAuthReady, database, userId, isApproved, isOnline]);
 
   // Listen for assigned rides (rides accepted by this driver)
   useEffect(() => {
-    // Use the imported 'database' instance directly
-    if (!isAuthReady || !database || !userId || !isApproved) { // <--- UPDATED: Use imported 'database'
+    console.log("DriverDashboard: Checking for assigned rides. Approved:", isApproved, "AuthReady:", isAuthReady, "DB:", !!database, "UserID:", !!userId);
+
+    if (!isAuthReady || !database || !userId || !isApproved) {
       setAssignedRides([]);
+      console.log("DriverDashboard: Not ready to fetch assigned rides. Clearing list.");
       return;
     }
 
     const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-    const allRideRequestsRef = ref(database, `artifacts/${appId}/ride_requests`); // <--- UPDATED: Use imported 'database'
+    const allRideRequestsRef = ref(database, `artifacts/${appId}/ride_requests`);
 
     const unsubscribe = onValue(allRideRequestsRef, (snapshot) => {
       const data = snapshot.val();
       const assignedList = [];
       if (data) {
+        console.log("DriverDashboard: Raw data from all ride_requests for assigned:", data); // Log raw data
         Object.entries(data).forEach(([key, value]) => {
           if (value.driverId === userId && value.status !== 'completed' && value.status !== 'declined') {
             assignedList.push({ id: key, ...value });
@@ -187,6 +176,7 @@ export default function DriverDashboard({ navigation }) {
         });
       }
       setAssignedRides(assignedList.reverse());
+      console.log("DriverDashboard: Filtered assigned rides:", assignedList); // Log filtered data
     }, (error) => {
       console.error("Error fetching assigned rides:", error);
       setModalMessage(`Failed to load assigned rides: ${error.message}`);
@@ -195,19 +185,18 @@ export default function DriverDashboard({ navigation }) {
     });
 
     return () => unsubscribe();
-  }, [isAuthReady, database, userId, isApproved]); // <--- UPDATED: Depend on imported 'database'
+  }, [isAuthReady, database, userId, isApproved]);
 
 
   // Logic to update the driver's online status
   const toggleOnlineStatus = async () => {
-    // Use the imported 'database' and 'auth' instances directly
-    if (!userId || !database) return; // <--- UPDATED: Use imported 'database'
+    if (!userId || !database) return;
 
     const newStatus = !isOnline;
     setIsOnline(newStatus);
 
     try {
-      const driverStatusRef = ref(database, `driverStatus/${userId}`); // <--- UPDATED: Use imported 'database'
+      const driverStatusRef = ref(database, `driverStatus/${userId}`);
       await update(driverStatusRef, {
         isOnline: newStatus,
         timestamp: Date.now(),
@@ -228,8 +217,7 @@ export default function DriverDashboard({ navigation }) {
 
   // Location updates for the driver.
   useEffect(() => {
-    // Use the imported 'database' instance directly
-    if (!isAuthReady || !database || !userId || !isOnline) return; // <--- UPDATED: Use imported 'database'
+    if (!isAuthReady || !database || !userId || !isOnline) return;
 
     let locationInterval;
 
@@ -242,7 +230,7 @@ export default function DriverDashboard({ navigation }) {
             longitude: location.coords.longitude,
           };
 
-          const driverStatusRef = ref(database, `driverStatus/${userId}`); // <--- UPDATED: Use imported 'database'
+          const driverStatusRef = ref(database, `driverStatus/${userId}`);
           await update(driverStatusRef, {
             location: coords,
             timestamp: Date.now(),
@@ -261,12 +249,11 @@ export default function DriverDashboard({ navigation }) {
         clearInterval(locationInterval);
       }
     };
-  }, [isOnline, isAuthReady, database, userId]); // <--- UPDATED: Depend on imported 'database'
+  }, [isOnline, isAuthReady, database, userId]);
 
   // Ride Management Functions
   const acceptRide = async (request) => {
-    // Use the imported 'database' instance directly
-    if (!userId || !database || !driverName) { // <--- UPDATED: Use imported 'database'
+    if (!userId || !database || !driverName) {
       setModalMessage("Driver data not ready. Cannot accept ride.");
       setModalType('error');
       setShowModal(true);
@@ -279,7 +266,8 @@ export default function DriverDashboard({ navigation }) {
       try {
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
-        const publicRequestRef = ref(database, `artifacts/${appId}/ride_requests/${request.id}`); // <--- UPDATED: Use imported 'database'
+        // 1. Update the public ride request status and assign driver
+        const publicRequestRef = ref(database, `artifacts/${appId}/ride_requests/${request.id}`);
         await update(publicRequestRef, {
           status: 'accepted',
           driverId: userId,
@@ -287,8 +275,9 @@ export default function DriverDashboard({ navigation }) {
           acceptedAt: new Date().toISOString(),
         });
 
+        // 2. Update the customer's personal booking status and assign driver
         if (request.customerId && request.customerBookingId) {
-          const customerBookingRef = ref(database, `artifacts/${appId}/users/${request.customerId}/rides/${request.customerBookingId}`); // <--- UPDATED: Use imported 'database'
+          const customerBookingRef = ref(database, `artifacts/${appId}/users/${request.customerId}/rides/${request.customerBookingId}`);
           await update(customerBookingRef, {
             status: 'accepted',
             driverId: userId,
@@ -316,8 +305,7 @@ export default function DriverDashboard({ navigation }) {
   };
 
   const declineRide = async (request) => {
-    // Use the imported 'database' instance directly
-    if (!userId || !database) return; // <--- UPDATED: Use imported 'database'
+    if (!userId || !database) return;
 
     setModalMessage(`Decline ride from ${request.pickup} to ${request.dropoff}?`);
     setModalType('confirm');
@@ -325,15 +313,17 @@ export default function DriverDashboard({ navigation }) {
       try {
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
-        const publicRequestRef = ref(database, `artifacts/${appId}/ride_requests/${request.id}`); // <--- UPDATED: Use imported 'database'
+        // 1. Update the public ride request status
+        const publicRequestRef = ref(database, `artifacts/${appId}/ride_requests/${request.id}`);
         await update(publicRequestRef, {
           status: 'declined',
           declinedBy: userId,
           declinedAt: new Date().toISOString(),
         });
 
+        // 2. Update the customer's personal booking status (e.g., to 'driver_declined' or 'unassigned')
         if (request.customerId && request.customerBookingId) {
-          const customerBookingRef = ref(database, `artifacts/${appId}/users/${request.customerId}/rides/${request.customerBookingId}`); // <--- UPDATED: Use imported 'database'
+          const customerBookingRef = ref(database, `artifacts/${appId}/users/${request.customerId}/rides/${request.customerBookingId}`);
           await update(customerBookingRef, {
             status: 'driver_declined',
           });
@@ -353,8 +343,7 @@ export default function DriverDashboard({ navigation }) {
   };
 
   const completeRide = async (ride) => {
-    // Use the imported 'database' instance directly
-    if (!userId || !database) return; // <--- UPDATED: Use imported 'database'
+    if (!userId || !database) return;
 
     setModalMessage(`Mark ride from ${ride.pickup} to ${ride.dropoff} as complete?`);
     setModalType('confirm');
@@ -362,21 +351,24 @@ export default function DriverDashboard({ navigation }) {
       try {
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
-        const publicRequestRef = ref(database, `artifacts/${appId}/ride_requests/${ride.id}`); // <--- UPDATED: Use imported 'database'
+        // 1. Update the public ride request status to completed
+        const publicRequestRef = ref(database, `artifacts/${appId}/ride_requests/${ride.id}`);
         await update(publicRequestRef, {
           status: 'completed',
           completedAt: new Date().toISOString(),
         });
 
+        // 2. Update the customer's personal booking status to completed
         if (ride.customerId && ride.customerBookingId) {
-          const customerBookingRef = ref(database, `artifacts/${appId}/users/${ride.customerId}/rides/${ride.customerBookingId}`); // <--- UPDATED: Use imported 'database'
+          const customerBookingRef = ref(database, `artifacts/${appId}/users/${ride.customerId}/rides/${ride.customerBookingId}`);
           await update(customerBookingRef, {
             status: 'completed',
             completedAt: new Date().toISOString(),
           });
         }
 
-        const driverEarningsRef = ref(database, `driverEarnings/${userId}`); // <--- UPDATED: Use imported 'database'
+        // 3. Update driver earnings (dummy example)
+        const driverEarningsRef = ref(database, `driverEarnings/${userId}`);
         const currentEarningsSnap = await get(driverEarningsRef);
         const currentTotal = currentEarningsSnap.exists() ? currentEarningsSnap.val().total || 0 : 0;
         const ridePrice = ride.price || 100;
@@ -597,7 +589,7 @@ export default function DriverDashboard({ navigation }) {
         <TouchableOpacity
           style={[styles.logoutButton, { backgroundColor: colors.iconRed }]}
           onPress={() => {
-            auth.signOut(); // <--- UPDATED: Use imported 'auth'
+            auth.signOut();
             navigation.navigate('Login');
           }}
         >
@@ -671,7 +663,7 @@ const mapStyleDark = [
   { "featureType": "water", "elementType": "geometry", "stylers": [{ "color": "#17263c" }] },
   { "featureType": "water", "elementType": "labels.text.fill", "stylers": [{ "color": "#515c6d" }] },
   { "featureType": "water", "elementType": "labels.text.stroke", "stylers": [{ "color": "#17263c" }] }
-];
+  ];
 
 const styles = StyleSheet.create({
   scrollContainer: {
