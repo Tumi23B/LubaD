@@ -10,7 +10,7 @@ import {
   FlatList,
   Alert
 } from 'react-native';
-import { Audio } from 'expo-av';
+import { Audio } from 'expo-audio';
 import * as Haptics from 'expo-haptics';
 import * as Notifications from 'expo-notifications';
 
@@ -31,7 +31,7 @@ const toneFiles = {
   tone5: require('../assets/ping.mp3'),
 };
 
-export default function Notifications() {
+export default function NotificationSettings() {
   const [orderUpdates, setOrderUpdates] = useState(true);
   const [driverMessages, setDriverMessages] = useState(true);
   const [promotions, setPromotions] = useState(false);
@@ -225,7 +225,11 @@ export default function Notifications() {
       <TouchableOpacity
         style={[styles.toneSelector, { backgroundColor: '#c5a34f' }]}
         onPress={() => {
-          if (soundEnabled) playNotificationTone(appAlertTone.id);
+          // Play both tones if their toggles are enabled
+          if (soundEnabled) {
+            if (appAlerts) playNotificationTone(appAlertTone.id);
+            if (driverMessages) playNotificationTone(driverTone.id);
+          }
           if (vibrationEnabled) vibrateNotification();
         }}
       >

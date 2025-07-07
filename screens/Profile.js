@@ -20,6 +20,7 @@ import {
   deleteUser,
 } from 'firebase/auth';
 import { ref, get, update, remove } from 'firebase/database';
+import { useNavigation } from '@react-navigation/native';
 
 export default function Profile() {
   const [profile, setProfile] = useState({ name: '', email: '' });
@@ -27,6 +28,7 @@ export default function Profile() {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const navigation = useNavigation();
 
   useEffect(() => {
     const user = auth.currentUser;
@@ -84,30 +86,21 @@ export default function Profile() {
   };
 
   const handleLogout = async () => {
-    try {
-      await signOut(auth);
-      Alert.alert('Logged out', 'You have been signed out.');
-    } catch (error) {
-      Alert.alert('Error', error.message);
-    }
-  };
-
-  const handleDeactivateAccount = () => {
-    const user = auth.currentUser;
-    if (!user) return;
-
     Alert.alert(
-      'Deactivate Account',
-      'Are you sure you want to deactivate your account?',
+      'Logout',
+      'Are you sure you want to logout?',
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Yes',
+          text: 'Logout',
+          style: 'destructive',
           onPress: async () => {
             try {
-              await update(ref(database, 'users/' + user.uid), { active: false });
               await signOut(auth);
-              Alert.alert('Deactivated', 'Your account is now inactive.');
+              navigation.reset({
+                index: 0,
+                routes: [{ name: 'Auth', params: { showLogin: true } }],
+              });
             } catch (error) {
               Alert.alert('Error', error.message);
             }
@@ -128,11 +121,16 @@ export default function Profile() {
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Delete',
+          style: 'destructive',
           onPress: async () => {
             try {
               await remove(ref(database, 'users/' + user.uid));
               await deleteUser(user);
               Alert.alert('Deleted', 'Your account has been removed.');
+              navigation.reset({
+                index: 0,
+                routes: [{ name: 'Home' }],
+              });
             } catch (error) {
               Alert.alert('Error', error.message);
             }
@@ -197,11 +195,6 @@ export default function Profile() {
         <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
           <Ionicons name="log-out-outline" size={18} color="#fff" />
           <Text style={styles.logoutText}>Logout</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.deactivateButton} onPress={handleDeactivateAccount}>
-          <Ionicons name="person-remove-outline" size={18} color="#fff" />
-          <Text style={styles.logoutText}>Deactivate Account</Text>
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.deleteButton} onPress={handleDeleteAccount}>
@@ -292,16 +285,6 @@ const styles = StyleSheet.create({
   logoutButton: {
     marginTop: 16,
     backgroundColor: '#c5a34f',
-    padding: 12,
-    borderRadius: 8,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 8,
-    alignItems: 'center',
-  },
-  deactivateButton: {
-    marginTop: 12,
-    backgroundColor: '#e08900',
     padding: 12,
     borderRadius: 8,
     flexDirection: 'row',

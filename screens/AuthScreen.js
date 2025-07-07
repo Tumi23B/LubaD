@@ -100,8 +100,13 @@ export default function AuthScreen() {
         navigation.navigate('Dashboard', { username });
       }
     } catch (error) {
-      if (error.code === 'auth/user-not-found') {
-        setFirebaseError('No account found for this email. Please sign up first.');
+      if (
+        error.code === 'auth/user-not-found' ||
+        error.code === 'auth/invalid-credential' ||
+        error.message?.includes('auth/user-not-found') ||
+        error.message?.includes('auth/invalid-credential')
+      ) {
+        setFirebaseError('No account found for this email or password. Please sign up first.');
       } else {
         setFirebaseError(error.message);
       }
@@ -112,10 +117,10 @@ export default function AuthScreen() {
     <KeyboardAvoidingView
       style={{ flex: 1 }}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={100}
+      keyboardVerticalOffset={40}
     >
       <ScrollView
-        contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }}
+        contentContainerStyle={{ flexGrow: 1, paddingVertical: 24 }} // Remove justifyContent, add some padding if needed
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.container}>
@@ -237,9 +242,10 @@ export default function AuthScreen() {
 const styles = StyleSheet.create({
   container: {
     padding: 30,
-    backgroundColor: '#f0f0f0', // '#FFFAF1' Light background color
+    backgroundColor: '#f0f0f0',
     flex: 1,
-    justifyContent: 'center',
+    // Remove or comment out the next line:
+    // justifyContent: 'center',
   },
   logo: {
     fontSize: 36,
@@ -250,7 +256,7 @@ const styles = StyleSheet.create({
   tagline: {
     fontSize: 16,
     textAlign: 'center',
-    marginBottom: 40,
+    marginBottom: 12,
     color:'#c5a34f', // Gold color for tagline
   },
   tab: {
@@ -264,7 +270,7 @@ const styles = StyleSheet.create({
   // tabButton style is no longer directly used for the main tab buttons,
   // as gradientTab is used instead. Keeping it in case it's used elsewhere.
   tabButton: {
-    paddingVertical: 10,
+    paddingVertical: 4,
     paddingHorizontal: 30,
     shadowColor: '#000', // Tab shadow
     shadowOffset: { width: 0, height: 1 },
@@ -298,13 +304,13 @@ const styles = StyleSheet.create({
   logoImg: {
   width: 160,
   height: 160,
-  marginVertical: 12,
+  marginVertical: 8,
   alignSelf: 'center', // Center the image
   },
 
   error: {
     color: '#b80000',
-    fontSize: 13,
+    fontSize: 10,
     marginTop: 4,
     marginLeft: 4,
   },
