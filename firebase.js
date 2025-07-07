@@ -2,8 +2,8 @@
 import { initializeApp } from "firebase/app";
 import { initializeAuth, getReactNativePersistence } from "firebase/auth";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+// Removed setLogLevel import as it's causing issues in your environment
 import { getDatabase } from "firebase/database";
-
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
@@ -27,6 +27,10 @@ const auth = initializeAuth(app, {
 
 // Initialize Realtime Database
 const database = getDatabase(app);
+
+// --- REMOVED: setLogLevel call as it was causing the TypeError ---
+// setLogLevel('silent');
+// --- END REMOVED ---
 
 // Export services
 export { auth, database };

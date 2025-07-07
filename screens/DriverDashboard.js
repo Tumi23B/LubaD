@@ -1,81 +1,109 @@
 import React, { useState, useEffect, useContext } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, FlatList, Alert, ScrollView } from 'react-native';
-import { auth, database } from '../firebase';
-import { ref, get, update, onValue } from 'firebase/database';
+import { View, Text, TouchableOpacity, StyleSheet, FlatList, ActivityIndicator, ScrollView, Modal } from 'react-native';
+// Import Firebase auth and database instances from your central firebase.js file
+import { auth, database } from '../firebase'; // <--- UPDATED: Import from your firebase.js
+
+// Firebase imports for Realtime Database functions (still needed for ref, get, update, onValue, remove)
+import { ref, get, update, onValue, remove } from 'firebase/database';
+import { onAuthStateChanged, signInAnonymously, signInWithCustomToken } from 'firebase/auth'; // Specific auth functions
 import MapView, { Marker } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { ThemeContext } from '../ThemeContext';
+import { Ionicons } from '@expo/vector-icons';
 
 export default function DriverDashboard({ navigation }) {
-  const { isDarkMode, colors } = useContext(ThemeContext); // Use useContext to get theme
+  const { isDarkMode, colors } = useContext(ThemeContext);
 
   const [isOnline, setIsOnline] = useState(false);
   const [driverName, setDriverName] = useState('Driver');
   const [isApproved, setIsApproved] = useState(false);
-  const [rides, setRides] = useState([]);
+  const [pendingRequests, setPendingRequests] = useState([]);
+  const [assignedRides, setAssignedRides] = useState([]);
   const [driverLocation, setDriverLocation] = useState(null);
   const [totalEarnings, setTotalEarnings] = useState(0);
+  const [loading, setLoading] = useState(true);
 
-  // logic to update the driver's online status
-  const toggleOnlineStatus = async () => {
-    const user = auth.currentUser;
-    if (!user) return;
+  // Firebase state
+  // db and auth are now directly imported, no longer managed by useState here for initialization
+  const [userId, setUserId] = useState(null);
+  const [isAuthReady, setIsAuthReady] = useState(false);
 
-    const newStatus = !isOnline;
-    setIsOnline(newStatus);
+  // Modal state for custom alerts/confirmations
+  const [showModal, setShowModal] = useState(false);
+  const [modalMessage, setModalMessage] = useState('');
+  const [modalType, setModalType] = useState('info');
+  const [modalAction, setModalAction] = useState(null);
 
+  // Initialize Firebase and authenticate
+  useEffect(() => {
+    // No need for initializeApp or parsing firebaseConfig here, as it's done in firebase.js
     try {
-      await update(ref(database, 'driverStatus/' + user.uid), {
-        isOnline: newStatus,
-        timestamp: Date.now(),
-        location: driverLocation || null,
+      // Use the imported 'auth' instance directly
+      const unsubscribeAuth = onAuthStateChanged(auth, async (user) => { // <--- UPDATED: Use imported 'auth'
+        if (user) {
+          setUserId(user.uid);
+          setIsAuthReady(true);
+        } else {
+          try {
+            if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+              await signInWithCustomToken(auth, __initial_auth_token); // <--- UPDATED: Use imported 'auth'
+            } else {
+              await signInAnonymously(auth); // <--- UPDATED: Use imported 'auth'
+            }
+          } catch (error) {
+            console.error("Firebase authentication error:", error);
+            setModalMessage(`Authentication failed: ${error.message}`);
+            setModalType('error');
+            setShowModal(true);
+            setIsAuthReady(true);
+            setLoading(false);
+          }
+        }
       });
+
+      return () => unsubscribeAuth();
     } catch (error) {
-      console.warn('Failed to update driver status:', error);
-      setIsOnline(!newStatus); // rollback UI if update fails
+      console.error("Error initializing Firebase (from imported services):", error);
+      setModalMessage(`Firebase initialization error: ${error.message}`);
+      setModalType('error');
+      setShowModal(true);
+      setLoading(false);
+      setIsAuthReady(true);
     }
-  };
+  }, []); // Empty dependency array means this runs once on mount
 
-  // Listen for changes in driver's online status and update local state automatically
+  // Fetch driver data, earnings, and initial location
   useEffect(() => {
-    const user = auth.currentUser;
-    if (!user) return;
+    // Use the imported 'database' and 'auth' instances directly
+    if (!isAuthReady || !database || !userId) return; // <--- UPDATED: Use imported 'database'
 
-    const statusRef = ref(database, 'driverStatus/' + user.uid);
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
-    const unsubscribe = onValue(statusRef, (snapshot) => {
-      const data = snapshot.val();
-      if (data?.isOnline !== undefined) {
-        setIsOnline(data.isOnline); // Sync local state with Firebase
-      }
-    });
-
-    return () => unsubscribe(); // Cleanup on unmount
-  }, []);
-
-  // Fetch driver data and location on mount
-  useEffect(() => {
-    const fetchDriverStatus = async () => {
-      const user = auth.currentUser;
-      if (!user) return;
-
+    const fetchDriverProfileAndEarnings = async () => {
       try {
-        const snapshot = await get(ref(database, 'driverApplications/' + user.uid));
-        if (snapshot.exists()) {
-          const data = snapshot.val();
+        const driverAppSnap = await get(ref(database, `driverApplications/${userId}`)); // <--- UPDATED: Use imported 'database'
+        if (driverAppSnap.exists()) {
+          const data = driverAppSnap.val();
           setDriverName(data.fullName || 'Driver');
           setIsApproved(data.status === 'approved');
         }
+
+        const earningsSnap = await get(ref(database, `driverEarnings/${userId}`)); // <--- UPDATED: Use imported 'database'
+        if (earningsSnap.exists()) {
+          const earnings = earningsSnap.val();
+          setTotalEarnings(earnings.total || 0);
+        }
       } catch (error) {
-        console.warn('Error fetching driver data:', error);
-        setIsApproved(false);
+        console.warn('Error fetching driver data or earnings:', error);
       }
     };
 
     const getLocation = async () => {
       let { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('Permission denied', 'Location permission is required.');
+        setModalMessage('Location permission is required to use the driver dashboard.');
+        setModalType('error');
+        setShowModal(true);
         return;
       }
       let location = await Location.getCurrentPositionAsync({});
@@ -85,100 +113,123 @@ export default function DriverDashboard({ navigation }) {
       });
     };
 
-    fetchDriverStatus();
-    // Fetch earnings for the driver
-    const fetchEarnings = async () => {
-      const user = auth.currentUser;
-      if (!user) return;
-
-      try {
-        const earningsSnap = await get(ref(database, 'driverEarnings/' + user.uid));
-        if (earningsSnap.exists()) {
-          const earnings = earningsSnap.val();
-          setTotalEarnings(earnings.total || 0);
-        }
-      } catch (error) {
-        console.warn('Error fetching earnings:', error);
-        setTotalEarnings(0); // fallback
-      }
-    };
-
-    fetchEarnings();
-    // Fetch driverlocation
+    fetchDriverProfileAndEarnings();
     getLocation();
-  }, []);
+    setLoading(false);
+  }, [isAuthReady, database, userId]); // <--- UPDATED: Depend on imported 'database'
 
-  // Fetch rides assigned to the driver uses an efficient listener to only load rides mapped to this driver
+  // Listen for changes in driver's online status
   useEffect(() => {
-    const user = auth.currentUser;
-    if (!user) return;
+    // Use the imported 'database' instance directly
+    if (!isAuthReady || !database || !userId) return; // <--- UPDATED: Use imported 'database'
 
-    const driverRidesRef = ref(database, 'driverRides/' + user.uid);
-
-    const unsubscribe = onValue(driverRidesRef, async (snapshot) => {
-      const rideKeys = snapshot.val();
-      if (!rideKeys) {
-        setRides([]);
-        return;
+    const statusRef = ref(database, `driverStatus/${userId}`); // <--- UPDATED: Use imported 'database'
+    const unsubscribe = onValue(statusRef, (snapshot) => {
+      const data = snapshot.val();
+      if (data?.isOnline !== undefined) {
+        setIsOnline(data.isOnline);
       }
+    });
+    return () => unsubscribe();
+  }, [isAuthReady, database, userId]); // <--- UPDATED: Depend on imported 'database'
 
-      const ridePromises = Object.keys(rideKeys).map(async (rideId) => {
-        const rideSnap = await get(ref(database, 'rideRequests/' + rideId));
-        return { id: rideId, ...rideSnap.val() };
-      });
+  // Listen for pending ride requests
+  useEffect(() => {
+    // Use the imported 'database' instance directly
+    if (!isAuthReady || !database || !userId || !isApproved || !isOnline) { // <--- UPDATED: Use imported 'database'
+      setPendingRequests([]);
+      return;
+    }
 
-      const rideData = await Promise.all(ridePromises);
-      setRides(rideData);
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+    const pendingRequestsRef = ref(database, `artifacts/${appId}/ride_requests`); // <--- UPDATED: Use imported 'database'
+
+    const unsubscribe = onValue(pendingRequestsRef, (snapshot) => {
+      const data = snapshot.val();
+      const requestsList = [];
+      if (data) {
+        Object.entries(data).forEach(([key, value]) => {
+          if (value.status === 'pending') {
+            requestsList.push({ id: key, ...value });
+          }
+        });
+      }
+      setPendingRequests(requestsList.reverse());
+    }, (error) => {
+      console.error("Error fetching pending requests:", error);
+      setModalMessage(`Failed to load new requests: ${error.message}`);
+      setModalType('error');
+      setShowModal(true);
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [isAuthReady, database, userId, isApproved, isOnline]); // <--- UPDATED: Depend on imported 'database'
 
-  // Ride Management Functions
-  const acceptRide = async (rideId) => {
-    try {
-      await update(ref(database, 'rideRequests/' + rideId), {
-        status: 'accepted',
-        acceptedAt: Date.now(),
-      });
-    } catch (error) {
-      console.warn('Error accepting ride:', error);
-    }
-  };
-
-  const declineRide = async (rideId) => {
-    const user = auth.currentUser;
-    if (!user) return;
-
-    try {
-      await update(ref(database, 'rideRequests/' + rideId), {
-        status: 'unassigned',
-        driverId: null,
-      });
-
-      await update(ref(database, 'driverRides/' + user.uid), {
-        [rideId]: null,
-      });
-    } catch (error) {
-      console.warn('Error declining ride:', error);
-    }
-  };
-
-  const completeRide = async (rideId) => {
-    try {
-      await update(ref(database, 'rideRequests/' + rideId), {
-        status: 'completed',
-        completedAt: Date.now(),
-      });
-    } catch (error) {
-      console.warn('Error completing ride:', error);
-    }
-  };
-
-  // Location updates for the driver. This will run every 10 seconds to update the driver's location in Firebase. Only runs if the driver is online
+  // Listen for assigned rides (rides accepted by this driver)
   useEffect(() => {
-    const user = auth.currentUser;
-    if (!user || !isOnline) return;
+    // Use the imported 'database' instance directly
+    if (!isAuthReady || !database || !userId || !isApproved) { // <--- UPDATED: Use imported 'database'
+      setAssignedRides([]);
+      return;
+    }
+
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+    const allRideRequestsRef = ref(database, `artifacts/${appId}/ride_requests`); // <--- UPDATED: Use imported 'database'
+
+    const unsubscribe = onValue(allRideRequestsRef, (snapshot) => {
+      const data = snapshot.val();
+      const assignedList = [];
+      if (data) {
+        Object.entries(data).forEach(([key, value]) => {
+          if (value.driverId === userId && value.status !== 'completed' && value.status !== 'declined') {
+            assignedList.push({ id: key, ...value });
+          }
+        });
+      }
+      setAssignedRides(assignedList.reverse());
+    }, (error) => {
+      console.error("Error fetching assigned rides:", error);
+      setModalMessage(`Failed to load assigned rides: ${error.message}`);
+      setModalType('error');
+      setShowModal(true);
+    });
+
+    return () => unsubscribe();
+  }, [isAuthReady, database, userId, isApproved]); // <--- UPDATED: Depend on imported 'database'
+
+
+  // Logic to update the driver's online status
+  const toggleOnlineStatus = async () => {
+    // Use the imported 'database' and 'auth' instances directly
+    if (!userId || !database) return; // <--- UPDATED: Use imported 'database'
+
+    const newStatus = !isOnline;
+    setIsOnline(newStatus);
+
+    try {
+      const driverStatusRef = ref(database, `driverStatus/${userId}`); // <--- UPDATED: Use imported 'database'
+      await update(driverStatusRef, {
+        isOnline: newStatus,
+        timestamp: Date.now(),
+        location: driverLocation || null,
+      });
+      if (!newStatus) {
+        setPendingRequests([]);
+        setAssignedRides([]);
+      }
+    } catch (error) {
+      console.warn('Failed to update driver status:', error);
+      setIsOnline(!newStatus);
+      setModalMessage(`Failed to change online status: ${error.message}`);
+      setModalType('error');
+      setShowModal(true);
+    }
+  };
+
+  // Location updates for the driver.
+  useEffect(() => {
+    // Use the imported 'database' instance directly
+    if (!isAuthReady || !database || !userId || !isOnline) return; // <--- UPDATED: Use imported 'database'
 
     let locationInterval;
 
@@ -191,18 +242,16 @@ export default function DriverDashboard({ navigation }) {
             longitude: location.coords.longitude,
           };
 
-          // Update Firebase location
-          await update(ref(database, 'driverStatus/' + user.uid), {
+          const driverStatusRef = ref(database, `driverStatus/${userId}`); // <--- UPDATED: Use imported 'database'
+          await update(driverStatusRef, {
             location: coords,
             timestamp: Date.now(),
           });
-
-          // Optionally update state if you want to reflect latest location locally
           setDriverLocation(coords);
         } catch (error) {
           console.warn('Error updating location:', error);
         }
-      }, 10000); // every 10 seconds
+      }, 10000);
     };
 
     startLocationUpdates();
@@ -212,7 +261,188 @@ export default function DriverDashboard({ navigation }) {
         clearInterval(locationInterval);
       }
     };
-  }, [isOnline]);
+  }, [isOnline, isAuthReady, database, userId]); // <--- UPDATED: Depend on imported 'database'
+
+  // Ride Management Functions
+  const acceptRide = async (request) => {
+    // Use the imported 'database' instance directly
+    if (!userId || !database || !driverName) { // <--- UPDATED: Use imported 'database'
+      setModalMessage("Driver data not ready. Cannot accept ride.");
+      setModalType('error');
+      setShowModal(true);
+      return;
+    }
+
+    setModalMessage(`Accepting ride from ${request.pickup} to ${request.dropoff}. Confirm?`);
+    setModalType('confirm');
+    setModalAction(() => async () => {
+      try {
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+
+        const publicRequestRef = ref(database, `artifacts/${appId}/ride_requests/${request.id}`); // <--- UPDATED: Use imported 'database'
+        await update(publicRequestRef, {
+          status: 'accepted',
+          driverId: userId,
+          driverName: driverName,
+          acceptedAt: new Date().toISOString(),
+        });
+
+        if (request.customerId && request.customerBookingId) {
+          const customerBookingRef = ref(database, `artifacts/${appId}/users/${request.customerId}/rides/${request.customerBookingId}`); // <--- UPDATED: Use imported 'database'
+          await update(customerBookingRef, {
+            status: 'accepted',
+            driverId: userId,
+            driverName: driverName,
+            acceptedAt: new Date().toISOString(),
+          });
+        } else {
+          console.warn("Missing customerId or customerBookingId for accepted ride:", request);
+          setModalMessage("Ride accepted, but customer's record could not be updated fully.");
+          setModalType('info');
+          setShowModal(true);
+        }
+
+        setModalMessage("Ride accepted successfully!");
+        setModalType('success');
+        setShowModal(true);
+      } catch (error) {
+        console.error('Error accepting ride:', error);
+        setModalMessage(`Failed to accept ride: ${error.message}`);
+        setModalType('error');
+        setShowModal(true);
+      }
+    });
+    setShowModal(true);
+  };
+
+  const declineRide = async (request) => {
+    // Use the imported 'database' instance directly
+    if (!userId || !database) return; // <--- UPDATED: Use imported 'database'
+
+    setModalMessage(`Decline ride from ${request.pickup} to ${request.dropoff}?`);
+    setModalType('confirm');
+    setModalAction(() => async () => {
+      try {
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+
+        const publicRequestRef = ref(database, `artifacts/${appId}/ride_requests/${request.id}`); // <--- UPDATED: Use imported 'database'
+        await update(publicRequestRef, {
+          status: 'declined',
+          declinedBy: userId,
+          declinedAt: new Date().toISOString(),
+        });
+
+        if (request.customerId && request.customerBookingId) {
+          const customerBookingRef = ref(database, `artifacts/${appId}/users/${request.customerId}/rides/${request.customerBookingId}`); // <--- UPDATED: Use imported 'database'
+          await update(customerBookingRef, {
+            status: 'driver_declined',
+          });
+        }
+
+        setModalMessage("Ride declined.");
+        setModalType('info');
+        setShowModal(true);
+      } catch (error) {
+        console.error('Error declining ride:', error);
+        setModalMessage(`Failed to decline ride: ${error.message}`);
+        setModalType('error');
+        setShowModal(true);
+      }
+    });
+    setShowModal(true);
+  };
+
+  const completeRide = async (ride) => {
+    // Use the imported 'database' instance directly
+    if (!userId || !database) return; // <--- UPDATED: Use imported 'database'
+
+    setModalMessage(`Mark ride from ${ride.pickup} to ${ride.dropoff} as complete?`);
+    setModalType('confirm');
+    setModalAction(() => async () => {
+      try {
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+
+        const publicRequestRef = ref(database, `artifacts/${appId}/ride_requests/${ride.id}`); // <--- UPDATED: Use imported 'database'
+        await update(publicRequestRef, {
+          status: 'completed',
+          completedAt: new Date().toISOString(),
+        });
+
+        if (ride.customerId && ride.customerBookingId) {
+          const customerBookingRef = ref(database, `artifacts/${appId}/users/${ride.customerId}/rides/${ride.customerBookingId}`); // <--- UPDATED: Use imported 'database'
+          await update(customerBookingRef, {
+            status: 'completed',
+            completedAt: new Date().toISOString(),
+          });
+        }
+
+        const driverEarningsRef = ref(database, `driverEarnings/${userId}`); // <--- UPDATED: Use imported 'database'
+        const currentEarningsSnap = await get(driverEarningsRef);
+        const currentTotal = currentEarningsSnap.exists() ? currentEarningsSnap.val().total || 0 : 0;
+        const ridePrice = ride.price || 100;
+        await update(driverEarningsRef, {
+          total: currentTotal + ridePrice,
+          lastUpdated: new Date().toISOString(),
+        });
+        setTotalEarnings(currentTotal + ridePrice);
+
+        setModalMessage("Ride completed successfully! Earnings updated.");
+        setModalType('success');
+        setShowModal(true);
+      } catch (error) {
+        console.error('Error completing ride:', error);
+        setModalMessage(`Failed to complete ride: ${error.message}`);
+        setModalType('error');
+        setShowModal(true);
+      }
+    });
+    setShowModal(true);
+  };
+
+  const handleModalConfirm = () => {
+    if (modalAction) {
+      modalAction();
+    }
+    setShowModal(false);
+    setModalAction(null);
+  };
+
+  const handleModalCancel = () => {
+    setShowModal(false);
+    setModalAction(null);
+  };
+
+  const mapStyleLight = [
+    { "featureType": "poi", "stylers": [{ "visibility": "off" }] },
+    { "featureType": "transit", "stylers": [{ "visibility": "off" }] }
+  ];
+
+  const mapStyleDark = [
+    { "elementType": "geometry", "stylers": [{ "color": "#242f3e" }] },
+    { "elementType": "labels.text.fill", "stylers": [{ "color": "#746855" }] },
+    { "elementType": "labels.text.stroke", "stylers": [{ "color": "#242f3e" }] },
+    { "featureType": "administrative.locality", "elementType": "labels.text.fill", "stylers": [{ "color": "#d59563" }] },
+    { "featureType": "poi", "stylers": [{ "visibility": "off" }] },
+    { "featureType": "road", "elementType": "geometry", "stylers": [{ "color": "#38414e" }] },
+    { "featureType": "road", "elementType": "geometry.stroke", "stylers": [{ "color": "#212a37" }] },
+    { "featureType": "road", "elementType": "labels.text.fill", "stylers": [{ "color": "#9ca5b3" }] },
+    { "featureType": "road.highway", "elementType": "geometry", "stylers": [{ "color": "#746855" }] },
+    { "featureType": "road.highway", "elementType": "geometry.stroke", "stylers": [{ "color": "#1f2835" }] },
+    { "featureType": "road.highway", "elementType": "labels.text.fill", "stylers": [{ "color": "#f3d19c" }] },
+    { "featureType": "transit", "stylers": [{ "visibility": "off" }] },
+    { "featureType": "water", "elementType": "geometry", "stylers": [{ "color": "#17263c" }] },
+    { "featureType": "water", "elementType": "labels.text.fill", "stylers": [{ "color": "#515c6d" }] },
+    { "featureType": "water", "elementType": "labels.text.stroke", "stylers": [{ "color": "#17263c" }] }
+  ];
+
+  if (loading) {
+    return (
+      <View style={[styles.loadingContainer, { backgroundColor: colors.background }]}>
+        <ActivityIndicator size="large" color={colors.iconRed} />
+        <Text style={{ color: colors.text, marginTop: 10 }}>Loading driver dashboard...</Text>
+      </View>
+    );
+  }
 
   return (
     <ScrollView contentContainerStyle={styles.scrollContainer}>
@@ -257,7 +487,7 @@ export default function DriverDashboard({ navigation }) {
                     latitudeDelta: 0.05,
                     longitudeDelta: 0.05,
                   }}
-                  customMapStyle={isDarkMode ? mapStyleDark : mapStyleLight} // Apply custom map style based on theme
+                  customMapStyle={isDarkMode ? mapStyleDark : mapStyleLight}
                 >
                   <Marker coordinate={driverLocation} title="You" pinColor={colors.iconRed} />
                 </MapView>
@@ -270,46 +500,73 @@ export default function DriverDashboard({ navigation }) {
               <Text style={[styles.earningsAmount, { color: colors.iconRed }]}>R {totalEarnings.toFixed(2)}</Text>
             </View>
 
-            {/* Rides */}
+            {/* Pending Requests */}
             <View style={styles.ridesContainer}>
-              <Text style={[styles.sectionTitle, { color: colors.iconRed }]}>Current Rides</Text>
-              {rides.length === 0 ? (
-                <Text style={[styles.noRidesText, { color: colors.textSecondary }]}>No rides assigned yet.</Text>
+              <Text style={[styles.sectionTitle, { color: colors.iconRed }]}>New Ride Requests</Text>
+              {!isOnline ? (
+                <Text style={[styles.noRidesText, { color: colors.textSecondary }]}>Go online to see new requests.</Text>
+              ) : pendingRequests.length === 0 ? (
+                <Text style={[styles.noRidesText, { color: colors.textSecondary }]}>No new ride requests at the moment.</Text>
               ) : (
                 <FlatList
                   scrollEnabled={false}
-                  data={rides}
+                  data={pendingRequests}
                   keyExtractor={(item) => item.id}
                   renderItem={({ item }) => (
                     <View style={[styles.rideCard, { backgroundColor: colors.cardBackground, borderColor: colors.borderColor }]}>
-                      <Text style={[styles.rideCustomer, { color: colors.text }]}>{item.customer}</Text>
+                      <Text style={[styles.rideCustomer, { color: colors.text }]}>
+                        Request for {item.vehicle || 'Vehicle'}
+                      </Text>
                       <Text style={{ color: colors.text }}>Pickup: {item.pickup}</Text>
                       <Text style={{ color: colors.text }}>Dropoff: {item.dropoff}</Text>
+                      <Text style={{ color: colors.text }}>Scheduled: {new Date(item.date).toLocaleString()}</Text>
                       <Text style={{ color: colors.text }}>Status: {item.status}</Text>
 
-                      {/* Conditional buttons based on ride status */}
-                      {item.status === 'assigned' && (
-                        <View style={styles.actionRow}>
-                          <TouchableOpacity
-                            style={[styles.actionButton, { backgroundColor: colors.success }]}
-                            onPress={() => acceptRide(item.id)}
-                          >
-                            <Text style={[styles.buttonText, { color: colors.buttonText }]}>Accept</Text>
-                          </TouchableOpacity>
+                      <View style={styles.actionRow}>
+                        <TouchableOpacity
+                          style={[styles.actionButton, { backgroundColor: colors.success }]}
+                          onPress={() => acceptRide(item)}
+                        >
+                          <Text style={[styles.buttonText, { color: colors.buttonText }]}>Accept</Text>
+                        </TouchableOpacity>
 
-                          <TouchableOpacity
-                            style={[styles.actionButton, { backgroundColor: colors.secondaryButton }]}
-                            onPress={() => declineRide(item.id)}
-                          >
-                            <Text style={[styles.buttonText, { color: colors.buttonText }]}>Decline</Text>
-                          </TouchableOpacity>
-                        </View>
-                      )}
+                        <TouchableOpacity
+                          style={[styles.actionButton, { backgroundColor: colors.secondaryButton }]}
+                          onPress={() => declineRide(item)}
+                        >
+                          <Text style={[styles.buttonText, { color: colors.buttonText }]}>Decline</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  )}
+                />
+              )}
+            </View>
+
+            {/* Assigned Rides */}
+            <View style={styles.ridesContainer}>
+              <Text style={[styles.sectionTitle, { color: colors.iconRed }]}>Your Assigned Rides</Text>
+              {assignedRides.length === 0 ? (
+                <Text style={[styles.noRidesText, { color: colors.textSecondary }]}>No rides currently assigned to you.</Text>
+              ) : (
+                <FlatList
+                  scrollEnabled={false}
+                  data={assignedRides}
+                  keyExtractor={(item) => item.id}
+                  renderItem={({ item }) => (
+                    <View style={[styles.rideCard, { backgroundColor: colors.cardBackground, borderColor: colors.borderColor }]}>
+                      <Text style={[styles.rideCustomer, { color: colors.text }]}>
+                        Assigned: {item.vehicle || 'Vehicle'}
+                      </Text>
+                      <Text style={{ color: colors.text }}>Pickup: {item.pickup}</Text>
+                      <Text style={{ color: colors.text }}>Dropoff: {item.dropoff}</Text>
+                      <Text style={{ color: colors.text }}>Scheduled: {new Date(item.date).toLocaleString()}</Text>
+                      <Text style={{ color: colors.text }}>Status: {item.status}</Text>
 
                       {item.status === 'accepted' && (
                         <TouchableOpacity
                           style={[styles.actionButton, { backgroundColor: colors.primaryButton, marginTop: 10 }]}
-                          onPress={() => completeRide(item.id)}
+                          onPress={() => completeRide(item)}
                         >
                           <Text style={[styles.buttonText, { color: colors.buttonText }]}>Mark as Complete</Text>
                         </TouchableOpacity>
@@ -340,171 +597,81 @@ export default function DriverDashboard({ navigation }) {
         <TouchableOpacity
           style={[styles.logoutButton, { backgroundColor: colors.iconRed }]}
           onPress={() => {
-            auth.signOut();
+            auth.signOut(); // <--- UPDATED: Use imported 'auth'
             navigation.navigate('Login');
           }}
         >
           <Text style={[styles.buttonText, { color: colors.buttonText }]}>Logout</Text>
         </TouchableOpacity>
       </View>
+
+      {/* Custom Modal for alerts and confirmations */}
+      <Modal
+        transparent={true}
+        animationType="fade"
+        visible={showModal}
+        onRequestClose={() => setShowModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContainer, { backgroundColor: colors.cardBackground }]}>
+            <Text style={[
+              styles.modalMessage,
+              { color: modalType === 'error' ? colors.errorText : colors.text }
+            ]}>
+              {modalMessage}
+            </Text>
+            {modalType === 'confirm' ? (
+              <View style={styles.modalButtonContainer}>
+                <TouchableOpacity
+                  style={[styles.modalButton, { backgroundColor: colors.iconRed, marginRight: 10 }]}
+                  onPress={handleModalConfirm}
+                >
+                  <Text style={[styles.modalButtonText, { color: colors.buttonText }]}>Confirm</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.modalButton, { backgroundColor: colors.borderColor }]}
+                  onPress={handleModalCancel}
+                >
+                  <Text style={[styles.modalButtonText, { color: colors.text }]}>Cancel</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <TouchableOpacity
+                style={[styles.modalButton, { backgroundColor: colors.iconRed }]}
+                onPress={() => setShowModal(false)}
+              >
+                <Text style={[styles.modalButtonText, { color: colors.buttonText }]}>OK</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }
 
 const mapStyleLight = [
-  // Default light map style
-  {
-    "featureType": "poi",
-    "stylers": [
-      {
-        "visibility": "off"
-      }
-    ]
-  },
-  {
-    "featureType": "transit",
-    "stylers": [
-      {
-        "visibility": "off"
-      }
-    ]
-  }
+  { "featureType": "poi", "stylers": [{ "visibility": "off" }] },
+  { "featureType": "transit", "stylers": [{ "visibility": "off" }] }
 ];
 
 const mapStyleDark = [
-  // Dark map style (simplified example, you might need a more comprehensive one)
-  {
-    "elementType": "geometry",
-    "stylers": [
-      {
-        "color": "#242f3e"
-      }
-    ]
-  },
-  {
-    "elementType": "labels.text.fill",
-    "stylers": [
-      {
-        "color": "#746855"
-      }
-    ]
-  },
-  {
-    "elementType": "labels.text.stroke",
-    "stylers": [
-      {
-        "color": "#242f3e"
-      }
-    ]
-  },
-  {
-    "featureType": "administrative.locality",
-    "elementType": "labels.text.fill",
-    "stylers": [
-      {
-        "color": "#d59563"
-      }
-    ]
-  },
-  {
-    "featureType": "poi",
-    "stylers": [
-      {
-        "visibility": "off"
-      }
-    ]
-  },
-  {
-    "featureType": "road",
-    "elementType": "geometry",
-    "stylers": [
-      {
-        "color": "#38414e"
-      }
-    ]
-  },
-  {
-    "featureType": "road",
-    "elementType": "geometry.stroke",
-    "stylers": [
-      {
-        "color": "#212a37"
-      }
-    ]
-  },
-  {
-    "featureType": "road",
-    "elementType": "labels.text.fill",
-    "stylers": [
-      {
-        "color": "#9ca5b3"
-      }
-    ]
-  },
-  {
-    "featureType": "road.highway",
-    "elementType": "geometry",
-    "stylers": [
-      {
-        "color": "#746855"
-      }
-    ]
-  },
-  {
-    "featureType": "road.highway",
-    "elementType": "geometry.stroke",
-    "stylers": [
-      {
-        "color": "#1f2835"
-      }
-    ]
-  },
-  {
-    "featureType": "road.highway",
-    "elementType": "labels.text.fill",
-    "stylers": [
-      {
-        "color": "#f3d19c"
-      }
-    ]
-  },
-  {
-    "featureType": "transit",
-    "stylers": [
-      {
-        "visibility": "off"
-      }
-    ]
-  },
-  {
-    "featureType": "water",
-    "elementType": "geometry",
-    "stylers": [
-      {
-        "color": "#17263c"
-      }
-    ]
-  },
-  {
-    "featureType": "water",
-    "elementType": "labels.text.fill",
-    "stylers": [
-      {
-        "color": "#515c6d"
-      }
-    ]
-  },
-  {
-    "featureType": "water",
-    "elementType": "labels.text.stroke",
-    "stylers": [
-      {
-        "color": "#17263c"
-      }
-    ]
-  }
+  { "elementType": "geometry", "stylers": [{ "color": "#242f3e" }] },
+  { "elementType": "labels.text.fill", "stylers": [{ "color": "#746855" }] },
+  { "elementType": "labels.text.stroke", "stylers": [{ "color": "#242f3e" }] },
+  { "featureType": "administrative.locality", "elementType": "labels.text.fill", "stylers": [{ "color": "#d59563" }] },
+  { "featureType": "poi", "stylers": [{ "visibility": "off" }] },
+  { "featureType": "road", "elementType": "geometry", "stylers": [{ "color": "#38414e" }] },
+  { "featureType": "road", "elementType": "geometry.stroke", "stylers": [{ "color": "#212a37" }] },
+  { "featureType": "road", "elementType": "labels.text.fill", "stylers": [{ "color": "#9ca5b3" }] },
+  { "featureType": "road.highway", "elementType": "geometry", "stylers": [{ "color": "#746855" }] },
+  { "featureType": "road.highway", "elementType": "geometry.stroke", "stylers": [{ "color": "#1f2835" }] },
+  { "featureType": "road.highway", "elementType": "labels.text.fill", "stylers": [{ "color": "#f3d19c" }] },
+  { "featureType": "transit", "stylers": [{ "visibility": "off" }] },
+  { "featureType": "water", "elementType": "geometry", "stylers": [{ "color": "#17263c" }] },
+  { "featureType": "water", "elementType": "labels.text.fill", "stylers": [{ "color": "#515c6d" }] },
+  { "featureType": "water", "elementType": "labels.text.stroke", "stylers": [{ "color": "#17263c" }] }
 ];
-
 
 const styles = StyleSheet.create({
   scrollContainer: {
@@ -512,7 +679,11 @@ const styles = StyleSheet.create({
   },
   container: {
     padding: 20,
-    // backgroundColor handled by theme
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   title: {
     fontSize: 24,
@@ -520,7 +691,6 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     marginTop: 40,
     textAlign: 'center',
-    // color handled by theme
   },
   statusContainer: {
     flexDirection: 'row',
@@ -531,7 +701,6 @@ const styles = StyleSheet.create({
   statusLabel: {
     fontWeight: '600',
     marginRight: 8,
-    // color handled by theme
   },
   statusText: { fontWeight: 'bold' },
   approved: { color: 'green' },
@@ -548,10 +717,8 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 8,
     alignItems: 'center',
-    // backgroundColor handled by theme
   },
   buttonText: {
-    // color handled by theme
     fontWeight: 'bold',
     fontSize: 16,
   },
@@ -570,42 +737,39 @@ const styles = StyleSheet.create({
     padding: 15,
     borderRadius: 8,
     borderWidth: 1,
-    // backgroundColor, borderColor handled by theme
   },
   earningsTitle: {
     fontSize: 18,
     fontWeight: '600',
     marginBottom: 8,
-    // color handled by theme
   },
   earningsAmount: {
     fontSize: 24,
     fontWeight: 'bold',
-    // color handled by theme
   },
 
-  ridesContainer: {},
+  ridesContainer: {
+    marginBottom: 20,
+  },
   sectionTitle: {
     fontSize: 20,
     fontWeight: '600',
     marginBottom: 10,
-    // color handled by theme
   },
   noRidesText: {
     fontStyle: 'italic',
-    // color handled by theme
+    textAlign: 'center',
+    marginTop: 10,
   },
   rideCard: {
     padding: 15,
     marginBottom: 10,
     borderRadius: 8,
     borderWidth: 1,
-    // backgroundColor, borderColor handled by theme
   },
   rideCustomer: {
     fontWeight: 'bold',
     marginBottom: 4,
-    // color handled by theme
   },
 
   statusButton: {
@@ -613,14 +777,12 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginTop: 20,
     alignItems: 'center',
-    // backgroundColor handled by theme (dynamic based on isOnline)
   },
 
   pendingMessage: {
     textAlign: 'center',
     fontSize: 16,
     marginTop: 40,
-    // color handled by theme
   },
 
   logoutButton: {
@@ -628,10 +790,8 @@ const styles = StyleSheet.create({
     padding: 15,
     borderRadius: 8,
     alignItems: 'center',
-    // backgroundColor handled by theme
   },
 
-  // Action Row
   actionRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -644,6 +804,37 @@ const styles = StyleSheet.create({
     marginHorizontal: 5,
     borderRadius: 6,
     alignItems: 'center',
-    // backgroundColor handled by theme
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  modalContainer: {
+    padding: 20,
+    borderRadius: 10,
+    alignItems: 'center',
+    minWidth: 250,
+  },
+  modalMessage: {
+    fontSize: 16,
+    marginBottom: 20,
+    textAlign: 'center',
+    fontWeight: 'bold',
+  },
+  modalButtonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    width: '100%',
+  },
+  modalButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+  },
+  modalButtonText: {
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });

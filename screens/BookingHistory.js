@@ -7,14 +7,13 @@ import {
   ActivityIndicator,
   TextInput,
   TouchableOpacity,
-  Modal, // Import Modal for custom alerts
+  Modal,
 } from 'react-native';
-// Firebase imports for Realtime Database
-import { initializeApp } from 'firebase/app';
-import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from 'firebase/auth';
-import { getDatabase, ref, onValue, remove } from 'firebase/database';
+import { auth, database } from '../firebase';
+
+import { ref, onValue, remove, get } from 'firebase/database'; // Ensure 'get' is imported
 import { Ionicons } from '@expo/vector-icons';
-import { ThemeContext } from '../ThemeContext'; // Import ThemeContext
+import { ThemeContext } from '../ThemeContext';
 
 export default function BookingHistory({ navigation }) {
   const { isDarkMode, colors } = useContext(ThemeContext);
@@ -25,144 +24,142 @@ export default function BookingHistory({ navigation }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedVehicle, setSelectedVehicle] = useState(null);
 
-  // Firebase state
-  const [db, setDb] = useState(null);
-  const [auth, setAuth] = useState(null);
   const [userId, setUserId] = useState(null);
   const [isAuthReady, setIsAuthReady] = useState(false);
 
-  // Modal state for custom alerts
   const [showModal, setShowModal] = useState(false);
   const [modalMessage, setModalMessage] = useState('');
-  const [modalType, setModalType] = useState('info'); // 'info', 'confirm', 'error'
-  const [modalAction, setModalAction] = useState(null); // Function to execute on confirm
+  const [modalType, setModalType] = useState('info');
+  const [modalAction, setModalAction] = useState(null);
 
-  // Initialize Firebase and authenticate
+  // Initialize Firebase (authentication part)
   useEffect(() => {
-    try {
-      const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-      const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
-
-      if (Object.keys(firebaseConfig).length === 0) {
-        console.error("Firebase config is empty. Please ensure __firebase_config is correctly provided.");
-        setModalMessage("Firebase configuration error. Cannot load history.");
-        setModalType('error');
-        setShowModal(true);
-        setLoading(false);
-        return;
-      }
-
-      const app = initializeApp(firebaseConfig);
-      const authInstance = getAuth(app);
-      const dbInstance = getDatabase(app);
-
-      setAuth(authInstance);
-      setDb(dbInstance);
-
-      const unsubscribeAuth = onAuthStateChanged(authInstance, async (user) => {
-        if (user) {
-          setUserId(user.uid);
-          setIsAuthReady(true);
-        } else {
-          try {
-            if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-              await signInWithCustomToken(authInstance, __initial_auth_token);
-            } else {
-              await signInAnonymously(authInstance);
-            }
-          } catch (error) {
-            console.error("Firebase authentication error:", error);
-            setModalMessage(`Authentication failed: ${error.message}`);
-            setModalType('error');
-            setShowModal(true);
-            setIsAuthReady(true);
-            setLoading(false);
+    const unsubscribeAuth = auth.onAuthStateChanged(async (user) => {
+      if (user) {
+        setUserId(user.uid);
+        setIsAuthReady(true);
+      } else {
+        try {
+          if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+            await auth.signInWithCustomToken(__initial_auth_token);
+          } else {
+            await auth.signInAnonymously();
           }
+        } catch (error) {
+          console.error("Firebase authentication error in BookingHistory:", error);
+          setModalMessage(`Authentication failed: ${error.message}`);
+          setModalType('error');
+          setShowModal(true);
+          setIsAuthReady(true);
+          setLoading(false);
         }
-      });
+      }
+    });
 
-      return () => unsubscribeAuth();
-    } catch (error) {
-      console.error("Error initializing Firebase:", error);
-      setModalMessage(`Firebase init error: ${error.message}`);
-      setModalType('error');
-      setShowModal(true);
-      setLoading(false);
-      setIsAuthReady(true);
-    }
+    return () => unsubscribeAuth();
   }, []);
 
-  // Fetch rides once auth is ready
+  // Fetch rides once auth and database are ready
   useEffect(() => {
-    if (!isAuthReady || !db || !userId) {
+    console.log("BookingHistory: database instance:", database);
+
+    if (!isAuthReady || !database || !userId) {
+      console.log("BookingHistory: Not ready to fetch rides. isAuthReady:", isAuthReady, "database:", !!database, "userId:", !!userId);
+      setLoading(true);
       return;
     }
 
     const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-    const ridesRef = ref(db, `artifacts/${appId}/users/${userId}/rides`);
+    const ridesRef = ref(database, `artifacts/${appId}/users/${userId}/rides`);
 
     const unsubscribeOnValue = onValue(ridesRef, (snapshot) => {
       const data = snapshot.val();
+      const allRides = [];
       if (data) {
-        // Convert the object of rides into an array of [key, value] pairs
-        const allRides = Object.entries(data).reverse();
-        setRides(allRides);
-        setFilteredRides(allRides);
-      } else {
-        setRides([]);
-        setFilteredRides([]);
+        Object.entries(data).forEach(([key, value]) => {
+          if (value.status !== 'driver_declined') {
+            allRides.push({ id: key, ...value });
+          }
+        });
       }
+      setRides(allRides.reverse());
+      setFilteredRides(allRides.reverse());
       setLoading(false);
     }, (error) => {
-      console.error("Error fetching rides:", error);
+      console.error("Error fetching rides in BookingHistory:", error);
       setModalMessage(`Failed to load rides: ${error.message}`);
       setModalType('error');
       setShowModal(true);
       setLoading(false);
     });
 
-    return () => unsubscribeOnValue(); // Cleanup listener
-  }, [isAuthReady, db, userId]); // Depend on auth readiness, db, and userId
+    return () => unsubscribeOnValue();
+  }, [isAuthReady, userId]);
 
   useEffect(() => {
     let updated = [...rides];
 
     if (searchQuery) {
-      updated = updated.filter(([key, ride]) =>
+      updated = updated.filter((ride) => // Changed from [key, ride] to ride directly
         ride.pickup?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         ride.dropoff?.toLowerCase().includes(searchQuery.toLowerCase())
       );
     }
 
     if (selectedVehicle && selectedVehicle !== 'All') {
-      updated = updated.filter(([key, ride]) => ride.vehicle === selectedVehicle);
+      updated = updated.filter((ride) => ride.vehicle === selectedVehicle); // Changed from [key, ride] to ride directly
     }
 
     setFilteredRides(updated);
   }, [searchQuery, selectedVehicle, rides]);
 
-  const vehicleTypes = ['All', 'Mini Van', 'Van', 'Mini Truck', 'Full Truck', 'Passenger Van']; // Added Passenger Van
+  const vehicleTypes = ['All', 'Mini Van', 'Van', 'Mini Truck', 'Full Truck', 'Passenger Van'];
 
   const rebookRide = (ride) => {
     navigation.navigate('Checkout', {
       pickup: ride.pickup,
       dropoff: ride.dropoff,
-      date: new Date().toISOString(), // Use current date for rebooking
+      date: new Date().toISOString(),
     });
   };
 
   const deleteRide = (rideKey) => {
-    if (!auth.currentUser || !db) return;
+    if (!auth.currentUser || !database) {
+      setModalMessage("Authentication or database not ready. Cannot delete ride.");
+      setModalType('error');
+      setShowModal(true);
+      return;
+    }
 
-    setModalMessage('Are you sure you want to delete this ride?');
+    setModalMessage('Are you sure you want to delete this ride from your history?');
     setModalType('confirm');
     setModalAction(() => async () => {
       try {
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        await remove(ref(db, `artifacts/${appId}/users/${auth.currentUser.uid}/rides/${rideKey}`));
+        const userId = auth.currentUser.uid; // Ensure userId is available
+
+        // 1. Remove from user's personal history
+        await remove(ref(database, `artifacts/${appId}/users/${userId}/rides/${rideKey}`));
+
+        // 2. Check and remove from public ride_requests if it's still pending or driver_declined
+        // Use a try-catch around the get operation to isolate potential errors
+        try {
+            const publicRequestRef = ref(database, `artifacts/${appId}/ride_requests/${rideKey}`);
+            const rideSnapshot = await get(publicRequestRef); // This is where the 'get' is used
+            if (rideSnapshot.exists()) {
+                const rideData = rideSnapshot.val();
+                // Only remove from public queue if it's still pending or was declined by a driver
+                if (rideData.status === 'pending' || rideData.status === 'driver_declined') {
+                    await remove(publicRequestRef);
+                }
+            }
+        } catch (get_error) {
+            console.warn("Could not check/remove from public requests (might not exist or already processed):", get_error);
+            // Log the error but don't block the main deletion, as the primary goal is to remove from user's history
+        }
+
         setModalMessage('Ride deleted successfully!');
         setModalType('success');
-        // No need to manually update state, onValue listener will handle it
       } catch (error) {
         console.error("Error deleting ride:", error);
         setModalMessage(`Failed to delete ride: ${error.message}`);
@@ -175,17 +172,24 @@ export default function BookingHistory({ navigation }) {
   };
 
   const clearAllHistory = () => {
-    if (!auth.currentUser || !db) return;
+    if (!auth.currentUser || !database) {
+      setModalMessage("Authentication or database not ready. Cannot clear history.");
+      setModalType('error');
+      setShowModal(true);
+      return;
+    }
 
     setModalMessage('This will remove all your ride history. Are you sure?');
     setModalType('confirm');
     setModalAction(() => async () => {
       try {
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        await remove(ref(db, `artifacts/${appId}/users/${auth.currentUser.uid}/rides`));
+        const userId = auth.currentUser.uid; // Ensure userId is available
+
+        await remove(ref(database, `artifacts/${appId}/users/${userId}/rides`));
+
         setModalMessage('All history cleared successfully!');
         setModalType('success');
-        // No need to manually update state, onValue listener will handle it
       } catch (error) {
         console.error("Error clearing all history:", error);
         setModalMessage(`Failed to clear history: ${error.message}`);
@@ -202,13 +206,22 @@ export default function BookingHistory({ navigation }) {
       modalAction();
     }
     setShowModal(false);
-    setModalAction(null); // Clear the action
+    setModalAction(null);
   };
 
   const handleModalCancel = () => {
     setShowModal(false);
-    setModalAction(null); // Clear the action
+    setModalAction(null);
   };
+
+  if (loading) {
+    return (
+      <View style={[styles.loadingContainer, { backgroundColor: colors.background }]}>
+        <ActivityIndicator size="large" color={colors.iconRed} />
+        <Text style={{ color: colors.text, marginTop: 10 }}>Loading booking history...</Text>
+      </View>
+    );
+  }
 
   return (
     <ScrollView style={[styles.container, { backgroundColor: colors.background }]}>
@@ -262,19 +275,17 @@ export default function BookingHistory({ navigation }) {
         </TouchableOpacity>
       )}
 
-      {loading ? (
-        <ActivityIndicator size="large" color={colors.iconRed} style={{ marginTop: 40 }} />
-      ) : filteredRides.length === 0 ? (
+      {filteredRides.length === 0 ? (
         <Text style={[styles.noRides, { color: colors.textSecondary }]}>No rides found for current filter.</Text>
       ) : (
-        filteredRides.map(([key, ride], index) => (
-          <View key={key} style={[styles.card, { backgroundColor: colors.cardBackground }]}>
+        filteredRides.map((ride) => (
+          <View key={ride.id} style={[styles.card, { backgroundColor: colors.cardBackground }]}>
             <View style={styles.cardHeader}>
               <Ionicons name="cube-outline" size={24} color={colors.iconRed} />
               <Text style={[styles.cardTitle, { color: colors.iconRed }]}>
-                {ride.vehicle || 'Ride'} #{index + 1}
+                {ride.vehicle || 'Ride'}
               </Text>
-              <TouchableOpacity onPress={() => deleteRide(key)} style={styles.deleteBtn}>
+              <TouchableOpacity onPress={() => deleteRide(ride.id)} style={styles.deleteBtn}>
                 <Ionicons name="trash-outline" size={18} color={colors.iconRed} />
               </TouchableOpacity>
             </View>
@@ -297,13 +308,19 @@ export default function BookingHistory({ navigation }) {
                 </>
               )}
 
-              {/* Driver info is not stored in checkout, so it will not appear here unless added elsewhere */}
+              {ride.status && (
+                <>
+                  <Text style={[styles.label, { color: colors.textSecondary }]}>Status:</Text>
+                  <Text style={[styles.value, { color: colors.text }]}>{ride.status}</Text>
+                </>
+              )}
+
               {ride.driverName && ride.driverPhone && (
                 <>
                   <Text style={[styles.label, { color: colors.textSecondary }]}>Assigned Driver:</Text>
                   <View style={[styles.driverBox, { backgroundColor: colors.background, borderColor: colors.borderColor }]}>
                     <Text style={[styles.driverName, { color: colors.iconRed }]}>{ride.driverName}</Text>
-                    <Text style={[styles.driverPhone, { color: colors.textSecondary }]}>{ride.driverPhone}</Text>
+                    <Text style={[styles.driverPhone, { color: colors.textSecondary }]}>{ride.driverPhone || 'N/A'}</Text>
                   </View>
                 </>
               )}
@@ -367,6 +384,11 @@ const styles = StyleSheet.create({
     padding: 20,
     flex: 1,
   },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   title: {
     fontSize: 26,
     fontWeight: 'bold',
@@ -418,8 +440,8 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 16,
     marginBottom: 16,
-    elevation: 2, // Android shadow
-    shadowColor: '#000', // iOS shadow
+    elevation: 2,
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.2,
     shadowRadius: 1.41,
