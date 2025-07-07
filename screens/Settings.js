@@ -118,7 +118,7 @@ const styles = StyleSheet.create({
     color: '#333',
   },
   darkText: {
-    color: '#fff',
+    color: '#b80000',
   },
   lightCard: {
     backgroundColor: '#fff',

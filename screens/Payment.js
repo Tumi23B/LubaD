@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react'; // Import useContext
 import {
   View,
   Text,
@@ -7,8 +7,11 @@ import {
   Alert,
   ScrollView,
 } from 'react-native';
+import { ThemeContext } from '../ThemeContext'; // Import ThemeContext
 
 export default function Payment({ route, navigation }) {
+  const { isDarkMode, colors } = useContext(ThemeContext); // Use useContext to get theme and colors
+
   const { vehicle, pickup, dropoff, date, helpWithLoading } = route.params;
 
   const [selectedMethod, setSelectedMethod] = useState(null);
@@ -35,61 +38,66 @@ export default function Payment({ route, navigation }) {
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <ScrollView contentContainerStyle={[styles.container, { backgroundColor: colors.background }]}> {/* Apply background color */}
       {!paymentDone ? (
         <>
-          <Text style={styles.title}>Choose Payment Method</Text>
+          <Text style={[styles.title, { color: colors.iconRed }]}>Choose Payment Method</Text> {/* Apply text color */}
           {methods.map((method, index) => (
             <TouchableOpacity
               key={index}
               style={[
                 styles.methodButton,
-                selectedMethod === method && styles.selectedMethod,
+                {
+                  backgroundColor: colors.cardBackground, // Method button background
+                  borderColor: selectedMethod === method ? colors.iconRed : colors.borderColor, // Border based on selection
+                },
               ]}
               onPress={() => setSelectedMethod(method)}
             >
               <Text
                 style={[
                   styles.methodText,
-                  selectedMethod === method && styles.selectedMethodText,
+                  {
+                    color: selectedMethod === method ? colors.iconRed : colors.text, // Text color based on selection
+                  },
                 ]}
               >
                 {method}
               </Text>
             </TouchableOpacity>
           ))}
-          <TouchableOpacity style={styles.confirmButton} onPress={handlePayPress}>
-            <Text style={styles.confirmButtonText}>Pay Now</Text>
+          <TouchableOpacity style={[styles.confirmButton, { backgroundColor: colors.iconRed }]} onPress={handlePayPress}>
+            <Text style={[styles.confirmButtonText, { color: colors.buttonText }]}>Pay Now</Text> {/* Apply button text color */}
           </TouchableOpacity>
         </>
       ) : (
         <>
-          <Text style={styles.title}>Booking Summary</Text>
+          <Text style={[styles.title, { color: colors.iconRed }]}>Booking Summary</Text>
 
-          <View style={styles.infoBox}>
-            <Text style={styles.label}>Pickup Location:</Text>
-            <Text style={styles.value}>{pickup}</Text>
+          <View style={[styles.infoBox, { backgroundColor: colors.cardBackground, borderColor: colors.borderColor }]}> {/* Apply background and border color */}
+            <Text style={[styles.label, { color: colors.textSecondary }]}>Pickup Location:</Text> {/* Apply label text color */}
+            <Text style={[styles.value, { color: colors.text }]}>{pickup}</Text> {/* Apply value text color */}
 
-            <Text style={styles.label}>Dropoff Location:</Text>
-            <Text style={styles.value}>{dropoff}</Text>
+            <Text style={[styles.label, { color: colors.textSecondary }]}>Dropoff Location:</Text>
+            <Text style={[styles.value, { color: colors.text }]}>{dropoff}</Text>
 
-            <Text style={styles.label}>Date & Time:</Text>
-            <Text style={styles.value}>{new Date(date).toLocaleString()}</Text>
+            <Text style={[styles.label, { color: colors.textSecondary }]}>Date & Time:</Text>
+            <Text style={[styles.value, { color: colors.text }]}>{new Date(date).toLocaleString()}</Text>
 
-            <Text style={styles.label}>Vehicle Selected:</Text>
-            <Text style={styles.value}>{vehicle || 'N/A'}</Text>
+            <Text style={[styles.label, { color: colors.textSecondary }]}>Vehicle Selected:</Text>
+            <Text style={[styles.value, { color: colors.text }]}>{vehicle || 'N/A'}</Text>
 
-            <Text style={styles.label}>Payment Method:</Text>
-            <Text style={styles.value}>{selectedMethod}</Text>
+            <Text style={[styles.label, { color: colors.textSecondary }]}>Payment Method:</Text>
+            <Text style={[styles.value, { color: colors.text }]}>{selectedMethod}</Text>
 
-            <Text style={styles.label}>Assistance Needed:</Text>
-            <Text style={styles.value}>
+            <Text style={[styles.label, { color: colors.textSecondary }]}>Assistance Needed:</Text>
+            <Text style={[styles.value, { color: colors.text }]}>
               {helpWithLoading ? 'Yes, help with loading/unloading' : 'No'}
             </Text>
           </View>
 
-          <TouchableOpacity style={styles.chatButton} onPress={handleChatPress}>
-            <Text style={styles.chatButtonText}>Chat with Driver</Text>
+          <TouchableOpacity style={[styles.chatButton, { backgroundColor: colors.iconRed }]} onPress={handleChatPress}>
+            <Text style={[styles.chatButtonText, { color: colors.buttonText }]}>Chat with Driver</Text>
           </TouchableOpacity>
         </>
       )}
@@ -100,14 +108,12 @@ export default function Payment({ route, navigation }) {
 const styles = StyleSheet.create({
   container: {
     padding: 20,
-    backgroundColor: '#f0f0f0',
     flexGrow: 1,
     justifyContent: 'flex-start',
   },
   title: {
     fontSize: 22,
     fontWeight: 'bold',
-    color: '#b80000',
     marginBottom: 20,
     marginTop: 30,
     textAlign: 'center',
@@ -115,62 +121,43 @@ const styles = StyleSheet.create({
   methodButton: {
     padding: 15,
     borderRadius: 10,
-    backgroundColor: '#fff',
-    borderColor: '#c5a34f',
     borderWidth: 1,
     marginBottom: 12,
   },
-  selectedMethod: {
-    backgroundColor: '#fff8f8',
-    borderColor: '#b80000',
-  },
   methodText: {
     fontSize: 16,
-    color: '#333',
     textAlign: 'center',
     fontWeight: '500',
   },
-  selectedMethodText: {
-    color: '#b80000',
-    fontWeight: 'bold',
-  },
   confirmButton: {
-    backgroundColor: '#b80000',
     padding: 15,
     borderRadius: 8,
     marginTop: 20,
   },
   confirmButtonText: {
-    color: '#c5a34f',
     fontWeight: 'bold',
     fontSize: 16,
     textAlign: 'center',
   },
   infoBox: {
-    backgroundColor: '#fff',
     padding: 15,
     borderRadius: 10,
-    borderColor: '#c5a34f',
     borderWidth: 1,
     marginTop: 20,
   },
   label: {
     fontWeight: '600',
-    color: '#333',
     marginTop: 10,
   },
   value: {
-    color: '#555',
     marginTop: 4,
   },
   chatButton: {
-    backgroundColor: '#b80000',
     padding: 14,
     borderRadius: 10,
     marginTop: 30,
   },
   chatButtonText: {
-    color: '#c5a34f',
     fontWeight: 'bold',
     fontSize: 18,
     textAlign: 'center',

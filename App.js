@@ -1,10 +1,10 @@
 import { StatusBar } from 'expo-status-bar';
-import React from 'react';
+import React, { useContext } from 'react'; // Import useContext
 import { Text, View, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { StripeProvider } from '@stripe/stripe-react-native';
-import { ThemeProvider } from './ThemeContext'; // <-- Theme context provider
+import { ThemeProvider, ThemeContext } from './ThemeContext'; // Import ThemeContext here
 
 // This is the main entry point of the app, wrapping everything in the ThemeProvider
 
@@ -29,6 +29,10 @@ import DriverProfile from './screens/DriverProfile';
 import DriverChat from './screens/DriverChat';
 
 const Stack = createNativeStackNavigator();
+
+// Import both light and dark mode logo images for HomeScreen
+const lightModeHomeLogo = require('./assets/logotransparent.png');
+const darkModeHomeLogo = require('./assets/logo-dark-mode.png'); // Assuming this is your dark mode logo
 
 export default function App() {
   return (
@@ -68,16 +72,23 @@ export default function App() {
 }
 
 function HomeScreen({ navigation }) {
+  // Use useContext to get the current theme colors and isDarkMode status
+  const { isDarkMode, colors } = useContext(ThemeContext);
+
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Welcome To Luba Delivery!</Text>
+    <View style={[styles.container, { backgroundColor: colors.background }]}> {/* Apply background color */}
+      <Text style={[styles.title, { color: colors.iconRed }]}>Welcome To Luba Delivery!</Text> {/* Apply text color */}
+      <Text style={styles.tagline}>Your Logistics Partner</Text> {/* Apply secondary text color */}
+
+      {/* Conditional Logo Image based on theme */}
       <Image
-        source={require('./assets/logotransparent.png')}
+        source={isDarkMode ? darkModeHomeLogo : lightModeHomeLogo}
         style={styles.logoImg}
         resizeMode="contain"
       />
-      <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('Auth')}>
-        <Text style={styles.buttonText}>GET STARTED</Text>
+
+      <TouchableOpacity style={[styles.button, { backgroundColor: colors.iconRed}]} onPress={() => navigation.navigate('Auth')}>
+        <Text style={[styles.buttonText]}>GET STARTED</Text> {/* Apply button text color */}
       </TouchableOpacity>
     </View>
   );
@@ -87,7 +98,6 @@ function HomeScreen({ navigation }) {
 export const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#b80000',
     alignItems: 'center',
     justifyContent: 'center',
     padding: 30,
@@ -102,16 +112,13 @@ export const styles = StyleSheet.create({
     marginBottom: 20,
     marginTop: 30,
     fontWeight: 'bold',
-    color: '#b80000',
   },
   button: {
-    backgroundColor: '#c5a34f',
     paddingVertical: 12,
     paddingHorizontal: 25,
     borderRadius: 8,
   },
   buttonText: {
-    color: '#f0f0f0',
     fontWeight: 'bold',
     fontSize: 16,
     shadowColor: '#000',
@@ -119,5 +126,11 @@ export const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 1,
+    color:'#c5a34f',
+  },
+    tagline: {
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 12,
   },
 });

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react'; // Import useContext
 import {
   View,
   Text,
@@ -13,8 +13,11 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { database } from '../firebase';
 import { ref, push } from 'firebase/database';
+import { ThemeContext } from '../ThemeContext'; // Import ThemeContext
 
 export default function Feedback() {
+  const { isDarkMode, colors } = useContext(ThemeContext); // Use useContext to get theme and colors
+
   const [message, setMessage] = useState('');
   const [contact, setContact] = useState('');
 
@@ -43,36 +46,50 @@ export default function Feedback() {
 
   return (
     <KeyboardAvoidingView
-      style={{ flex: 1 }}
+      style={{ flex: 1, backgroundColor: colors.background }} // Apply background color here
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-        <Text style={styles.title}>We Value Your Feedback</Text>
-        <Text style={styles.subtitle}>Let us know how we can improve your experience.</Text>
+      <ScrollView contentContainerStyle={[styles.container, { backgroundColor: colors.background }]} keyboardShouldPersistTaps="handled">
+        <Text style={[styles.title, { color: colors.iconRed }]}>We Value Your Feedback</Text> {/* Apply text color */}
+        <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Let us know how we can improve your experience.</Text> {/* Apply text color */}
 
-        <Text style={styles.label}>Your Feedback</Text>
+        <Text style={[styles.label, { color: colors.iconRed }]}>Your Feedback</Text> {/* Apply label text color */}
         <TextInput
-          style={styles.textArea}
+          style={[
+            styles.textArea,
+            {
+              backgroundColor: colors.cardBackground, // Input background
+              borderColor: colors.borderColor, // Input border
+              color: colors.text, // Input text color
+            },
+          ]}
           multiline
           numberOfLines={6}
           placeholder="Write your feedback here..."
-          placeholderTextColor="#888"
+          placeholderTextColor={colors.textSecondary} // Placeholder text color
           value={message}
           onChangeText={setMessage}
         />
 
-        <Text style={styles.label}>Your Email or Phone (optional)</Text>
+        <Text style={[styles.label, { color: colors.iconRed }]}>Your Email or Phone (optional)</Text>
         <TextInput
-          style={styles.input}
+          style={[
+            styles.input,
+            {
+              backgroundColor: colors.cardBackground, // Input background
+              borderColor: colors.borderColor, // Input border
+              color: colors.text, // Input text color
+            },
+          ]}
           placeholder="example@gmail.com or 0723456789"
-          placeholderTextColor="#888"
+          placeholderTextColor={colors.textSecondary} // Placeholder text color
           value={contact}
           onChangeText={setContact}
         />
 
-        <TouchableOpacity style={styles.button} onPress={handleSubmit}>
-          <Ionicons name="send" size={20} color="#fff" />
-          <Text style={styles.buttonText}>Submit Feedback</Text>
+        <TouchableOpacity style={[styles.button, { backgroundColor: colors.iconRed }]} onPress={handleSubmit}>
+          <Ionicons name="send" size={20} color={colors.buttonText} /> {/* Apply icon color */}
+          <Text style={[styles.buttonText, { color: colors.buttonText }]}>Submit Feedback</Text> {/* Apply button text color */}
         </TouchableOpacity>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -81,7 +98,6 @@ export default function Feedback() {
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#ffffff',
     padding: 20,
     flexGrow: 1,
     justifyContent: 'center',
@@ -89,27 +105,22 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 26,
     fontWeight: 'bold',
-    color: '#b80000',
     marginBottom: 8,
     marginTop: 30,
     textAlign: 'center',
   },
   subtitle: {
     fontSize: 14,
-    color: '#555',
     marginBottom: 25,
     textAlign: 'center',
   },
   label: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#b80000',
     marginBottom: 6,
     marginTop: 16,
   },
   textArea: {
-    backgroundColor: '#f9f9f9',
-    borderColor: '#ccc',
     borderWidth: 1,
     borderRadius: 10,
     padding: 12,
@@ -117,15 +128,12 @@ const styles = StyleSheet.create({
     textAlignVertical: 'top',
   },
   input: {
-    backgroundColor: '#f9f9f9',
-    borderColor: '#ccc',
     borderWidth: 1,
     borderRadius: 10,
     padding: 12,
     fontSize: 15,
   },
   button: {
-    backgroundColor: '#b80000',
     marginTop: 25,
     paddingVertical: 14,
     borderRadius: 10,
@@ -135,7 +143,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   buttonText: {
-    color: '#c5a34f',
     fontWeight: 'bold',
     fontSize: 16,
   },

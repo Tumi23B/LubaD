@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react';
 import {
   View,
   Text,
@@ -10,14 +10,17 @@ import {
   Linking,
   Alert,
 } from 'react-native';
-import * as Location from 'expo-location'; 
+import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { ThemeContext } from '../ThemeContext';
 
 const userAvatar = require('../assets/icon.jpeg');
 const driverAvatar = require('../assets/icon.jpeg');
 
 export default function ChatScreen({ route }) {
+  const { isDarkMode, colors } = useContext(ThemeContext); // Use useContext to get theme
+
   const { bookingId, driverName, driverPhone } = route.params;
 
   const [messages, setMessages] = useState([
@@ -38,6 +41,8 @@ export default function ChatScreen({ route }) {
   const callDriver = () => {
     if (driverPhone) {
       Linking.openURL(`tel:${driverPhone}`);
+    } else {
+      Alert.alert('No phone number', 'Driver phone number is not available.');
     }
   };
 
@@ -72,10 +77,14 @@ export default function ChatScreen({ route }) {
         <View style={[styles.messageRow, isUser ? styles.userRow : styles.driverRow]}>
           {!isUser && <Image source={driverAvatar} style={styles.avatar} />}
           <TouchableOpacity
-            style={[styles.messageBubble, isUser ? styles.userBubble : styles.driverBubble]}
+            style={[
+              styles.messageBubble,
+              isUser ? styles.userBubble : styles.driverBubble,
+              { backgroundColor: isUser ? colors.iconRed : colors.cardBackground } // Apply theme colors
+            ]}
             onPress={() => Linking.openURL(item.mapsUrl)}
           >
-            <Text style={[styles.messageText, isUser ? styles.userText : styles.driverText]}>
+            <Text style={[styles.messageText, isUser ? { color: colors.buttonText } : { color: colors.text }]}>
               {item.text}
             </Text>
           </TouchableOpacity>
@@ -87,8 +96,14 @@ export default function ChatScreen({ route }) {
     return (
       <View style={[styles.messageRow, isUser ? styles.userRow : styles.driverRow]}>
         {!isUser && <Image source={driverAvatar} style={styles.avatar} />}
-        <View style={[styles.messageBubble, isUser ? styles.userBubble : styles.driverBubble]}>
-          <Text style={[styles.messageText, isUser ? styles.userText : styles.driverText]}>
+        <View
+          style={[
+            styles.messageBubble,
+            isUser ? styles.userBubble : styles.driverBubble,
+            { backgroundColor: isUser ? colors.iconRed : colors.cardBackground } // Apply theme colors
+          ]}
+        >
+          <Text style={[styles.messageText, isUser ? { color: colors.buttonText } : { color: colors.text }]}>
             {item.text}
           </Text>
         </View>
@@ -98,20 +113,20 @@ export default function ChatScreen({ route }) {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
       <View style={styles.container}>
-        <View style={styles.driverHeader}>
-          <Image source={driverAvatar} style={styles.driverImage} />
+        <View style={[styles.driverHeader, { backgroundColor: colors.cardBackground, borderBottomColor: colors.borderColor }]}>
+          <Image source={driverAvatar} style={[styles.driverImage, { borderColor: colors.iconRed }]} />
           <View style={{ flex: 1 }}>
-            <Text style={styles.driverName} numberOfLines={1} ellipsizeMode="tail">
+            <Text style={[styles.driverName, { color: colors.iconRed }]} numberOfLines={1} ellipsizeMode="tail">
               {driverName}
             </Text>
-            <Text style={styles.driverPhone} numberOfLines={1} ellipsizeMode="tail">
+            <Text style={[styles.driverPhone, { color: colors.textSecondary }]} numberOfLines={1} ellipsizeMode="tail">
               {driverPhone}
             </Text>
           </View>
           <TouchableOpacity onPress={callDriver} style={{ marginRight: 12 }}>
-            <Ionicons name="call" size={28} color="#b80000" />
+            <Ionicons name="call" size={28} color={colors.iconRed} />
           </TouchableOpacity>
         </View>
 
@@ -122,18 +137,26 @@ export default function ChatScreen({ route }) {
           contentContainerStyle={styles.chatContainer}
         />
 
-        <View style={styles.inputRow}>
+        <View style={[styles.inputRow, { borderTopColor: colors.borderColor, backgroundColor: colors.cardBackground }]}>
           <TouchableOpacity onPress={shareLocation} style={styles.locationButton}>
-            <Ionicons name="location-sharp" size={28} color="#b80000" />
+            <Ionicons name="location-sharp" size={28} color={colors.iconRed} />
           </TouchableOpacity>
           <TextInput
             value={inputText}
             onChangeText={setInputText}
             placeholder="Type your message..."
-            style={styles.input}
+            placeholderTextColor={colors.textSecondary}
+            style={[
+              styles.input,
+              {
+                backgroundColor: colors.background,
+                color: colors.text,
+                borderColor: colors.borderColor,
+              },
+            ]}
           />
-          <TouchableOpacity onPress={sendMessage} style={styles.sendButton}>
-            <Text style={styles.sendText}>Send</Text>
+          <TouchableOpacity onPress={sendMessage} style={[styles.sendButton, { backgroundColor: colors.iconRed }]}>
+            <Text style={[styles.sendText, { color: colors.buttonText }]}>Send</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -144,17 +167,17 @@ export default function ChatScreen({ route }) {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#fdf8f1',
+    // backgroundColor handled by theme
   },
   container: { flex: 1 },
 
   driverHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff2e5',
+    // backgroundColor handled by theme
     padding: 16,
     borderBottomWidth: 1,
-    borderColor: '#e1cfa0',
+    // borderColor handled by theme
   },
   driverImage: {
     width: 50,
@@ -162,16 +185,16 @@ const styles = StyleSheet.create({
     borderRadius: 25,
     marginRight: 12,
     borderWidth: 2,
-    borderColor: '#b80000',
+    // borderColor handled by theme
   },
   driverName: {
     fontSize: 17,
     fontWeight: '700',
-    color: '#b80000',
+    // color handled by theme
   },
   driverPhone: {
     fontSize: 13,
-    color: '#777',
+    // color handled by theme
   },
 
   chatContainer: {
@@ -202,27 +225,21 @@ const styles = StyleSheet.create({
     marginHorizontal: 8,
   },
   userBubble: {
-    backgroundColor: '#b80000',
     borderTopRightRadius: 0,
   },
   driverBubble: {
-    backgroundColor: '#f0f0f0',
     borderTopLeftRadius: 0,
   },
-  userText: {
-    color: '#ffd700', // gold
-  },
-  driverText: {
-    color: '#333',
+  messageText: {
+    // color handled by theme
   },
 
   inputRow: {
     flexDirection: 'row',
     padding: 12,
     borderTopWidth: 1,
-    borderColor: '#ddd',
-    backgroundColor: '#fff',
     alignItems: 'center',
+    // borderColor, backgroundColor handled by theme
   },
 
   locationButton: {
@@ -231,24 +248,23 @@ const styles = StyleSheet.create({
 
   input: {
     flex: 1,
-    backgroundColor: '#f7f7f7',
     borderRadius: 20,
     paddingHorizontal: 15,
     height: 40,
-    borderColor: '#e1cfa0',
     borderWidth: 1,
+    // backgroundColor, color, borderColor handled by theme
   },
 
   sendButton: {
     marginLeft: 10,
-    backgroundColor: '#b80000',
     paddingVertical: 8,
     paddingHorizontal: 14,
     borderRadius: 20,
+    // backgroundColor handled by theme
   },
 
   sendText: {
-    color: '#fff',
     fontWeight: '600',
+    // color handled by theme
   },
 });

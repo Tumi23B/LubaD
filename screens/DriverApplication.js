@@ -1,11 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Image, Alert, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { auth, database } from '../firebase';
 import { ref, set } from 'firebase/database';
 import { uploadToCloudinary } from '../utils/cloudinary.js';
+import { ThemeContext } from '../ThemeContext';
 
 export default function DriverApplication({ navigation }) {
+  const { isDarkMode, colors } = useContext(ThemeContext); // Use useContext to get theme
+
   const [fullName, setFullName] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [address, setAddress] = useState('');
@@ -76,14 +79,33 @@ export default function DriverApplication({ navigation }) {
     }
   };
 
+  // Reusable photo field component (inline for now)
+  function PhotoInput({ label, image, onSelect }) {
+    return (
+      <View style={styles.field}>
+        <Text style={[styles.label, { color: colors.text }]}>{label}</Text>
+        {image ? (
+          <Image source={{ uri: image }} style={styles.previewImage} />
+        ) : (
+          <View style={[styles.placeholder, { backgroundColor: colors.background }]}>
+            <Text style={[styles.placeholderText, { color: colors.textSecondary }]}>No photo selected</Text>
+          </View>
+        )}
+        <TouchableOpacity style={[styles.uploadButton, { backgroundColor: colors.iconRed }]} onPress={onSelect}>
+          <Text style={[styles.uploadButtonText, { color: colors.buttonText }]}>Select Photo</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
   return (
     <KeyboardAvoidingView
       style={{ flex: 1 }}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={80}
     >
-      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-        <Text style={styles.title}>Driver Application</Text>
+      <ScrollView contentContainerStyle={[styles.container, { backgroundColor: colors.background }]} keyboardShouldPersistTaps="handled">
+        <Text style={[styles.title, { color: colors.iconRed }]}>Driver Application</Text>
 
         <Image
           source={require('../assets/logotransparent.png')}
@@ -92,20 +114,36 @@ export default function DriverApplication({ navigation }) {
         />
 
         <View style={styles.field}>
-          <Text style={styles.label}>Full Name</Text>
+          <Text style={[styles.label, { color: colors.text }]}>Full Name</Text>
           <TextInput
-            style={styles.input}
+            style={[
+              styles.input,
+              {
+                backgroundColor: colors.cardBackground,
+                color: colors.text,
+                borderColor: colors.borderColor,
+              },
+            ]}
             placeholder="Your full name"
+            placeholderTextColor={colors.textSecondary}
             value={fullName}
             onChangeText={setFullName}
           />
         </View>
 
         <View style={styles.field}>
-          <Text style={styles.label}>Phone Number</Text>
+          <Text style={[styles.label, { color: colors.text }]}>Phone Number</Text>
           <TextInput
-            style={styles.input}
+            style={[
+              styles.input,
+              {
+                backgroundColor: colors.cardBackground,
+                color: colors.text,
+                borderColor: colors.borderColor,
+              },
+            ]}
             placeholder="Phone number"
+            placeholderTextColor={colors.textSecondary}
             keyboardType="phone-pad"
             value={phoneNumber}
             onChangeText={setPhoneNumber}
@@ -113,10 +151,18 @@ export default function DriverApplication({ navigation }) {
         </View>
 
         <View style={styles.field}>
-          <Text style={styles.label}>Address</Text>
+          <Text style={[styles.label, { color: colors.text }]}>Address</Text>
           <TextInput
-            style={styles.input}
+            style={[
+              styles.input,
+              {
+                backgroundColor: colors.cardBackground,
+                color: colors.text,
+                borderColor: colors.borderColor,
+              },
+            ]}
             placeholder="Physical address"
+            placeholderTextColor={colors.textSecondary}
             value={address}
             onChangeText={setAddress}
           />
@@ -140,30 +186,11 @@ export default function DriverApplication({ navigation }) {
           onSelect={() => pickImage(setCarImage)}
         />
 
-        <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
-          <Text style={styles.submitButtonText}>Submit Application</Text>
+        <TouchableOpacity style={[styles.submitButton, { backgroundColor: colors.iconRed }]} onPress={handleSubmit}>
+          <Text style={[styles.submitButtonText, { color: colors.buttonText }]}>Submit Application</Text>
         </TouchableOpacity>
       </ScrollView>
     </KeyboardAvoidingView>
-  );
-}
-
-// 🔁 Reusable photo field component (inline for now)
-function PhotoInput({ label, image, onSelect }) {
-  return (
-    <View style={styles.field}>
-      <Text style={styles.label}>{label}</Text>
-      {image ? (
-        <Image source={{ uri: image }} style={styles.previewImage} />
-      ) : (
-        <View style={styles.placeholder}>
-          <Text style={styles.placeholderText}>No photo selected</Text>
-        </View>
-      )}
-      <TouchableOpacity style={styles.uploadButton} onPress={onSelect}>
-        <Text style={styles.uploadButtonText}>Select Photo</Text>
-      </TouchableOpacity>
-    </View>
   );
 }
 
@@ -171,15 +198,15 @@ const styles = StyleSheet.create({
   container: {
     padding: 20,
     paddingBottom: 40,
-    backgroundColor: '#f0f0f0',
+    // backgroundColor handled by theme
   },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
     marginBottom: 20,
     marginTop: 40,
-    color: '#b80000',
     textAlign: 'center',
+    // color handled by theme
   },
   field: {
     marginBottom: 20,
@@ -187,27 +214,26 @@ const styles = StyleSheet.create({
   label: {
     fontWeight: '600',
     marginBottom: 8,
-    color: '#333',
+    // color handled by theme
   },
   input: {
     height: 50,
     borderWidth: 1,
-    borderColor: '#c5a34f',
     borderRadius: 8,
     paddingHorizontal: 10,
-    backgroundColor: '#fff',
+    // borderColor, backgroundColor, color handled by theme
   },
   uploadButton: {
-    backgroundColor: '#b80000',
     padding: 12,
     borderRadius: 8,
     alignItems: 'center',
     marginTop: 10,
+    // backgroundColor handled by theme
   },
   uploadButtonText: {
-    color: '#c5a34f',
     fontWeight: '600',
     fontSize: 16,
+    // color handled by theme
   },
   previewImage: {
     width: '100%',
@@ -217,26 +243,26 @@ const styles = StyleSheet.create({
   placeholder: {
     height: 180,
     borderRadius: 10,
-    backgroundColor: '#e0e0e0',
     justifyContent: 'center',
     alignItems: 'center',
+    // backgroundColor handled by theme
   },
   placeholderText: {
-    color: '#999',
     fontStyle: 'italic',
+    // color handled by theme
   },
   submitButton: {
-    backgroundColor: '#b80000',
     paddingVertical: 15,
     paddingHorizontal: 40,
     borderRadius: 8,
     alignSelf: 'center',
     marginTop: 10,
+    // backgroundColor handled by theme
   },
   submitButtonText: {
-    color: '#c5a34f',
     fontWeight: 'bold',
     fontSize: 18,
+    // color handled by theme
   },
   logoImg: {
     width: 200,

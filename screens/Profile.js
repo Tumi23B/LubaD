@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useContext } from 'react'; // Import useContext
 import {
   View,
   Text,
@@ -21,8 +21,11 @@ import {
 } from 'firebase/auth';
 import { ref, get, update, remove } from 'firebase/database';
 import { useNavigation } from '@react-navigation/native';
+import { ThemeContext } from '../ThemeContext'; // Import ThemeContext
 
 export default function Profile() {
+  const { isDarkMode, colors } = useContext(ThemeContext); // Use useContext to get theme and colors
+
   const [profile, setProfile] = useState({ name: '', email: '' });
   const [image, setImage] = useState(null);
   const [currentPassword, setCurrentPassword] = useState('');
@@ -141,65 +144,89 @@ export default function Profile() {
   };
 
   return (
-    <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
-      <Text style={styles.title}>Your Profile</Text>
+    <ScrollView style={[styles.container, { backgroundColor: colors.background }]} keyboardShouldPersistTaps="handled">
+      <Text style={[styles.title, { color: colors.iconRed }]}>Your Profile</Text>
 
       <View style={styles.center}>
         <TouchableOpacity onPress={pickImage} activeOpacity={0.7}>
           <Image
             source={image ? { uri: image } : require('../assets/icon.jpeg')}
-            style={styles.avatar}
+            style={[styles.avatar, { backgroundColor: colors.borderColor }]} // You might want a subtle background for avatar
           />
-          <View style={styles.cameraIcon}>
-            <Ionicons name="camera" size={20} color="#fff" />
+          <View style={[styles.cameraIcon, { backgroundColor: colors.iconRed }]}>
+            <Ionicons name="camera" size={20} color={colors.buttonText} />
           </View>
         </TouchableOpacity>
-        <Text style={styles.name}>{profile.name}</Text>
-        <Text style={styles.email}>{profile.email}</Text>
+        <Text style={[styles.name, { color: colors.iconRed }]}>{profile.name}</Text>
+        <Text style={[styles.email, { color: colors.textSecondary }]}>{profile.email}</Text>
 
         <View style={styles.starRow}>
           {[1, 2, 3, 4, 5].map((i) => (
-            <Ionicons key={i} name="star" size={20} color="#f4c430" />
+            <Ionicons key={i} name="star" size={20} color={colors.borderColor} /> /* Assuming borderColor for golden star color */
           ))}
         </View>
       </View>
 
-      <View style={styles.card}>
-        <Text style={styles.label}>Change Password</Text>
+      <View style={[styles.card, { backgroundColor: colors.cardBackground }]}>
+        <Text style={[styles.label, { color: colors.iconRed }]}>Change Password</Text>
         <TextInput
-          style={styles.input}
+          style={[
+            styles.input,
+            {
+              backgroundColor: colors.background, // Input background usually matches main background or card background
+              color: colors.text,
+              borderColor: colors.borderColor,
+            },
+          ]}
           placeholder="Current Password"
+          placeholderTextColor={colors.textSecondary}
           secureTextEntry
           value={currentPassword}
           onChangeText={setCurrentPassword}
         />
         <TextInput
-          style={styles.input}
+          style={[
+            styles.input,
+            {
+              backgroundColor: colors.background,
+              color: colors.text,
+              borderColor: colors.borderColor,
+            },
+          ]}
           placeholder="New Password"
+          placeholderTextColor={colors.textSecondary}
           secureTextEntry
           value={newPassword}
           onChangeText={setNewPassword}
         />
         <TextInput
-          style={styles.input}
+          style={[
+            styles.input,
+            {
+              backgroundColor: colors.background,
+              color: colors.text,
+              borderColor: colors.borderColor,
+            },
+          ]}
           placeholder="Confirm New Password"
+          placeholderTextColor={colors.textSecondary}
           secureTextEntry
           value={confirmPassword}
           onChangeText={setConfirmPassword}
         />
 
-        <TouchableOpacity style={styles.saveButton} onPress={handleChangePassword}>
-          <Text style={styles.saveButtonText}>Update Password</Text>
+        <TouchableOpacity style={[styles.saveButton, { backgroundColor: colors.iconRed }]} onPress={handleChangePassword}>
+          <Text style={[styles.saveButtonText, { color: colors.buttonText }]}>Update Password</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-          <Ionicons name="log-out-outline" size={18} color="#fff" />
-          <Text style={styles.logoutText}>Logout</Text>
+        <TouchableOpacity style={[styles.logoutButton, { backgroundColor: colors.borderColor }]} onPress={handleLogout}>
+          <Ionicons name="log-out-outline" size={18} color={colors.buttonText} />
+          <Text style={[styles.logoutText, { color: colors.buttonText }]}>Logout</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.deleteButton} onPress={handleDeleteAccount}>
-          <Ionicons name="trash-outline" size={18} color="#fff" />
-          <Text style={styles.logoutText}>Delete Account</Text>
+        <TouchableOpacity style={[styles.deleteButton, { backgroundColor: colors.iconRed }]} onPress={handleDeleteAccount}>
+          <Ionicons name="trash-outline" size={18} color={colors.buttonText} />
+          <Text style={[styles.logoutText, { color: colors.buttonText }]}>Delete Account</Text>
         </TouchableOpacity>
       </View>
     </ScrollView>
@@ -209,13 +236,11 @@ export default function Profile() {
 const styles = StyleSheet.create({
   container: {
     padding: 20,
-    backgroundColor: '#f0f0f0',
     flex: 1,
   },
   title: {
     fontSize: 26,
     fontWeight: 'bold',
-    color: '#b80000',
     marginTop: 30,
     marginBottom: 20,
   },
@@ -227,25 +252,21 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: '#ccc',
   },
   cameraIcon: {
     position: 'absolute',
     bottom: 4,
     right: 4,
-    backgroundColor: '#b80000',
     padding: 6,
     borderRadius: 20,
   },
   name: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#b80000',
     marginTop: 12,
   },
   email: {
     fontSize: 14,
-    color: '#555',
     marginTop: 2,
   },
   starRow: {
@@ -253,38 +274,36 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   card: {
-    backgroundColor: '#fff',
     padding: 16,
     borderRadius: 10,
+    shadowColor: '#000', // iOS shadow
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 1.41,
+    elevation: 2, // Android shadow
   },
   label: {
     fontWeight: '600',
     fontSize: 15,
-    color: '#b80000',
     marginTop: 20,
   },
   input: {
     borderWidth: 1,
-    borderColor: '#ccc',
     marginTop: 6,
     padding: 10,
     borderRadius: 8,
-    backgroundColor: '#fff',
   },
   saveButton: {
     marginTop: 16,
-    backgroundColor: '#b80000',
     padding: 12,
     borderRadius: 8,
   },
   saveButtonText: {
     textAlign: 'center',
-    color: '#fff',
     fontWeight: '600',
   },
   logoutButton: {
     marginTop: 16,
-    backgroundColor: '#c5a34f',
     padding: 12,
     borderRadius: 8,
     flexDirection: 'row',
@@ -294,7 +313,6 @@ const styles = StyleSheet.create({
   },
   deleteButton: {
     marginTop: 12,
-    backgroundColor: '#b80000',
     padding: 12,
     borderRadius: 8,
     flexDirection: 'row',
@@ -303,7 +321,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   logoutText: {
-    color: '#fff',
     fontWeight: '600',
     fontSize: 15,
   },

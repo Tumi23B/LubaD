@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react'; // Import useContext
 import {View, Text, StyleSheet, Image, ScrollView, TextInput, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -7,8 +7,11 @@ import { auth, database } from '../firebase';
 import { EmailAuthProvider, reauthenticateWithCredential, updatePassword, signOut, deleteUser} from 'firebase/auth';
 import { ref, get, update, remove } from 'firebase/database';
 import { useNavigation } from '@react-navigation/native';
+import { ThemeContext } from '../ThemeContext'; // Import ThemeContext
 
 export default function DriverProfile() {
+  const { isDarkMode, colors } = useContext(ThemeContext); // Use useContext to get theme and colors
+
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [driverImage, setDriverImage] = useState(null);
@@ -19,6 +22,7 @@ export default function DriverProfile() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [reactivating, setReactivating] = useState(false);
   const [editMode, setEditMode] = useState(false);
+
   // Add editable fields for validation and editing
   const [fullName, setFullName] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -322,23 +326,23 @@ export default function DriverProfile() {
 
   if (loading) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color="#b80000" />
+      <View style={[styles.center, { backgroundColor: colors.background }]}> {/* Apply background color */}
+        <ActivityIndicator size="large" color={colors.iconRed} /> {/* Apply indicator color */}
       </View>
     );
   }
 
   if (!profile) {
     return (
-      <View style={styles.center}>
-        <Text style={styles.noProfileText}>Driver profile not found.</Text>
+      <View style={[styles.center, { backgroundColor: colors.background }]}> {/* Apply background color */}
+        <Text style={[styles.noProfileText, { color: colors.textSecondary }]}>Driver profile not found.</Text> {/* Apply text color */}
       </View>
     );
   }
 
   return (
-    <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
-      <Text style={styles.title}>My Driver Profile</Text>
+    <ScrollView style={[styles.container, { backgroundColor: colors.background }]} keyboardShouldPersistTaps="handled"> {/* Apply background color */}
+      <Text style={[styles.title, { color: colors.iconRed }]}>My Driver Profile</Text> {/* Apply title text color */}
 
       <ScrollView
         horizontal
@@ -347,104 +351,128 @@ export default function DriverProfile() {
         contentContainerStyle={styles.imageRow}
       >
         <View style={styles.imageContainer}>
-          <Text style={styles.imageLabel}>Driver Photo</Text>
+          <Text style={[styles.imageLabel, { color: colors.iconRed }]}>Driver Photo</Text> {/* Apply label text color */}
           <TouchableOpacity activeOpacity={0.7} onPress={() => pickImage('driverImage')}>
             {driverImage ? (
-              <Image source={{ uri: driverImage }} style={styles.image} />
+              <Image source={{ uri: driverImage }} style={[styles.image, { borderColor: colors.iconRed }]} /> /* Apply border color */
             ) : (
-              <View style={[styles.imagePlaceholder, styles.image]}>
-                <Ionicons name="camera" size={30} color="#b80000" />
-                <Text style={styles.placeholderText}>Add Photo</Text>
+              <View style={[styles.imagePlaceholder, styles.image, { backgroundColor: colors.imagePlaceholderBackground, borderColor: colors.iconRed }]}> {/* Apply colors */}
+                <Ionicons name="camera" size={30} color={colors.iconRed} /> {/* Apply icon color */}
+                <Text style={[styles.placeholderText, { color: colors.iconRed }]}>Add Photo</Text> {/* Apply text color */}
               </View>
             )}
           </TouchableOpacity>
         </View>
 
         <View style={styles.imageContainer}>
-          <Text style={styles.imageLabel}>License Photo</Text>
+          <Text style={[styles.imageLabel, { color: colors.iconRed }]}>License Photo</Text>
           <TouchableOpacity activeOpacity={0.7} onPress={() => pickImage('licensePhoto')}>
             {licensePhoto ? (
-              <Image source={{ uri: licensePhoto }} style={styles.image} />
+              <Image source={{ uri: licensePhoto }} style={[styles.image, { borderColor: colors.iconRed }]} />
             ) : (
-              <View style={[styles.imagePlaceholder, styles.image]}>
-                <Ionicons name="camera" size={30} color="#b80000" />
-                <Text style={styles.placeholderText}>Add Photo</Text>
+              <View style={[styles.imagePlaceholder, styles.image, { backgroundColor: colors.imagePlaceholderBackground, borderColor: colors.iconRed }]}>
+                <Ionicons name="camera" size={30} color={colors.iconRed} />
+                <Text style={[styles.placeholderText, { color: colors.iconRed }]}>Add Photo</Text>
               </View>
             )}
           </TouchableOpacity>
         </View>
 
         <View style={styles.imageContainer}>
-          <Text style={styles.imageLabel}>Car Photo</Text>
+          <Text style={[styles.imageLabel, { color: colors.iconRed }]}>Car Photo</Text>
           <TouchableOpacity activeOpacity={0.7} onPress={() => pickImage('carImage')}>
             {carImage ? (
-              <Image source={{ uri: carImage }} style={styles.image} />
+              <Image source={{ uri: carImage }} style={[styles.image, { borderColor: colors.iconRed }]} />
             ) : (
-              <View style={[styles.imagePlaceholder, styles.image]}>
-                <Ionicons name="camera" size={30} color="#b80000" />
-                <Text style={styles.placeholderText}>Add Photo</Text>
+              <View style={[styles.imagePlaceholder, styles.image, { backgroundColor: colors.imagePlaceholderBackground, borderColor: colors.iconRed }]}>
+                <Ionicons name="camera" size={30} color={colors.iconRed} />
+                <Text style={[styles.placeholderText, { color: colors.iconRed }]}>Add Photo</Text>
               </View>
             )}
           </TouchableOpacity>
         </View>
       </ScrollView>
 
-      <View style={styles.infoSection}>
+      <View style={[styles.infoSection, { borderTopColor: colors.borderColor }]}> {/* Apply border color */}
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Text style={styles.label}>Profile Information</Text>
+          <Text style={[styles.label, { color: colors.iconRed }]}>Profile Information</Text> {/* Apply label text color */}
           {!editMode ? (
             <TouchableOpacity onPress={() => setEditMode(true)}>
-              <Ionicons name="create-outline" size={22} color="#b80000" />
+              <Ionicons name="create-outline" size={22} color={colors.iconRed} /> {/* Apply icon color */}
             </TouchableOpacity>
           ) : null}
         </View>
 
         {/* Editable fields */}
-        <Text style={styles.label}>Full Name:</Text>
+        <Text style={[styles.label, { color: colors.iconRed }]}>Full Name:</Text>
         <TextInput
-          style={[styles.input, !editMode && { backgroundColor: '#f3f3f3', color: '#888' }]}
+          style={[
+            styles.input,
+            {
+              backgroundColor: editMode ? colors.inputBackground : colors.inputDisabledBackground, // Conditional background
+              color: editMode ? colors.text : colors.textSecondary, // Conditional text color
+              borderColor: colors.iconRed, // Always red border
+            },
+          ]}
           value={fullName}
           onChangeText={setFullName}
           placeholder="Full Name"
+          placeholderTextColor={colors.placeholderText} // Placeholder color
           editable={editMode}
         />
         {profileErrors.fullName && (
-          <Text style={styles.errorText}>{profileErrors.fullName}</Text>
+          <Text style={[styles.errorText, { color: colors.errorText }]}>{profileErrors.fullName}</Text> /* Apply error text color */
         )}
 
-        <Text style={styles.label}>Phone Number:</Text>
+        <Text style={[styles.label, { color: colors.iconRed }]}>Phone Number:</Text>
         <TextInput
-          style={[styles.input, !editMode && { backgroundColor: '#f3f3f3', color: '#888' }]}
+          style={[
+            styles.input,
+            {
+              backgroundColor: editMode ? colors.inputBackground : colors.inputDisabledBackground,
+              color: editMode ? colors.text : colors.textSecondary,
+              borderColor: colors.iconRed,
+            },
+          ]}
           value={phoneNumber}
           onChangeText={setPhoneNumber}
           placeholder="Phone Number"
+          placeholderTextColor={colors.placeholderText}
           keyboardType="phone-pad"
           editable={editMode}
         />
         {profileErrors.phoneNumber && (
-          <Text style={styles.errorText}>{profileErrors.phoneNumber}</Text>
+          <Text style={[styles.errorText, { color: colors.errorText }]}>{profileErrors.phoneNumber}</Text>
         )}
 
-        <Text style={styles.label}>Address:</Text>
+        <Text style={[styles.label, { color: colors.iconRed }]}>Address:</Text>
         <TextInput
-          style={[styles.input, !editMode && { backgroundColor: '#f3f3f3', color: '#888' }]}
+          style={[
+            styles.input,
+            {
+              backgroundColor: editMode ? colors.inputBackground : colors.inputDisabledBackground,
+              color: editMode ? colors.text : colors.textSecondary,
+              borderColor: colors.iconRed,
+            },
+          ]}
           value={address}
           onChangeText={setAddress}
           placeholder="Address"
+          placeholderTextColor={colors.placeholderText}
           editable={editMode}
         />
         {profileErrors.address && (
-          <Text style={styles.errorText}>{profileErrors.address}</Text>
+          <Text style={[styles.errorText, { color: colors.errorText }]}>{profileErrors.address}</Text>
         )}
 
         {/* Save and Cancel buttons in edit mode */}
         {editMode && (
           <View style={{ flexDirection: 'row', gap: 10, marginTop: 10 }}>
-            <TouchableOpacity style={styles.saveButton} onPress={handleSaveProfile}>
-              <Text style={styles.saveButtonText}>Save</Text>
+            <TouchableOpacity style={[styles.saveButton, { backgroundColor: colors.iconRed }]} onPress={handleSaveProfile}>
+              <Text style={[styles.saveButtonText, { color: colors.buttonText }]}>Save</Text> {/* Apply button text color */}
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.saveButton, { backgroundColor: '#888' }]}
+              style={[styles.saveButton, { backgroundColor: colors.buttonSecondary }]} // Apply secondary button color
               onPress={() => {
                 setFullName(profile.fullName || '');
                 setPhoneNumber(profile.phoneNumber || '');
@@ -453,7 +481,7 @@ export default function DriverProfile() {
                 setEditMode(false);
               }}
             >
-              <Text style={styles.saveButtonText}>Cancel</Text>
+              <Text style={[styles.saveButtonText, { color: colors.buttonText }]}>Cancel</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -461,12 +489,12 @@ export default function DriverProfile() {
         {/* Show reactivation button if account is inactive */}
         {profile.active === false && (
           <TouchableOpacity
-            style={styles.reactivateButton}
+            style={[styles.reactivateButton, { backgroundColor: colors.successButton }]} // Apply success button color
             onPress={handleReactivateAccount}
             disabled={reactivating}
           >
-            <Ionicons name="person-add-outline" size={18} color="#fff" />
-            <Text style={styles.logoutText}>
+            <Ionicons name="person-add-outline" size={18} color={colors.buttonText} />
+            <Text style={[styles.logoutText, { color: colors.buttonText }]}>
               {reactivating ? 'Reactivating...' : 'Reactivate Account'}
             </Text>
           </TouchableOpacity>
@@ -474,46 +502,70 @@ export default function DriverProfile() {
       </View>
 
       <View style={styles.passwordSection}>
-        <Text style={styles.label}>Change Password</Text>
+        <Text style={[styles.label, { color: colors.iconRed }]}>Change Password</Text>
         <TextInput
-          style={styles.input}
+          style={[
+            styles.input,
+            {
+              backgroundColor: colors.inputBackground,
+              borderColor: colors.iconRed,
+              color: colors.text,
+            },
+          ]}
           placeholder="Current Password"
+          placeholderTextColor={colors.placeholderText}
           secureTextEntry
           value={currentPassword}
           onChangeText={setCurrentPassword}
         />
         <TextInput
-          style={styles.input}
+          style={[
+            styles.input,
+            {
+              backgroundColor: colors.inputBackground,
+              borderColor: colors.iconRed,
+              color: colors.text,
+            },
+          ]}
           placeholder="New Password"
+          placeholderTextColor={colors.placeholderText}
           secureTextEntry
           value={newPassword}
           onChangeText={setNewPassword}
         />
         <TextInput
-          style={styles.input}
+          style={[
+            styles.input,
+            {
+              backgroundColor: colors.inputBackground,
+              borderColor: colors.iconRed,
+              color: colors.text,
+            },
+          ]}
           placeholder="Confirm New Password"
+          placeholderTextColor={colors.placeholderText}
           secureTextEntry
           value={confirmPassword}
           onChangeText={setConfirmPassword}
         />
-        <TouchableOpacity style={styles.saveButton} onPress={handleChangePassword}>
-          <Text style={styles.saveButtonText}>Update Password</Text>
+        <TouchableOpacity style={[styles.saveButton, { backgroundColor: colors.iconRed }]} onPress={handleChangePassword}>
+          <Text style={[styles.saveButtonText, { color: colors.buttonText }]}>Update Password</Text>
         </TouchableOpacity>
       </View>
 
-      <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-        <Ionicons name="log-out-outline" size={18} color="#fff" />
-        <Text style={styles.logoutText}>Logout</Text>
+      <TouchableOpacity style={[styles.logoutButton, { backgroundColor: colors.accentYellow }]} onPress={handleLogout}> {/* Apply accent color */}
+        <Ionicons name="log-out-outline" size={18} color={colors.buttonText} />
+        <Text style={[styles.logoutText, { color: colors.buttonText }]}>Logout</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity style={styles.deactivateButton} onPress={handleDeactivateAccount}>
-        <Ionicons name="person-remove-outline" size={18} color="#fff" />
-        <Text style={styles.logoutText}>Deactivate Account</Text>
+      <TouchableOpacity style={[styles.deactivateButton, { backgroundColor: colors.warningButton }]} onPress={handleDeactivateAccount}> {/* Apply warning color */}
+        <Ionicons name="person-remove-outline" size={18} color={colors.buttonText} />
+        <Text style={[styles.logoutText, { color: colors.buttonText }]}>Deactivate Account</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity style={styles.deleteButton} onPress={handleDeleteAccount}>
-        <Ionicons name="trash-outline" size={18} color="#fff" />
-        <Text style={styles.logoutText}>Delete Account</Text>
+      <TouchableOpacity style={[styles.deleteButton, { backgroundColor: colors.dangerButton }]} onPress={handleDeleteAccount}> {/* Apply danger color */}
+        <Ionicons name="trash-outline" size={18} color={colors.buttonText} />
+        <Text style={[styles.logoutText, { color: colors.buttonText }]}>Delete Account</Text>
       </TouchableOpacity>
     </ScrollView>
   );
@@ -522,16 +574,14 @@ export default function DriverProfile() {
 const styles = StyleSheet.create({
   container: {
     padding: 20,
-    backgroundColor: '#fdf8f1',
     flex: 1,
   },
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#b80000',
     marginBottom: 20,
     textAlign: 'center',
-    marginTop:40,
+    marginTop: 40,
   },
   horizontalScroll: {
     marginBottom: 30,
@@ -549,7 +599,6 @@ const styles = StyleSheet.create({
   imageLabel: {
     marginBottom: 8,
     fontWeight: '600',
-    color: '#b80000',
     fontSize: 16,
   },
   image: {
@@ -557,16 +606,13 @@ const styles = StyleSheet.create({
     height: 110,
     borderRadius: 12,
     borderWidth: 2,
-    borderColor: '#b80000',
   },
   imagePlaceholder: {
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#ffe6e6',
   },
   placeholderText: {
     marginTop: 4,
-    color: '#b80000',
     fontWeight: '600',
     textAlign: 'center',
   },
@@ -574,22 +620,18 @@ const styles = StyleSheet.create({
     marginBottom: 30,
     paddingHorizontal: 10,
     borderTopWidth: 1,
-    borderTopColor: '#ddd',
     paddingTop: 20,
   },
   label: {
     fontWeight: '700',
     fontSize: 16,
-    color: '#b80000',
     marginBottom: 6,
   },
-  infoText: {
+  infoText: { // This style is not used, can be removed if not intended for future use
     fontSize: 18,
     marginBottom: 14,
-    color: '#333',
     paddingLeft: 6,
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
     paddingBottom: 8,
   },
   passwordSection: {
@@ -597,26 +639,21 @@ const styles = StyleSheet.create({
   },
   input: {
     borderWidth: 1,
-    borderColor: '#b80000',
     marginTop: 8,
     padding: 12,
     borderRadius: 8,
-    backgroundColor: '#fff',
   },
   saveButton: {
     marginTop: 20,
-    backgroundColor: '#b80000',
     padding: 15,
     borderRadius: 8,
   },
   saveButtonText: {
-    color: '#fff',
     fontWeight: '700',
     textAlign: 'center',
     fontSize: 16,
   },
   logoutButton: {
-    backgroundColor: '#c5a34f',
     padding: 15,
     borderRadius: 8,
     flexDirection: 'row',
@@ -626,7 +663,6 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   deactivateButton: {
-    backgroundColor: '#e08900',
     padding: 15,
     borderRadius: 8,
     flexDirection: 'row',
@@ -636,7 +672,6 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   deleteButton: {
-    backgroundColor: '#b80000',
     padding: 15,
     borderRadius: 8,
     flexDirection: 'row',
@@ -646,7 +681,6 @@ const styles = StyleSheet.create({
     marginBottom: 40,
   },
   reactivateButton: {
-    backgroundColor: '#4caf50',
     padding: 15,
     borderRadius: 8,
     flexDirection: 'row',
@@ -656,7 +690,6 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   logoutText: {
-    color: '#fff',
     fontWeight: '700',
     fontSize: 16,
   },
@@ -668,10 +701,8 @@ const styles = StyleSheet.create({
   },
   noProfileText: {
     fontSize: 18,
-    color: '#999',
   },
   errorText: {
-    color: '#b80000',
     fontSize: 13,
     marginBottom: 8,
     marginLeft: 4,

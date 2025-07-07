@@ -1,6 +1,6 @@
 // Customer Dashboard Screen
-import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, TextInput, Platform} from 'react-native';
+import React, { useEffect, useState, useContext } from 'react';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, TextInput, Platform } from 'react-native';
 import { auth, database } from '../firebase';
 import { ref, get, onValue } from 'firebase/database';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -8,8 +8,11 @@ import MapView, { Marker, Polyline } from 'react-native-maps';
 import * as Location from 'expo-location';
 import axios from 'axios';
 import { Ionicons } from '@expo/vector-icons';
+import { ThemeContext } from '../ThemeContext';
 
 export default function Dashboard({ navigation }) {
+  const { isDarkMode, colors } = useContext(ThemeContext); // Use useContext to get theme
+
   const [username, setUsername] = useState('');
   const [selectedVehicle, setSelectedVehicle] = useState(null);
   const [pickup, setPickup] = useState('');
@@ -21,7 +24,7 @@ export default function Dashboard({ navigation }) {
   const [routeCoords, setRouteCoords] = useState([]);
   const [recentRides, setRecentRides] = useState([]);
 
-  const GOOGLE_MAPS_API_KEY = 'YOUR_API_KEY_HERE';
+  const GOOGLE_MAPS_API_KEY = 'YOUR_API_KEY_HERE'; // Replace with your actual API key
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -111,9 +114,9 @@ export default function Dashboard({ navigation }) {
   ];
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={styles.section}>
-        <Text style={styles.title}>Welcome, {username} 👋</Text>
+        <Text style={[styles.title, { color: colors.iconRed }]}>Welcome, {username} 👋</Text>
       </View>
 
       <View style={styles.section}>
@@ -134,39 +137,56 @@ export default function Dashboard({ navigation }) {
                   longitudeDelta: 0.1,
                 }
           }
+          customMapStyle={isDarkMode ? mapStyleDark : mapStyleLight} // Apply custom map style based on theme
         >
-          {location && <Marker coordinate={location} title="You are here" />}
+          {location && <Marker coordinate={location} pinColor={colors.iconRed} title="You are here" />}
           {routeCoords.length > 0 && (
-            <Polyline coordinates={routeCoords} strokeWidth={4} strokeColor="#b80000" />
+            <Polyline coordinates={routeCoords} strokeWidth={4} strokeColor={colors.iconRed} />
           )}
         </MapView>
 
         <TextInput
           placeholder="📍 Pickup Location"
+          placeholderTextColor={colors.textSecondary}
           value={pickup}
           onChangeText={(text) => {
             setPickup(text);
             fetchRoute();
           }}
-          style={styles.input}
+          style={[
+            styles.input,
+            {
+              backgroundColor: colors.cardBackground,
+              color: colors.text,
+              borderColor: colors.borderColor,
+            },
+          ]}
         />
         <TextInput
           placeholder="📦 Dropoff Location"
+          placeholderTextColor={colors.textSecondary}
           value={dropoff}
           onChangeText={(text) => {
             setDropoff(text);
             fetchRoute();
           }}
-          style={styles.input}
+          style={[
+            styles.input,
+            {
+              backgroundColor: colors.cardBackground,
+              color: colors.text,
+              borderColor: colors.borderColor,
+            },
+          ]}
         />
 
         <TouchableOpacity style={styles.timeToggle} onPress={() => setTimeNow(!timeNow)}>
-          <Text style={styles.linkText}>{timeNow ? 'Schedule for Later' : 'Use Current Time'}</Text>
+          <Text style={[styles.linkText, { color: colors.iconRed }]}>{timeNow ? 'Schedule for Later' : 'Use Current Time'}</Text>
         </TouchableOpacity>
 
         {!timeNow && (
-          <TouchableOpacity onPress={() => setShowDatePicker(true)} style={styles.input}>
-            <Text>{date.toLocaleString()}</Text>
+          <TouchableOpacity onPress={() => setShowDatePicker(true)} style={[styles.input, { backgroundColor: colors.cardBackground, borderColor: colors.borderColor }]}>
+            <Text style={{ color: colors.text }}>{date.toLocaleString()}</Text>
           </TouchableOpacity>
         )}
         {showDatePicker && (
@@ -182,7 +202,7 @@ export default function Dashboard({ navigation }) {
         )}
 
         <TouchableOpacity
-          style={styles.checkoutButton}
+          style={[styles.checkoutButton, { backgroundColor: colors.iconRed }]}
           onPress={() =>
             navigation.navigate('Checkout', {
               pickup,
@@ -192,24 +212,31 @@ export default function Dashboard({ navigation }) {
             })
           }
         >
-          <Text style={styles.checkoutButtonText}>Checkout</Text>
+          <Text style={[styles.checkoutButtonText, { color: colors.buttonText }]}>Checkout</Text>
         </TouchableOpacity>
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.heading}>Our Vehicles</Text>
+        <Text style={[styles.heading, { color: colors.iconRed }]}>Our Vehicles</Text>
         <View style={styles.vehicleGrid}>
           {vehicleOptions.map((v, i) => (
             <TouchableOpacity
               key={i}
               style={[
                 styles.vehicleBox,
-                selectedVehicle === v.type && styles.selectedVehicle,
+                {
+                  backgroundColor: colors.cardBackground,
+                  borderColor: colors.borderColor,
+                },
+                selectedVehicle === v.type && {
+                  borderColor: colors.iconRed,
+                  backgroundColor: isDarkMode ? colors.darkHighlight : colors.lightHighlight, // Use distinct highlight colors
+                },
               ]}
               onPress={() => setSelectedVehicle(v.type)}
             >
-              <Ionicons name={v.icon} size={30} color="#b80000" />
-              <Text style={styles.vehicleLabel}>{v.type}</Text>
+              <Ionicons name={v.icon} size={30} color={colors.iconRed} />
+              <Text style={[styles.vehicleLabel, { color: colors.text }]}>{v.type}</Text>
             </TouchableOpacity>
           ))}
         </View>
@@ -217,20 +244,20 @@ export default function Dashboard({ navigation }) {
 
       <View style={styles.section}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Text style={styles.heading}>Recent Activity</Text>
+          <Text style={[styles.heading, { color: colors.iconRed }]}>Recent Activity</Text>
           <TouchableOpacity onPress={() => navigation.navigate('BookingHistory')}>
-            <Text style={styles.linkText}>View All</Text>
+            <Text style={[styles.linkText, { color: colors.iconRed }]}>View All</Text>
           </TouchableOpacity>
         </View>
 
         {recentRides.length === 0 ? (
-          <Text style={{ color: '#555' }}>No recent rides yet.</Text>
+          <Text style={{ color: colors.textSecondary }}>No recent rides yet.</Text>
         ) : (
           recentRides.map((ride, index) => (
-            <View key={index} style={styles.suggestionCard}>
-              <Ionicons name="time-outline" size={22} color="#b80000" />
-              <Text style={styles.bold}>{ride.pickup} ➡️ {ride.dropoff}</Text>
-              <Text style={styles.suggestionDesc}>
+            <View key={index} style={[styles.suggestionCard, { backgroundColor: colors.cardBackground }]}>
+              <Ionicons name="time-outline" size={22} color={colors.iconRed} />
+              <Text style={[styles.bold, { color: colors.text }]}>{ride.pickup} ➡️ {ride.dropoff}</Text>
+              <Text style={[styles.suggestionDesc, { color: colors.textSecondary }]}>
                 {new Date(ride.date).toLocaleString()}
               </Text>
             </View>
@@ -239,19 +266,174 @@ export default function Dashboard({ navigation }) {
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.heading}>Account Settings ⚙️</Text>
-        <TouchableOpacity style={styles.settingLink} onPress={() => navigation.navigate('Settings')}>
-          <Ionicons name="settings-outline" size={20} color="#b80000" />
-          <Text style={styles.settingText}>Settings</Text>
+        <Text style={[styles.heading, { color: colors.iconRed }]}>Account Settings ⚙️</Text>
+        <TouchableOpacity style={[styles.settingLink, { backgroundColor: colors.cardBackground }]} onPress={() => navigation.navigate('Settings')}>
+          <Ionicons name="settings-outline" size={20} color={colors.iconRed} />
+          <Text style={[styles.settingText, { color: colors.text }]}>Settings</Text>
         </TouchableOpacity>
       </View>
     </ScrollView>
   );
 }
 
+const mapStyleLight = [
+  // Default light map style
+  {
+    "featureType": "poi",
+    "stylers": [
+      {
+        "visibility": "off"
+      }
+    ]
+  },
+  {
+    "featureType": "transit",
+    "stylers": [
+      {
+        "visibility": "off"
+      }
+    ]
+  }
+];
+
+const mapStyleDark = [
+  // Dark map style (simplified example, you might need a more comprehensive one)
+  {
+    "elementType": "geometry",
+    "stylers": [
+      {
+        "color": "#242f3e"
+      }
+    ]
+  },
+  {
+    "elementType": "labels.text.fill",
+    "stylers": [
+      {
+        "color": "#746855"
+      }
+    ]
+  },
+  {
+    "elementType": "labels.text.stroke",
+    "stylers": [
+      {
+        "color": "#242f3e"
+      }
+    ]
+  },
+  {
+    "featureType": "administrative.locality",
+    "elementType": "labels.text.fill",
+    "stylers": [
+      {
+        "color": "#d59563"
+      }
+    ]
+  },
+  {
+    "featureType": "poi",
+    "stylers": [
+      {
+        "visibility": "off"
+      }
+    ]
+  },
+  {
+    "featureType": "road",
+    "elementType": "geometry",
+    "stylers": [
+      {
+        "color": "#38414e"
+      }
+    ]
+  },
+  {
+    "featureType": "road",
+    "elementType": "geometry.stroke",
+    "stylers": [
+      {
+        "color": "#212a37"
+      }
+    ]
+  },
+  {
+    "featureType": "road",
+    "elementType": "labels.text.fill",
+    "stylers": [
+      {
+        "color": "#9ca5b3"
+      }
+    ]
+  },
+  {
+    "featureType": "road.highway",
+    "elementType": "geometry",
+    "stylers": [
+      {
+        "color": "#746855"
+      }
+    ]
+  },
+  {
+    "featureType": "road.highway",
+    "elementType": "geometry.stroke",
+    "stylers": [
+      {
+        "color": "#1f2835"
+      }
+    ]
+  },
+  {
+    "featureType": "road.highway",
+    "elementType": "labels.text.fill",
+    "stylers": [
+      {
+        "color": "#f3d19c"
+      }
+    ]
+  },
+  {
+    "featureType": "transit",
+    "stylers": [
+      {
+        "visibility": "off"
+      }
+    ]
+  },
+  {
+    "featureType": "water",
+    "elementType": "geometry",
+    "stylers": [
+      {
+        "color": "#17263c"
+      }
+    ]
+  },
+  {
+    "featureType": "water",
+    "elementType": "labels.text.fill",
+    "stylers": [
+      {
+        "color": "#515c6d"
+      }
+    ]
+  },
+  {
+    "featureType": "water",
+    "elementType": "labels.text.stroke",
+    "stylers": [
+      {
+        "color": "#17263c"
+      }
+    ]
+  }
+];
+
+
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#f0f0f0',
+    // backgroundColor handled by theme
     padding: 20,
     flex: 1,
   },
@@ -262,44 +444,38 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     marginTop: 10,
-    color: '#b80000',
+    // color handled by theme
   },
-  /*subtitle: {
-    fontSize: 16,
-    marginTop: 4,
-    color: '#333',
-  },*/
-  /*heading: {
+  heading: {
     fontSize: 18,
     fontWeight: '600',
     marginBottom: 12,
-    color: '#b80000',
-  },*/
+    // color handled by theme
+  },
   input: {
     borderWidth: 1,
-    borderColor: '#c5a34f',
     borderRadius: 8,
     padding: 10,
     marginBottom: 12,
-    backgroundColor: '#fff',
+    // borderColor, backgroundColor, color handled by theme
   },
   timeToggle: {
     alignSelf: 'flex-end',
     marginBottom: 10,
   },
   linkText: {
-    color: '#b80000',
+    // color handled by theme
     textDecorationLine: 'underline',
     fontWeight: '500',
   },
   checkoutButton: {
-    backgroundColor: '#b80000',
     padding: 12,
     borderRadius: 8,
     marginTop: 10,
+    // backgroundColor handled by theme
   },
   checkoutButtonText: {
-    color: '#c5a34f',
+    // color handled by theme
     fontWeight: 'bold',
     textAlign: 'center',
     fontSize: 16,
@@ -316,51 +492,50 @@ const styles = StyleSheet.create({
   },
   vehicleBox: {
     width: '48%',
-    backgroundColor: '#fff',
     padding: 12,
     borderRadius: 10,
     alignItems: 'center',
     marginBottom: 10,
     borderWidth: 1,
-    borderColor: '#c5a34f',
+    // backgroundColor, borderColor handled by theme
   },
-  selectedVehicle: {
-    borderColor: '#b80000',
-    backgroundColor: '#fff8f8',
-  },
+  // selectedVehicle: { // This will be applied inline
+  //   borderColor: '#b80000',
+  //   backgroundColor: '#fff8f8',
+  // },
   vehicleLabel: {
     fontWeight: 'bold',
     marginTop: 8,
-    color: '#333',
+    // color handled by theme
   },
   suggestionCard: {
-    backgroundColor: '#fff',
     padding: 16,
     borderRadius: 10,
     marginBottom: 12,
     alignItems: 'flex-start',
+    // backgroundColor handled by theme
   },
   bold: {
     fontWeight: 'bold',
     marginTop: 8,
-    color: '#333',
+    // color handled by theme
   },
   suggestionDesc: {
     marginTop: 4,
     fontSize: 14,
-    color: '#555',
+    // color handled by theme
   },
   settingLink: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    backgroundColor: '#fff',
     padding: 12,
     borderRadius: 10,
+    // backgroundColor handled by theme
   },
   settingText: {
-    color: '#333',
     fontSize: 16,
     fontWeight: '500',
+    // color handled by theme
   },
 });

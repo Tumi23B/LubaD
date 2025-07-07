@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react'; // Import useContext
 import {
   View,
   Text,
@@ -13,6 +13,7 @@ import {
 import { Audio } from 'expo-audio';
 import * as Haptics from 'expo-haptics';
 import * as Notifications from 'expo-notifications';
+import { ThemeContext } from '../ThemeContext'; // Import ThemeContext
 
 const availableTones = [
   { id: 'tone1', name: 'Classic Beep' },
@@ -32,6 +33,8 @@ const toneFiles = {
 };
 
 export default function NotificationSettings() {
+  const { isDarkMode, colors } = useContext(ThemeContext); // Use useContext to get theme and colors
+
   const [orderUpdates, setOrderUpdates] = useState(true);
   const [driverMessages, setDriverMessages] = useState(true);
   const [promotions, setPromotions] = useState(false);
@@ -92,88 +95,94 @@ export default function NotificationSettings() {
   }, [soundEnabled, vibrationEnabled, appAlertTone]);
 
   return (
-    <ScrollView style={styles.container}>
-      <Text style={styles.title}>Notification Settings</Text>
+    <ScrollView style={[styles.container, { backgroundColor: colors.background }]}> {/* Apply background color */}
+      <Text style={[styles.title, { color: colors.iconRed }]}>Notification Settings</Text> {/* Apply text color */}
 
       <View style={styles.settingRow}>
-        <Text style={styles.label}>Order Updates</Text>
+        <Text style={[styles.label, { color: colors.text }]}>Order Updates</Text> {/* Apply label text color */}
         <Switch
-          trackColor={{ false: '#ccc', true: '#b80000' }}
-          thumbColor={orderUpdates ? '#c5a34f' : '#f4f3f4'}
-          ios_backgroundColor="#ccc"
+          trackColor={{ false: colors.switchInactive, true: colors.iconRed }} // Customize track and thumb colors
+          thumbColor={orderUpdates ? colors.borderColor : colors.switchThumb}
+          ios_backgroundColor={colors.switchInactive}
           onValueChange={setOrderUpdates}
           value={orderUpdates}
         />
       </View>
 
       <View style={styles.settingRow}>
-        <Text style={styles.label}>Messages from Drivers</Text>
+        <Text style={[styles.label, { color: colors.text }]}>Messages from Drivers</Text>
         <Switch
-          trackColor={{ false: '#ccc', true: '#b80000' }}
-          thumbColor={driverMessages ? '#c5a34f' : '#f4f3f4'}
-          ios_backgroundColor="#ccc"
+          trackColor={{ false: colors.switchInactive, true: colors.iconRed }}
+          thumbColor={driverMessages ? colors.borderColor : colors.switchThumb}
+          ios_backgroundColor={colors.switchInactive}
           onValueChange={setDriverMessages}
           value={driverMessages}
         />
       </View>
 
       {driverMessages && (
-        <TouchableOpacity style={styles.toneSelector} onPress={() => openTonePicker('driver')}>
-          <Text style={styles.label}>Driver Message Tone</Text>
-          <Text style={styles.toneName}>{driverTone.name}</Text>
+        <TouchableOpacity
+          style={[styles.toneSelector, { backgroundColor: colors.cardBackground, shadowColor: colors.shadowColor }]} // Apply background and shadow
+          onPress={() => openTonePicker('driver')}
+        >
+          <Text style={[styles.label, { color: colors.text }]}>Driver Message Tone</Text>
+          <Text style={[styles.toneName, { color: colors.iconRed }]}>{driverTone.name}</Text>
         </TouchableOpacity>
       )}
 
       <View style={styles.settingRow}>
-        <Text style={styles.label}>Promotional Offers</Text>
+        <Text style={[styles.label, { color: colors.text }]}>Promotional Offers</Text>
         <Switch
-          trackColor={{ false: '#ccc', true: '#b80000' }}
-          thumbColor={promotions ? '#c5a34f' : '#f4f3f4'}
-          ios_backgroundColor="#ccc"
+          trackColor={{ false: colors.switchInactive, true: colors.iconRed }}
+          thumbColor={promotions ? colors.borderColor : colors.switchThumb}
+          ios_backgroundColor={colors.switchInactive}
           onValueChange={setPromotions}
           value={promotions}
         />
       </View>
 
       <View style={styles.settingRow}>
-        <Text style={styles.label}>App Alerts</Text>
+        <Text style={[styles.label, { color: colors.text }]}>App Alerts</Text>
         <Switch
-          trackColor={{ false: '#ccc', true: '#b80000' }}
-          thumbColor={appAlerts ? '#c5a34f' : '#f4f3f4'}
-          ios_backgroundColor="#ccc"
+          trackColor={{ false: colors.switchInactive, true: colors.iconRed }}
+          thumbColor={appAlerts ? colors.borderColor : colors.switchThumb}
+          ios_backgroundColor={colors.switchInactive}
           onValueChange={setAppAlerts}
           value={appAlerts}
         />
       </View>
 
       {appAlerts && (
-        <TouchableOpacity style={styles.toneSelector} onPress={() => openTonePicker('app')}>
-          <Text style={styles.label}>App Alert Tone</Text>
-          <Text style={styles.toneName}>{appAlertTone.name}</Text>
+        <TouchableOpacity
+          style={[styles.toneSelector, { backgroundColor: colors.cardBackground, shadowColor: colors.shadowColor }]}
+          onPress={() => openTonePicker('app')}
+        >
+          <Text style={[styles.label, { color: colors.text }]}>App Alert Tone</Text>
+          <Text style={[styles.toneName, { color: colors.iconRed }]}>{appAlertTone.name}</Text>
         </TouchableOpacity>
       )}
 
-      <View style={styles.divider} />
+      <View style={[styles.divider, { backgroundColor: colors.iconRed }]} /> {/* Apply divider color */}
 
-      <Text style={styles.subTitle}>Sound & Vibration</Text>
+      <Text style={[styles.subTitle, { color: colors.iconRed }]}>Sound & Vibration</Text>
 
       <View style={styles.settingRow}>
-        <Text style={styles.label}>Sound</Text>
+        <Text style={[styles.label, { color: colors.text }]}>Sound</Text>
         <Switch
-          trackColor={{ false: '#ccc', true: '#b80000' }}
-          thumbColor={soundEnabled ? '#c5a34f' : '#f4f3f4'}
-          ios_backgroundColor="#ccc"
+          trackColor={{ false: colors.switchInactive, true: colors.iconRed }}
+          thumbColor={soundEnabled ? colors.borderColor : colors.switchThumb}
+          ios_backgroundColor={colors.switchInactive}
           onValueChange={setSoundEnabled}
           value={soundEnabled}
         />
       </View>
 
       <View style={styles.settingRow}>
-        <Text style={styles.label}>Vibration</Text>
+        <Text style={[styles.label, { color: colors.text }]}>Vibration</Text>
         <Switch
-          trackColor={{ false: '#ccc', true: '#b80000' }}
-          thumbColor={vibrationEnabled ? '#c5a34f' : '#f4f3f4'}
-          ios_backgroundColor="#ccc"
+          trackColor={{ false: colors.switchInactive, true: colors.iconRed }}
+          thumbColor={vibrationEnabled ? colors.borderColor : colors.switchThumb}
+          ios_backgroundColor={colors.switchInactive}
           onValueChange={setVibrationEnabled}
           value={vibrationEnabled}
         />
@@ -187,8 +196,8 @@ export default function NotificationSettings() {
         onRequestClose={() => setTonePickerVisible(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Select Notification Tone</Text>
+          <View style={[styles.modalContent, { backgroundColor: colors.cardBackground }]}> {/* Apply modal content background */}
+            <Text style={[styles.modalTitle, { color: colors.iconRed }]}>Select Notification Tone</Text>
             <FlatList
               data={availableTones}
               keyExtractor={(item) => item.id}
@@ -200,9 +209,10 @@ export default function NotificationSettings() {
                   <Text
                     style={[
                       styles.toneOptionText,
+                      { color: colors.text }, // Default tone option text color
                       (selectedToneFor === 'driver' && item.id === driverTone.id) ||
                       (selectedToneFor === 'app' && item.id === appAlertTone.id)
-                        ? styles.selectedToneText
+                        ? { color: colors.iconRed, fontWeight: 'bold' } // Selected tone text color
                         : null,
                     ]}
                   >
@@ -210,20 +220,20 @@ export default function NotificationSettings() {
                   </Text>
                 </TouchableOpacity>
               )}
-              ItemSeparatorComponent={() => <View style={styles.separator} />}
+              ItemSeparatorComponent={() => <View style={[styles.separator, { backgroundColor: colors.borderColorFaint }]} />} /* Apply separator color */
             />
             <TouchableOpacity
-              style={styles.modalCloseButton}
+              style={[styles.modalCloseButton, { backgroundColor: colors.iconRed }]} // Apply close button background
               onPress={() => setTonePickerVisible(false)}
             >
-              <Text style={styles.modalCloseText}>Cancel</Text>
+              <Text style={[styles.modalCloseText, { color: colors.buttonText }]}>Cancel</Text> {/* Apply close button text color */}
             </TouchableOpacity>
           </View>
         </View>
       </Modal>
 
       <TouchableOpacity
-        style={[styles.toneSelector, { backgroundColor: '#c5a34f' }]}
+        style={[styles.toneSelector, { backgroundColor: colors.borderColor }]} // Apply test notification button background
         onPress={() => {
           // Play both tones if their toggles are enabled
           if (soundEnabled) {
@@ -233,7 +243,7 @@ export default function NotificationSettings() {
           if (vibrationEnabled) vibrateNotification();
         }}
       >
-        <Text style={{ color: '#fff', fontWeight: 'bold' }}>Test Notification</Text>
+        <Text style={{ color: colors.buttonText, fontWeight: 'bold' }}>Test Notification</Text> {/* Apply text color */}
       </TouchableOpacity>
     </ScrollView>
   );
@@ -242,13 +252,11 @@ export default function NotificationSettings() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f0f0f0',
     padding: 20,
   },
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#b80000',
     marginBottom: 25,
     marginTop: 30,
     textAlign: 'center',
@@ -261,39 +269,33 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 16,
-    color: '#333',
     fontWeight: '600',
     flex: 1,
   },
   toneSelector: {
-    backgroundColor: '#fff',
     padding: 15,
     borderRadius: 12,
     marginBottom: 20,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
+    elevation: 3, // Android shadow
+    shadowOffset: { width: 0, height: 1 }, // iOS shadow
     shadowOpacity: 0.15,
     shadowRadius: 2,
   },
   toneName: {
-    color: '#b80000',
     fontWeight: '700',
     fontSize: 16,
   },
   divider: {
     height: 1,
-    backgroundColor: '#b80000',
     marginVertical: 25,
     opacity: 0.3,
   },
   subTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#b80000',
     marginBottom: 15,
     textAlign: 'center',
   },
@@ -304,7 +306,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   modalContent: {
-    backgroundColor: '#fff',
     borderRadius: 15,
     padding: 20,
     maxHeight: '80%',
@@ -312,7 +313,6 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 22,
     fontWeight: 'bold',
-    color: '#b80000',
     marginBottom: 15,
     textAlign: 'center',
   },
@@ -323,26 +323,17 @@ const styles = StyleSheet.create({
   },
   toneOptionText: {
     fontSize: 18,
-    color: '#333',
-  },
-  selectedToneText: {
-    color: '#b80000',
-    fontWeight: 'bold',
   },
   separator: {
     height: 1,
-    backgroundColor: '#f0f0f0',
   },
   modalCloseButton: {
     paddingVertical: 12,
-    backgroundColor: '#b80000',
     borderRadius: 8,
     marginTop: 15,
   },
   modalCloseText: {
-    color: '#fff',
     textAlign: 'center',
     fontWeight: '600',
   },
 });
-

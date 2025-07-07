@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react'; // Import useContext
 import {
   View,
   Text,
@@ -9,8 +9,11 @@ import {
   SafeAreaView
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { ThemeContext } from '../ThemeContext'; // Import ThemeContext
 
 export default function HelpCenter() {
+  const { isDarkMode, colors } = useContext(ThemeContext); // Use useContext to get theme and colors
+
   const [expandedIndex, setExpandedIndex] = useState(null);
 
   const faqData = [
@@ -53,40 +56,43 @@ export default function HelpCenter() {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1 }}>
-      <ScrollView contentContainerStyle={styles.scrollContainer}>
-        <Text style={styles.title}>Help Center</Text>
-        <Text style={styles.subtitle}>Find answers, tips, and support below.</Text>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}> {/* Apply background color to SafeAreaView */}
+      <ScrollView contentContainerStyle={[styles.scrollContainer, { backgroundColor: colors.background }]}> {/* Apply background color */}
+        <Text style={[styles.title, { color: colors.iconRed }]}>Help Center</Text> {/* Apply text color */}
+        <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Find answers, tips, and support below.</Text> {/* Apply text color */}
 
-        <Text style={styles.sectionTitle}>Frequently Asked Questions</Text>
+        <Text style={[styles.sectionTitle, { color: colors.iconRed }]}>Frequently Asked Questions</Text> {/* Apply text color */}
         {faqData.map((item, index) => (
-          <View key={index} style={styles.faqBox}>
+          <View key={index} style={[styles.faqBox, { backgroundColor: colors.cardBackground, borderLeftColor: colors.iconRed }]}> {/* Apply background and border color */}
             <TouchableOpacity onPress={() => toggleFAQ(index)} style={styles.faqHeader}>
               <Ionicons
                 name={expandedIndex === index ? 'chevron-up' : 'chevron-down'}
                 size={20}
-                color="#b80000"
+                color={colors.iconRed} // Icon color
               />
-              <Text style={styles.faqQuestion}>{item.question}</Text>
+              <Text style={[styles.faqQuestion, { color: colors.text }]}>{item.question}</Text> {/* Apply text color */}
             </TouchableOpacity>
             {expandedIndex === index && (
-              <Text style={styles.faqAnswer}>{item.answer}</Text>
+              <Text style={[styles.faqAnswer, { color: colors.textSecondary }]}>{item.answer}</Text> /* Apply text color */
             )}
           </View>
         ))}
 
-        <Text style={styles.sectionTitle}>Packing Tips</Text>
+        <Text style={[styles.sectionTitle, { color: colors.iconRed }]}>Packing Tips</Text> {/* Apply text color */}
         {packingTips.map((tip, idx) => (
-          <View key={idx} style={styles.tipBox}>
-            <Ionicons name="checkmark-circle-outline" size={18} color="#b80000" />
-            <Text style={styles.tipText}>{tip}</Text>
+          <View key={idx} style={[styles.tipBox, { backgroundColor: colors.cardBackground }]}> {/* Apply background color */}
+            <Ionicons name="checkmark-circle-outline" size={18} color={colors.iconRed} /> {/* Apply icon color */}
+            <Text style={[styles.tipText, { color: colors.text }]}>{tip}</Text> {/* Apply text color */}
           </View>
         ))}
 
-        <Text style={styles.sectionTitle}>Still Need Help?</Text>
-        <TouchableOpacity onPress={contactSupport} style={styles.contactButton}>
-          <Ionicons name="mail-outline" size={20} color="#f0c93d" />
-          <Text style={styles.contactText}>Contact Support</Text>
+        <Text style={[styles.sectionTitle, { color: colors.iconRed }]}>Still Need Help?</Text> {/* Apply text color */}
+        <TouchableOpacity
+          onPress={contactSupport}
+          style={[styles.contactButton, { backgroundColor: colors.iconRed, borderColor: colors.borderColor }]} // Apply background and border color
+        >
+          <Ionicons name="mail-outline" size={20} color={colors.buttonText} /> {/* Apply icon color */}
+          <Text style={[styles.contactText, { color: colors.buttonText }]}>Contact Support</Text> {/* Apply text color */}
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
@@ -96,35 +102,29 @@ export default function HelpCenter() {
 const styles = StyleSheet.create({
   scrollContainer: {
     padding: 20,
-    backgroundColor: '#f0f0f0',
     paddingBottom: 40,
   },
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#b80000',
     marginBottom: 10,
     marginTop: 30,
   },
   subtitle: {
     fontSize: 15,
-    color: '#333',
     marginBottom: 25,
   },
   sectionTitle: {
     fontSize: 20,
     fontWeight: '600',
-    color: '#b80000',
     marginVertical: 12,
   },
   faqBox: {
-    backgroundColor: '#fff',
     padding: 12,
     borderRadius: 10,
     marginBottom: 10,
     borderLeftWidth: 4,
-    borderLeftColor: '#b80000',
-    elevation: 2,
+    elevation: 2, // Android shadow
   },
   faqHeader: {
     flexDirection: 'row',
@@ -134,19 +134,16 @@ const styles = StyleSheet.create({
   faqQuestion: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#333',
     flexShrink: 1,
   },
   faqAnswer: {
     marginTop: 8,
     fontSize: 14,
-    color: '#555',
     lineHeight: 20,
   },
   tipBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
     padding: 10,
     borderRadius: 8,
     marginBottom: 8,
@@ -154,10 +151,8 @@ const styles = StyleSheet.create({
   },
   tipText: {
     fontSize: 14,
-    color: '#444',
   },
   contactButton: {
-    backgroundColor: '#b80000',
     padding: 14,
     borderRadius: 8,
     flexDirection: 'row',
@@ -166,10 +161,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 16,
     borderWidth: 1,
-    borderColor: '#f0c93d',
   },
   contactText: {
-    color: '#f0c93d',
     fontWeight: '700',
     fontSize: 16,
   },

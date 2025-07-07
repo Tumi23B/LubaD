@@ -1,14 +1,22 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, StyleSheet, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView, Image } from 'react-native';
+import React, { useState, useEffect, useContext } from 'react';
+import { View, Text, TextInput, StyleSheet, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView, Image, useColorScheme } from 'react-native';
 import { auth, database } from '../firebase'; // Assuming '../firebase' exports 'auth' and 'database'
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
 import { ref, set, get } from 'firebase/database';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient'; // Ensure expo-linear-gradient is installed
+import { ThemeContext } from '../ThemeContext'; // Adjust path as needed
+
+// Import both light and dark mode logo images
+const lightModeLogo = require('../assets/logotransparent.png');
+const darkModeLogo = require('../assets/logo-dark-mode.png'); // Assuming this is your dark mode logo
 
 export default function AuthScreen() {
   const navigation = useNavigation();
   const route = useRoute();
+
+  // Context-based theme
+  const { isDarkMode, colors } = useContext(ThemeContext);
 
   // Use param to force login tab if present
   const showLogin = route.params?.showLogin ?? false;
@@ -120,82 +128,90 @@ export default function AuthScreen() {
       keyboardVerticalOffset={40}
     >
       <ScrollView
-        contentContainerStyle={{ flexGrow: 1, paddingVertical: 24 }} // Remove justifyContent, add some padding if needed
+        style={{ flex: 1 }} // Ensures ScrollView itself fills the parent
+        contentContainerStyle={[
+          { flexGrow: 1, paddingVertical: 24 },
+          { backgroundColor: colors.background } // Apply theme background
+        ]}
         keyboardShouldPersistTaps="handled"
       >
-        <View style={styles.container}>
-          <Text style={styles.logo}>Luba Delivery</Text>
-          <Text style={styles.tagline}>Your Logistics Partner</Text>
+        <View style={[styles.container, { backgroundColor: colors.background }]}> {/* Apply theme to container */}
+          <Text style={[styles.logo, { color: colors.iconRed }]}>Luba Delivery</Text> {/* Using iconRed for brand color */}
+          <Text style={[styles.tagline]}>Your Logistics Partner</Text> {/* Apply theme color */}
 
-          {/* Logo Image*/}
+          {/* Conditional Logo Image based on theme */}
           <Image
-            source={require('../assets/logotransparent.png')} // Corrected path here
+            source={isDarkMode ? darkModeLogo : lightModeLogo}
             style={styles.logoImg}
             resizeMode="contain"
           />
 
+          {/* Removed backgroundColor from here to make it blend with the main background */}
           <View style={styles.tab}>
             {/* Login Tab */}
             <TouchableOpacity onPress={() => { setIsLogin(true); setErrors({}); setFirebaseError(''); }}>
               <LinearGradient
-                colors={isLogin ? ['#7B0000', '#990000', '#B30000', '#CC0000', '#E60000'] : ['#f0f0f0', '#f0f0f0']}
+                colors={isLogin ? ['#7B0000', '#990000', '#B30000', '#CC0000', '#E60000'] : [colors.background, colors.background]} // Use theme background for inactive tab
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={styles.gradientTab}
               >
-                <Text style={[styles.tabText, isLogin && styles.activeText]}>Login</Text>
+                <Text style={[styles.tabText, isLogin ? styles.activeText : { color: colors.text }]}>Login</Text>
               </LinearGradient>
             </TouchableOpacity>
 
             {/* Sign Up Tab */}
             <TouchableOpacity onPress={() => { setIsLogin(false); setErrors({}); setFirebaseError(''); }}>
               <LinearGradient
-                colors={!isLogin ? ['#7B0000', '#990000', '#B30000', '#CC0000', '#E60000'] : ['#f0f0f0', '#f0f0f0']}
+                colors={!isLogin ? ['#7B0000', '#990000', '#B30000', '#CC0000', '#E60000'] : [colors.background, colors.background]} // Use theme background for inactive tab
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={styles.gradientTab}
               >
-                <Text style={[styles.tabText, !isLogin && styles.activeText]}>Sign Up</Text>
+                <Text style={[styles.tabText, !isLogin ? styles.activeText : { color: colors.text }]}>Sign Up</Text>
               </LinearGradient>
             </TouchableOpacity>
           </View>
 
-          {isLogin && <Text style={styles.infoMsg}>First time here? Sign Up to Login</Text>}
+          {isLogin && <Text style={[styles.infoMsg, { color: colors.text }]}>First time here? Sign Up to Login</Text>}
 
           {!isLogin && (
             <View style={styles.field}>
               <TextInput
                 placeholder="👤 Username"
-                style={styles.input}
+                style={[styles.input, { backgroundColor: colors.cardBackground, color: colors.text, borderColor: colors.borderColor }]}
+                placeholderTextColor={colors.textSecondary} // Use textSecondary for placeholder
                 value={username}
                 onChangeText={setUsername}
                 autoCapitalize="none"
               />
-              {errors.username && <Text style={styles.error}>{errors.username}</Text>}
+              {errors.username && <Text style={[styles.error, { color: colors.iconRed }]}>{errors.username}</Text>}
             </View>
           )}
 
           <View style={styles.field}>
             <TextInput
               placeholder="📧 Email"
-              style={styles.input}
+              style={[styles.input, { backgroundColor: colors.cardBackground, color: colors.text, borderColor: colors.borderColor }]}
+              placeholderTextColor={colors.textSecondary}
               value={email}
               onChangeText={setEmail}
               autoCapitalize="none"
               keyboardType="email-address"
             />
-            {errors.email && <Text style={styles.error}>{errors.email}</Text>}
+            {errors.email && <Text style={[styles.error, { color: colors.iconRed }]}>{errors.email}</Text>}
           </View>
 
           <View style={styles.field}>
             <TextInput
               placeholder="🔒 Password"
               secureTextEntry
-              style={styles.input}
+              style={[styles.input, { backgroundColor: colors.cardBackground, color: colors.text, borderColor: colors.borderColor }]}
+              placeholderTextColor={colors.textSecondary}
               value={password}
               onChangeText={setPassword}
             />
-            {errors.password && <Text style={styles.error}>{errors.password}</Text>}
+            {errors.password && <Text style={[styles.error, { color: colors.iconRed }]}>{errors.password}</Text>}
           </View>
 
           {!isLogin && (
@@ -203,24 +219,25 @@ export default function AuthScreen() {
               <TextInput
                 placeholder="🔒 Confirm Password"
                 secureTextEntry
-                style={styles.input}
+                style={[styles.input, { backgroundColor: colors.cardBackground, color: colors.text, borderColor: colors.borderColor }]}
+                placeholderTextColor={colors.textSecondary}
                 value={confirmPassword}
                 onChangeText={setConfirmPassword}
               />
               {errors.confirmPassword && (
-                <Text style={styles.error}>{errors.confirmPassword}</Text>
+                <Text style={[styles.error, { color: colors.iconRed }]}>{errors.confirmPassword}</Text>
               )}
             </View>
           )}
 
-          {firebaseError ? <Text style={styles.error}>{firebaseError}</Text> : null}
-          {successMsg ? <Text style={styles.successMsg}>{successMsg}</Text> : null}
+          {firebaseError ? <Text style={[styles.error, { color: colors.iconRed }]}>{firebaseError}</Text> : null}
+          {successMsg ? <Text style={[styles.successMsg, { color: 'green' }]}>{successMsg}</Text> : null}
           <View style={{ height: 16 }} />
 
           {/* Login or Sign Up button */}
           <TouchableOpacity onPress={handleAuth} activeOpacity={0.85}>
             <LinearGradient
-              colors={['#ebd197', '#b48811', '#a2790d', '#bb9b49']}
+              colors={['#ebd197', '#b48811', '#a2790d', '#bb9b49']} // Keeping the original gold gradient for the button
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={styles.authButton}
@@ -230,9 +247,6 @@ export default function AuthScreen() {
               </Text>
             </LinearGradient>
           </TouchableOpacity>
-
-          {/* This button is redundant as the TouchableOpacity with LinearGradient serves the same purpose */}
-          {/* <Button title={isLogin ? 'Login' : 'Sign Up'} color="#D90D32" onPress={handleAuth} /> */}
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -242,52 +256,35 @@ export default function AuthScreen() {
 const styles = StyleSheet.create({
   container: {
     padding: 30,
-    backgroundColor: '#f0f0f0',
     flex: 1,
-    // Remove or comment out the next line:
-    // justifyContent: 'center',
+    // backgroundColor handled by theme
   },
   logo: {
     fontSize: 36,
     fontWeight: 'bold',
-    color: '#b80000',
     textAlign: 'center',
+    // color handled by theme
   },
   tagline: {
     fontSize: 16,
     textAlign: 'center',
     marginBottom: 12,
-    color:'#c5a34f', // Gold color for tagline
   },
   tab: {
     flexDirection: 'row',
     justifyContent: 'center',
     marginBottom: 25,
-    backgroundColor: '#f0f0f0', //'#f3eee2'
     borderRadius: 12,
     overflow: 'hidden',
-  },
-  // tabButton style is no longer directly used for the main tab buttons,
-  // as gradientTab is used instead. Keeping it in case it's used elsewhere.
-  tabButton: {
-    paddingVertical: 4,
-    paddingHorizontal: 30,
-    shadowColor: '#000', // Tab shadow
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 1,
+    // Removed backgroundColor from here
   },
   tabText: {
     fontWeight: '500',
-    color: '#333', // toggle button text
     fontSize: 16,
-  },
-  activeTab: {
-    backgroundColor: '#FFD700', // This style might not be fully applied due to LinearGradient
+    // color handled by theme
   },
   activeText: {
-    color: '#f0f0f0', // Changed to #f0f0f0 for better contrast on red gradient
+    color: '#f0f0f0', // Keep this color for active tab text for better contrast on red gradient
     fontWeight: 'bold',
   },
   field: {
@@ -295,33 +292,31 @@ const styles = StyleSheet.create({
   },
   input: {
     borderWidth: 1,
-    borderColor: '#c5a34f',
+    // borderColor, backgroundColor, color, placeholderTextColor handled by theme
     padding: 10,
     borderRadius: 8,
-    backgroundColor: '#f9f9f9',
   },
-// Logo Image Style
+  // Logo Image Style
   logoImg: {
-  width: 160,
-  height: 160,
-  marginVertical: 8,
-  alignSelf: 'center', // Center the image
+    width: 160,
+    height: 160,
+    marginVertical: 8,
+    alignSelf: 'center', // Center the image
   },
-
   error: {
-    color: '#b80000',
+    // color handled by theme
     fontSize: 10,
     marginTop: 4,
     marginLeft: 4,
   },
   infoMsg: {
     fontSize: 12,
-    color: '#b80000',
     textAlign: 'center',
     marginBottom: 20,
+    // color handled by theme
   },
   successMsg: {
-    color: 'green',
+    color: 'green', // Keeping specific success color as it's standard
     fontSize: 10,
     marginTop: 10,
     textAlign: 'center',
@@ -348,7 +343,7 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   authButtonText: {
-    color: '#f0f0f0',
+    color: '#f0f0f0', // Keep specific color for contrast on the golden gradient
     fontWeight: '500',
     fontSize: 16,
     letterSpacing: 1,
