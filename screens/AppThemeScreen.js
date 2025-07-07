@@ -1,28 +1,15 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, Switch, StyleSheet, TouchableOpacity, AsyncStorage } from 'react-native';
+import React, { useContext, useState } from 'react';
+import { View, Text, Switch, StyleSheet, TouchableOpacity } from 'react-native';
+import { ThemeContext } from '../ThemeContext';
 
 export default function AppThemeScreen() {
-  const [isDarkMode, setIsDarkMode] = useState(false);  // For toggling theme
-  const [themeName, setThemeName] = useState("Light");  // To display the theme name
+  const { isDarkMode, toggleTheme } = useContext(ThemeContext);
+  const themeName = isDarkMode ? "Dark" : "Light";
+  const [saveConfirmation, setSaveConfirmation] = useState("");
 
-  // Check and load the current theme when the component mounts
-  useEffect(() => {
-    const loadTheme = async () => {
-      const savedTheme = await AsyncStorage.getItem("theme");
-      if (savedTheme) {
-        setIsDarkMode(savedTheme === "dark");
-        setThemeName(savedTheme === "dark" ? "Dark" : "Light");
-      }
-    };
-    loadTheme();
-  }, []);
-
-  // Toggle theme between light and dark
-  const toggleSwitch = async () => {
-    const newTheme = isDarkMode ? "light" : "dark";
-    setIsDarkMode(!isDarkMode);
-    setThemeName(newTheme === "dark" ? "Dark" : "Light");
-    await AsyncStorage.setItem("theme", newTheme);  // Save the selected theme
+  const handleSave = () => {
+    setSaveConfirmation("Theme saved!");
+    setTimeout(() => setSaveConfirmation(""), 2000);
   };
 
   return (
@@ -37,7 +24,7 @@ export default function AppThemeScreen() {
         </Text>
         <Switch
           value={isDarkMode}
-          onValueChange={toggleSwitch}
+          onValueChange={toggleTheme}
           thumbColor={isDarkMode ? "#fff" : "#b80000"}
           trackColor={{ false: "#ccc", true: "#b80000" }}
         />
@@ -45,10 +32,18 @@ export default function AppThemeScreen() {
 
       <TouchableOpacity
         style={[styles.saveButton, isDarkMode ? styles.darkButton : styles.lightButton]}
-        onPress={() => {}}
+        onPress={handleSave}
       >
         <Text style={styles.saveButtonText}>Save Theme</Text>
       </TouchableOpacity>
+
+      {saveConfirmation ? (
+      <View style={styles.confirmationWrapper}>
+        <Text style={[styles.confirmationText, isDarkMode ? styles.darkText : styles.lightText]}>
+          {saveConfirmation}
+        </Text>
+      </View>
+    ) : null}
     </View>
   );
 }
@@ -56,49 +51,60 @@ export default function AppThemeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
     padding: 20,
+    justifyContent: 'center',
   },
   title: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: 'bold',
     marginBottom: 20,
-  },
-  lightMode: {
-    backgroundColor: '#fff',
-  },
-  darkMode: {
-    backgroundColor: '#333',
+    color: '#b80000',
   },
   themeOption: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 30,
   },
   optionText: {
     fontSize: 18,
-    marginRight: 10,
+    color: '#b80000',
   },
   saveButton: {
-    paddingVertical: 12,
-    paddingHorizontal: 30,
+    padding: 12,
     borderRadius: 8,
+    alignItems: 'center',
+  },
+  saveButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#c5a34f',
+  },
+  darkMode: {
+    backgroundColor: '#121212',
+  },
+  lightMode: {
+    backgroundColor: '#f0f0f0',
+  },
+  darkText: {
+    color: '#b80000',
+  },
+  lightText: {
+    color: '#b80000',
+  },
+  darkButton: {
+    backgroundColor: '#b80000',
   },
   lightButton: {
     backgroundColor: '#b80000',
   },
-  darkButton: {
-    backgroundColor: '#444',
-  },
-  saveButtonText: {
-    color: '#fff',
-    fontWeight: '600',
-  },
-  darkText: {
-    color: '#fff',
-  },
-  lightText: {
-    color: '#000',
-  },
+  confirmationWrapper: {
+  alignItems: 'center',
+  marginTop: 16,
+},
+confirmationText: {
+  fontSize: 16,
+  fontWeight: '500',
+  color: '#c5a34f',
+},
 });
