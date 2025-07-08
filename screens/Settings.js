@@ -10,7 +10,7 @@ export default function Settings({ navigation }) {
     <ScrollView style={[styles.container, isDarkMode ? styles.darkMode : styles.lightMode]}>
       <View style={styles.section}>
         <Text style={[styles.title, isDarkMode ? styles.darkText : styles.lightText]}>
-          Settings ⚙️
+          Settings 
         </Text>
         <Text style={[styles.subtitle, isDarkMode ? styles.darkText : styles.lightText]}>
           Manage your account and preferences.

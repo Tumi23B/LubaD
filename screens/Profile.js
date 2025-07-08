@@ -33,23 +33,30 @@ export default function Profile() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const navigation = useNavigation();
 
-  useEffect(() => {
-    const user = auth.currentUser;
-    if (user) {
-      const userRef = ref(database, 'users/' + user.uid);
-      get(userRef).then((snapshot) => {
-        if (snapshot.exists()) {
-          const data = snapshot.val();
-          setProfile({
-            name: data.username || '',
-            email: user.email || '',
-          });
-        }
-      });
-    }
-  }, []);
+  // Fetch user profile data from Firebase when the component mounts
+    useEffect(() => {
+  const user = auth.currentUser;
+  if (user) {
+    const userRef = ref(database, 'users/' + user.uid);
+    get(userRef).then((snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.val();
+        setProfile({
+          name: data.username || '',
+          email: user.email || '',
+        });
 
-  const pickImage = async () => {
+        if (data.imageUrl) {
+          setImage(data.imageUrl); // Set Cloudinary image from Firebase
+        }
+      }
+    });
+  }
+}, []);
+
+
+    // function to allow users to select an image from their device
+    const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
@@ -57,9 +64,17 @@ export default function Profile() {
     });
 
     if (!result.canceled) {
-      setImage(result.assets[0].uri);
+      const uri = result.assets[0].uri;
+      const imageUrl = await uploadToCloudinary(uri); // Upload to Cloudinary
+      setImage(imageUrl); // Set in state immediately
+
+      const user = auth.currentUser;
+      const userRef = ref(database, 'users/' + user.uid);
+      await update(userRef, { imageUrl }); //  Save to Firebase
     }
   };
+
+
 
   const handleChangePassword = async () => {
     if (!currentPassword || !newPassword || !confirmPassword) {
@@ -143,6 +158,26 @@ export default function Profile() {
     );
   };
 
+  // utility function to upload the selected image from the user's device
+  const uploadToCloudinary = async (uri) => {
+  const formData = new FormData();
+  formData.append('file', {
+    uri,
+    type: 'image/jpeg',
+    name: 'profile.jpg',
+  });
+  formData.append('upload_preset', 'driver profile images'); // unsigned preset
+  formData.append('cloud_name', 'dvxycdr6l');        // Cloudinary cloud name
+
+  const response = await fetch('https://api.cloudinary.com/v1_1/dvxycdr6l/image/upload', {
+    method: 'POST',
+    body: formData,
+  });
+
+  const data = await response.json();
+  return data.secure_url; // This is what you'll store in Firebase
+};
+
   return (
     <ScrollView style={[styles.container, { backgroundColor: colors.background }]} keyboardShouldPersistTaps="handled">
       <Text style={[styles.title, { color: colors.iconRed }]}>Your Profile</Text>
@@ -220,8 +255,8 @@ export default function Profile() {
         </TouchableOpacity>
 
         <TouchableOpacity style={[styles.logoutButton, { backgroundColor: colors.borderColor }]} onPress={handleLogout}>
-          <Ionicons name="log-out-outline" size={18} color={colors.buttonText} />
-          <Text style={[styles.logoutText, { color: colors.buttonText }]}>Logout</Text>
+          <Ionicons name="log-out-outline" size={18} color={colors.background} />
+          <Text style={[styles.logoutText, { color: colors.background }]}>Logout</Text>
         </TouchableOpacity>
 
         <TouchableOpacity style={[styles.deleteButton, { backgroundColor: colors.iconRed }]} onPress={handleDeleteAccount}>
@@ -303,7 +338,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   logoutButton: {
-    marginTop: 16,
+    marginTop: 18,
     padding: 12,
     borderRadius: 8,
     flexDirection: 'row',

@@ -92,7 +92,7 @@ export default function AuthScreen() {
         const snapshot = await get(ref(database, 'users/' + userCredential.user.uid));
         const userData = snapshot.val();
         const name = userData?.username || 'User';
-        navigation.navigate('Dashboard', { username: name });
+        navigation.navigate('Dashboard', { username: name, email});
       } else {
         const userCredential = await createUserWithEmailAndPassword(auth, trimmedEmail, password);
         const userId = userCredential.user.uid;

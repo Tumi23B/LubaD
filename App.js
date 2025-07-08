@@ -76,8 +76,8 @@ function HomeScreen({ navigation }) {
   const { isDarkMode, colors } = useContext(ThemeContext);
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}> {/* Apply background color */}
-      <Text style={[styles.title, { color: colors.iconRed }]}>Welcome To Luba Delivery!</Text> {/* Apply text color */}
+    <View style={[styles.container, { backgroundColor: colors.iconRed }]}> {/* Apply background color */}
+      <Text style={[styles.title, { color: colors.tagline }]}>Welcome To Luba Delivery!</Text> {/* Apply text color */}
       <Text style={styles.tagline}>Your Logistics Partner</Text> {/* Apply secondary text color */}
 
       {/* Conditional Logo Image based on theme */}
@@ -87,7 +87,7 @@ function HomeScreen({ navigation }) {
         resizeMode="contain"
       />
 
-      <TouchableOpacity style={[styles.button, { backgroundColor: colors.iconRed}]} onPress={() => navigation.navigate('Auth')}>
+      <TouchableOpacity style={[styles.button, { backgroundColor: colors.tagline}]} onPress={() => navigation.navigate('Auth')}>
         <Text style={[styles.buttonText]}>GET STARTED</Text> {/* Apply button text color */}
       </TouchableOpacity>
     </View>
@@ -126,7 +126,7 @@ export const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 1,
-    color:'#c5a34f',
+    color: '#f0f0f0',
   },
     tagline: {
     fontSize: 16,

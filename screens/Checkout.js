@@ -2,12 +2,10 @@ import React, { useState, useContext, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Switch, ScrollView, ActivityIndicator, Modal } from 'react-native';
 import { ThemeContext } from '../ThemeContext';
 
-// Import Firebase auth and database instances from your central firebase.js file
-import { auth, database } from '../firebase'; // <--- UPDATED: Import from your firebase.js
-
-// Firebase imports for Realtime Database functions (still needed for ref, push, set, update)
-import { ref, push, set, update, onValue } from 'firebase/database'; // Added onValue for consistency if needed, though not directly used in checkout flow for listening
-import { onAuthStateChanged, signInAnonymously, signInWithCustomToken } from 'firebase/auth'; // Specific auth functions
+// Firebase imports for Realtime Database
+import { auth, database } from '../firebase'; // Import auth and database from your central firebase.js
+import { ref, push, set, update } from 'firebase/database'; // Import 'update'
+import { onAuthStateChanged, signInAnonymously, signInWithCustomToken } from 'firebase/auth';
 
 export default function Checkout({ route, navigation }) {
   const { isDarkMode, colors } = useContext(ThemeContext);
@@ -18,30 +16,25 @@ export default function Checkout({ route, navigation }) {
   const [isSaving, setIsSaving] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [modalMessage, setModalMessage] = useState('');
-  const [modalType, setModalType] = useState('success');
+  const [modalType, setModalType] = useState('success'); // 'success' or 'error'
 
   // Firebase state
-  // db and auth are now directly imported, no longer managed by useState here for initialization
   const [userId, setUserId] = useState(null);
   const [isAuthReady, setIsAuthReady] = useState(false);
 
   // Initialize Firebase and authenticate
   useEffect(() => {
-    // No need for initializeApp or parsing firebaseConfig here, as it's done in firebase.js
     try {
-      // Use the imported 'auth' instance directly
-      const unsubscribe = onAuthStateChanged(auth, async (user) => { // <--- UPDATED: Use imported 'auth'
+      const unsubscribe = onAuthStateChanged(auth, async (user) => {
         if (user) {
           setUserId(user.uid);
           setIsAuthReady(true);
         } else {
           try {
-            // Check if __initial_auth_token is provided by the environment
             if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-              await signInWithCustomToken(auth, __initial_auth_token); // <--- UPDATED: Use imported 'auth'
+              await signInWithCustomToken(auth, __initial_auth_token);
             } else {
-              // Sign in anonymously if no custom token is provided (e.g., for new users)
-              await signInAnonymously(auth); // <--- UPDATED: Use imported 'auth'
+              await signInAnonymously(auth);
             }
           } catch (error) {
             console.error("Firebase authentication error:", error);
@@ -53,15 +46,15 @@ export default function Checkout({ route, navigation }) {
         }
       });
 
-      return () => unsubscribe();
+      return () => unsubscribe(); // Cleanup auth listener
     } catch (error) {
-      console.error("Error initializing Firebase (from imported services):", error);
-      setModalMessage(`Firebase initialization error: ${error.message}`);
+      console.error("Error initializing Firebase:", error);
+      setModalMessage(`Firebase init error: ${error.message}`);
       setModalType('error');
       setShowModal(true);
       setIsAuthReady(true);
     }
-  }, []); // Empty dependency array means this runs once on mount
+  }, []);
 
   const vehicleOptions = [
     { type: 'Mini Van', price: 150 },
@@ -79,9 +72,8 @@ export default function Checkout({ route, navigation }) {
       return;
     }
 
-    // Use the imported 'database' (db) instance directly
-    if (!database || !userId) { // <--- UPDATED: Use imported 'database'
-      setModalMessage("Database not ready or user not authenticated. Please try again.");
+    if (!database || !userId) {
+      setModalMessage("Database not ready. Please try again.");
       setModalType('error');
       setShowModal(true);
       return;
@@ -91,53 +83,65 @@ export default function Checkout({ route, navigation }) {
     try {
       const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
-      // Use the imported 'database' instance for ref
-      const userRidesRef = ref(database, `artifacts/${appId}/users/${userId}/rides`); // <--- UPDATED: Use imported 'database'
-      const newCustomerBookingRef = push(userRidesRef);
-      const customerBookingId = newCustomerBookingRef.key;
+      // Find the selected vehicle's price
+      const vehicleDetails = vehicleOptions.find(v => v.type === selectedVehicle);
+      const vehiclePrice = vehicleDetails ? vehicleDetails.price : 0; // Get the price
+
+      // 1. Create a new entry in the user's private booking history first
+      const userRidesRef = ref(database, `artifacts/${appId}/users/${userId}/rides`);
+      const newCustomerBookingRef = push(userRidesRef); // Get a new unique key
+      const customerBookingId = newCustomerBookingRef.key; // This is the ID for the customer's specific booking
 
       const bookingDataForCustomer = {
         pickup,
         dropoff,
         date: new Date(date).toISOString(),
         vehicle: selectedVehicle,
+        price: vehiclePrice, // <--- ADDED: Store the vehicle price
         helpWithLoading: loadingHelp,
         bookingTime: new Date().toISOString(),
-        status: 'pending',
-        customerId: userId,
-        customerBookingId: customerBookingId,
+        status: 'pending', // Initial status for the customer's view
+        customerId: userId, // The customer's own ID
+        customerBookingId: customerBookingId, // Reference to itself (for consistency)
       };
 
       await set(newCustomerBookingRef, bookingDataForCustomer);
 
-      // Use the imported 'database' instance for ref
-      const rideRequestsRef = ref(database, `artifacts/${appId}/ride_requests`); // <--- UPDATED: Use imported 'database'
-      const newRideRequestRef = push(rideRequestsRef);
-      const requestId = newRideRequestRef.key;
+      // 2. Now, create a request for drivers in a public queue
+      const rideRequestsRef = ref(database, `artifacts/${appId}/ride_requests`);
+      const newRideRequestRef = push(rideRequestsRef); // Get a new unique key for the public request
+      const requestId = newRideRequestRef.key; // This is the ID for the public request (what drivers will see)
 
       const bookingDataForDriverRequest = {
-        ...bookingDataForCustomer,
-        requestId: requestId,
+        ...bookingDataForCustomer, // Copy all fields from customer's booking
+        requestId: requestId, // Add the public request ID
+        // The 'status', 'customerId', 'customerBookingId', and 'price' are already present from bookingDataForCustomer
       };
 
       await set(newRideRequestRef, bookingDataForDriverRequest);
 
+      // Optional: Update the customer's original booking with the requestId
+      // This links the customer's personal record to the public request.
       await update(newCustomerBookingRef, { requestId: requestId });
+
 
       setModalMessage("Booking confirmed successfully!");
       setModalType('success');
       setShowModal(true);
 
+      // Navigate to Payment or Booking History after a short delay
       setTimeout(() => {
         setShowModal(false);
         navigation.navigate('Payment', {
           vehicle: selectedVehicle,
+          price: vehiclePrice, // <--- ADDED: Pass the price to Payment screen
           pickup,
           dropoff,
           date,
           helpWithLoading: loadingHelp,
+          // You might want to pass the booking ID if Payment needs it
         });
-      }, 1500);
+      }, 1500); // Show success message for 1.5 seconds
     } catch (error) {
       console.error("Error saving booking:", error);
       setModalMessage(`Failed to confirm booking: ${error.message}`);
@@ -199,7 +203,7 @@ export default function Checkout({ route, navigation }) {
       <TouchableOpacity
         style={[styles.confirmButton, { backgroundColor: colors.iconRed }]}
         onPress={handleConfirmBooking}
-        disabled={isSaving || !isAuthReady}
+        disabled={isSaving || !isAuthReady} // Disable button while saving or if auth not ready
       >
         {isSaving ? (
           <ActivityIndicator color={colors.buttonText} />
@@ -208,6 +212,7 @@ export default function Checkout({ route, navigation }) {
         )}
       </TouchableOpacity>
 
+      {/* Custom Modal for messages */}
       <Modal
         transparent={true}
         animationType="fade"
