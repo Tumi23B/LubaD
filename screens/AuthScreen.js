@@ -1,28 +1,25 @@
 import React, { useState, useEffect, useContext } from 'react';
-import { View, Text, TextInput, StyleSheet, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView, Image, useColorScheme } from 'react-native';
-import { auth, database } from '../firebase'; // Assuming '../firebase' exports 'auth' and 'database'
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
+import { View, Text, TextInput, StyleSheet, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView, Image, Alert } from 'react-native';
+import { auth, database } from '../firebase';
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
 import { ref, set, get } from 'firebase/database';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { LinearGradient } from 'expo-linear-gradient'; // Ensure expo-linear-gradient is installed
-import { ThemeContext } from '../ThemeContext'; // Adjust path as needed
+import { LinearGradient } from 'expo-linear-gradient';
+import { ThemeContext } from '../ThemeContext';
 
-// Import both light and dark mode logo images
 const lightModeLogo = require('../assets/logotransparent.png');
-const darkModeLogo = require('../assets/logo-dark-mode.png'); // Assuming this is your dark mode logo
+const darkModeLogo = require('../assets/logo-dark-mode.png');
 
 export default function AuthScreen() {
   const navigation = useNavigation();
   const route = useRoute();
-
-  // Context-based theme
   const { isDarkMode, colors } = useContext(ThemeContext);
 
-  // Use param to force login tab if present
   const showLogin = route.params?.showLogin ?? false;
   const [isLogin, setIsLogin] = useState(showLogin);
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [errors, setErrors] = useState({});
@@ -32,6 +29,20 @@ export default function AuthScreen() {
   useEffect(() => {
     if (showLogin) setIsLogin(true);
   }, [showLogin]);
+
+  // Validate South African phone number
+  const validateSAPhoneNumber = (phone) => {
+    // Remove all non-digit characters
+    const cleaned = phone.replace(/\D/g, '');
+    
+    // Check if it starts with 0 and has 10 digits (e.g., 0821234567)
+    if (/^0\d{9}$/.test(cleaned)) return true;
+    
+    // Check if it starts with +27 or 27 and has 11 digits (e.g., +27821234567 or 27821234567)
+    if (/^(\+?27|0)\d{9}$/.test(cleaned)) return true;
+    
+    return false;
+  };
 
   const validate = () => {
     let valid = true;
@@ -44,6 +55,14 @@ export default function AuthScreen() {
         valid = false;
       } else if (username.includes('@')) {
         errs.username = 'Username must not be an email.';
+        valid = false;
+      }
+
+      if (!phoneNumber) {
+        errs.phoneNumber = 'Phone number is required.';
+        valid = false;
+      } else if (!validateSAPhoneNumber(phoneNumber)) {
+        errs.phoneNumber = 'Enter a valid South African phone number (e.g., 0821234567 or +27821234567)';
         valid = false;
       }
     }
@@ -79,12 +98,32 @@ export default function AuthScreen() {
     return valid;
   };
 
+  const handleForgotPassword = async () => {
+    const trimmedEmail = email.trim().toLowerCase();
+    
+    if (!trimmedEmail) {
+      setErrors({...errors, email: 'Email is required to reset password.'});
+      return;
+    }
+
+    try {
+      await sendPasswordResetEmail(auth, trimmedEmail);
+      Alert.alert(
+        'Password Reset Email Sent',
+        'Please check your email to reset your password.'
+      );
+    } catch (error) {
+      setFirebaseError(error.message);
+    }
+  };
+
   const handleAuth = async () => {
     setFirebaseError('');
     setSuccessMsg('');
     if (!validate()) return;
 
     const trimmedEmail = email.trim().toLowerCase();
+    const cleanedPhone = phoneNumber.replace(/\D/g, '');
 
     try {
       if (isLogin) {
@@ -100,6 +139,7 @@ export default function AuthScreen() {
         await set(ref(database, 'users/' + userId), {
           username,
           email: trimmedEmail,
+          phoneNumber: cleanedPhone,
           role: 'customer',
           driverApplication: { status: 'not_applied' },
         });
@@ -110,9 +150,7 @@ export default function AuthScreen() {
     } catch (error) {
       if (
         error.code === 'auth/user-not-found' ||
-        error.code === 'auth/invalid-credential' ||
-        error.message?.includes('auth/user-not-found') ||
-        error.message?.includes('auth/invalid-credential')
+        error.code === 'auth/invalid-credential'
       ) {
         setFirebaseError('No account found for this email or password. Please sign up first.');
       } else {
@@ -128,44 +166,36 @@ export default function AuthScreen() {
       keyboardVerticalOffset={40}
     >
       <ScrollView
-        style={{ flex: 1 }} // Ensures ScrollView itself fills the parent
+        style={{ flex: 1 }}
         contentContainerStyle={[
           { flexGrow: 1, paddingVertical: 24 },
-          { backgroundColor: colors.background } // Apply theme background
+          { backgroundColor: colors.background }
         ]}
         keyboardShouldPersistTaps="handled"
       >
-        <View style={[styles.container, { backgroundColor: colors.background }]}> {/* Apply theme to container */}
-          <Text style={[styles.logo, { color: colors.iconRed }]}>Luba Delivery</Text> {/* Using iconRed for brand color */}
-          <Text style={[styles.tagline]}>Your Logistics Partner</Text> {/* Apply theme color */}
+        <View style={[styles.container, { backgroundColor: colors.background }]}>
+          <Text style={[styles.logo, { color: colors.iconRed }]}>Luba Delivery</Text>
+          <Text style={[styles.tagline]}>Your Logistics Partner</Text>
 
-          {/* Conditional Logo Image based on theme */}
           <Image
             source={isDarkMode ? darkModeLogo : lightModeLogo}
             style={styles.logoImg}
             resizeMode="contain"
           />
 
-          {/* Removed backgroundColor from here to make it blend with the main background */}
           <View style={styles.tab}>
-            {/* Login Tab */}
             <TouchableOpacity onPress={() => { setIsLogin(true); setErrors({}); setFirebaseError(''); }}>
               <LinearGradient
-                colors={isLogin ? ['#7B0000', '#990000', '#B30000', '#CC0000', '#E60000'] : [colors.background, colors.background]} // Use theme background for inactive tab
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
+                colors={isLogin ? ['#7B0000', '#990000', '#B30000', '#CC0000', '#E60000'] : [colors.background, colors.background]}
                 style={styles.gradientTab}
               >
                 <Text style={[styles.tabText, isLogin ? styles.activeText : { color: colors.text }]}>Login</Text>
               </LinearGradient>
             </TouchableOpacity>
 
-            {/* Sign Up Tab */}
             <TouchableOpacity onPress={() => { setIsLogin(false); setErrors({}); setFirebaseError(''); }}>
               <LinearGradient
-                colors={!isLogin ? ['#7B0000', '#990000', '#B30000', '#CC0000', '#E60000'] : [colors.background, colors.background]} // Use theme background for inactive tab
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
+                colors={!isLogin ? ['#7B0000', '#990000', '#B30000', '#CC0000', '#E60000'] : [colors.background, colors.background]}
                 style={styles.gradientTab}
               >
                 <Text style={[styles.tabText, !isLogin ? styles.activeText : { color: colors.text }]}>Sign Up</Text>
@@ -180,7 +210,7 @@ export default function AuthScreen() {
               <TextInput
                 placeholder="👤 Username"
                 style={[styles.input, { backgroundColor: colors.cardBackground, color: colors.text, borderColor: colors.borderColor }]}
-                placeholderTextColor={colors.textSecondary} // Use textSecondary for placeholder
+                placeholderTextColor={colors.textSecondary}
                 value={username}
                 onChangeText={setUsername}
                 autoCapitalize="none"
@@ -201,6 +231,20 @@ export default function AuthScreen() {
             />
             {errors.email && <Text style={[styles.error, { color: colors.iconRed }]}>{errors.email}</Text>}
           </View>
+
+          {!isLogin && (
+            <View style={styles.field}>
+              <TextInput
+                placeholder="📱 South African Phone (e.g.0821234567)"
+                style={[styles.input, { backgroundColor: colors.cardBackground, color: colors.text, borderColor: colors.borderColor }]}
+                placeholderTextColor={colors.textSecondary}
+                value={phoneNumber}
+                onChangeText={setPhoneNumber}
+                keyboardType="phone-pad"
+              />
+              {errors.phoneNumber && <Text style={[styles.error, { color: colors.iconRed }]}>{errors.phoneNumber}</Text>}
+            </View>
+          )}
 
           <View style={styles.field}>
             <TextInput
@@ -224,22 +268,22 @@ export default function AuthScreen() {
                 value={confirmPassword}
                 onChangeText={setConfirmPassword}
               />
-              {errors.confirmPassword && (
-                <Text style={[styles.error, { color: colors.iconRed }]}>{errors.confirmPassword}</Text>
-              )}
+              {errors.confirmPassword && <Text style={[styles.error, { color: colors.iconRed }]}>{errors.confirmPassword}</Text>}
             </View>
+          )}
+
+          {isLogin && (
+            <TouchableOpacity onPress={handleForgotPassword}>
+              <Text style={[styles.forgotPassword, { color: colors.iconRed }]}>Forgot Password?</Text>
+            </TouchableOpacity>
           )}
 
           {firebaseError ? <Text style={[styles.error, { color: colors.iconRed }]}>{firebaseError}</Text> : null}
           {successMsg ? <Text style={[styles.successMsg, { color: 'green' }]}>{successMsg}</Text> : null}
-          <View style={{ height: 16 }} />
 
-          {/* Login or Sign Up button */}
           <TouchableOpacity onPress={handleAuth} activeOpacity={0.85}>
             <LinearGradient
-              colors={['#ebd197', '#b48811', '#a2790d', '#bb9b49']} // Keeping the original gold gradient for the button
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
+              colors={['#ebd197', '#b48811', '#a2790d', '#bb9b49']}
               style={styles.authButton}
             >
               <Text style={styles.authButtonText}>
@@ -257,13 +301,11 @@ const styles = StyleSheet.create({
   container: {
     padding: 30,
     flex: 1,
-    // backgroundColor handled by theme
   },
   logo: {
     fontSize: 36,
     fontWeight: 'bold',
     textAlign: 'center',
-    // color handled by theme
   },
   tagline: {
     fontSize: 16,
@@ -276,15 +318,13 @@ const styles = StyleSheet.create({
     marginBottom: 25,
     borderRadius: 12,
     overflow: 'hidden',
-    // Removed backgroundColor from here
   },
   tabText: {
     fontWeight: '500',
     fontSize: 16,
-    // color handled by theme
   },
   activeText: {
-    color: '#f0f0f0', // Keep this color for active tab text for better contrast on red gradient
+    color: '#f0f0f0',
     fontWeight: 'bold',
   },
   field: {
@@ -292,19 +332,16 @@ const styles = StyleSheet.create({
   },
   input: {
     borderWidth: 1,
-    // borderColor, backgroundColor, color, placeholderTextColor handled by theme
     padding: 10,
     borderRadius: 8,
   },
-  // Logo Image Style
   logoImg: {
     width: 160,
     height: 160,
     marginVertical: 8,
-    alignSelf: 'center', // Center the image
+    alignSelf: 'center',
   },
   error: {
-    // color handled by theme
     fontSize: 10,
     marginTop: 4,
     marginLeft: 4,
@@ -313,10 +350,9 @@ const styles = StyleSheet.create({
     fontSize: 12,
     textAlign: 'center',
     marginBottom: 20,
-    // color handled by theme
   },
   successMsg: {
-    color: 'green', // Keeping specific success color as it's standard
+    color: 'green',
     fontSize: 10,
     marginTop: 10,
     textAlign: 'center',
@@ -327,14 +363,13 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginHorizontal: 2,
   },
-  //Login & Sign Up Button Style
   authButton: {
-    width: 180, // Set your preferred width
+    width: 180,
     paddingVertical: 10,
     borderRadius: 30,
     alignItems: 'center',
     justifyContent: 'center',
-    alignSelf: 'center', // Centers the button horizontally
+    alignSelf: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
@@ -343,9 +378,14 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   authButtonText: {
-    color: '#f0f0f0', // Keep specific color for contrast on the golden gradient
+    color: '#f0f0f0',
     fontWeight: '500',
     fontSize: 16,
     letterSpacing: 1,
+  },
+  forgotPassword: {
+    textAlign: 'right',
+    marginBottom: 15,
+    fontSize: 12,
   },
 });

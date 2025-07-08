@@ -1,9 +1,8 @@
-// Customer Dashboard Screen
 import React, { useEffect, useState, useContext } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, TextInput, Platform } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, TextInput, Platform, Alert } from 'react-native';
 import { auth, database } from '../firebase';
 import { ref, get, onValue } from 'firebase/database';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import DateTimePickerModal from "react-native-modal-datetime-picker";
 import MapView, { Marker, Polyline } from 'react-native-maps';
 import * as Location from 'expo-location';
 import axios from 'axios';
@@ -11,20 +10,19 @@ import { Ionicons } from '@expo/vector-icons';
 import { ThemeContext } from '../ThemeContext';
 
 export default function Dashboard({ navigation }) {
-  const { isDarkMode, colors } = useContext(ThemeContext); // Use useContext to get theme
+  const { isDarkMode, colors } = useContext(ThemeContext);
 
   const [username, setUsername] = useState('');
-  const [selectedVehicle, setSelectedVehicle] = useState(null);
   const [pickup, setPickup] = useState('');
   const [dropoff, setDropoff] = useState('');
   const [date, setDate] = useState(new Date());
-  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [isDatePickerVisible, setDatePickerVisibility] = useState(false);
   const [timeNow, setTimeNow] = useState(true);
   const [location, setLocation] = useState(null);
   const [routeCoords, setRouteCoords] = useState([]);
   const [recentRides, setRecentRides] = useState([]);
 
-  const GOOGLE_MAPS_API_KEY = 'YOUR_API_KEY_HERE'; // Replace with your actual API key
+  const GOOGLE_MAPS_API_KEY = 'AIzaSyCbGYYM73d-LMVlXEKi7p6abFLHUiY9Bjc';
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -106,6 +104,32 @@ export default function Dashboard({ navigation }) {
     return points;
   };
 
+  const showDatePicker = () => {
+    setDatePickerVisibility(true);
+  };
+
+  const hideDatePicker = () => {
+    setDatePickerVisibility(false);
+  };
+
+  const handleConfirm = (selectedDate) => {
+    setDate(selectedDate);
+    hideDatePicker();
+  };
+
+  const handleCheckout = () => {
+    if (!pickup || !dropoff) {
+      Alert.alert('Missing Information', 'Please enter both pickup and dropoff locations');
+      return;
+    }
+
+    navigation.navigate('Checkout', {
+      pickup,
+      dropoff,
+      date: date.toISOString(),
+    });
+  };
+
   const vehicleOptions = [
     { type: 'Mini Van', icon: 'car-outline' },
     { type: 'Van', icon: 'bus-outline' },
@@ -137,7 +161,7 @@ export default function Dashboard({ navigation }) {
                   longitudeDelta: 0.1,
                 }
           }
-          customMapStyle={isDarkMode ? mapStyleDark : mapStyleLight} // Apply custom map style based on theme
+          customMapStyle={isDarkMode ? mapStyleDark : mapStyleLight}
         >
           {location && <Marker coordinate={location} pinColor={colors.iconRed} title="You are here" />}
           {routeCoords.length > 0 && (
@@ -185,63 +209,54 @@ export default function Dashboard({ navigation }) {
         </TouchableOpacity>
 
         {!timeNow && (
-          <TouchableOpacity onPress={() => setShowDatePicker(true)} style={[styles.input, { backgroundColor: colors.cardBackground, borderColor: colors.borderColor }]}>
+          <TouchableOpacity 
+            onPress={showDatePicker} 
+            style={[styles.input, { 
+              backgroundColor: colors.cardBackground, 
+              borderColor: colors.borderColor 
+            }]}
+          >
             <Text style={{ color: colors.text }}>{date.toLocaleString()}</Text>
           </TouchableOpacity>
         )}
-        {showDatePicker && (
-          <DateTimePicker
-            value={date}
-            mode="datetime"
-            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-            onChange={(e, selectedDate) => {
-              if (selectedDate) setDate(selectedDate);
-              setShowDatePicker(false);
-            }}
-          />
-        )}
+
+        <DateTimePickerModal
+          isVisible={isDatePickerVisible}
+          mode="datetime"
+          onConfirm={handleConfirm}
+          onCancel={hideDatePicker}
+        />
 
         <TouchableOpacity
           style={[styles.checkoutButton, { backgroundColor: colors.iconRed }]}
-          onPress={() =>
-            navigation.navigate('Checkout', {
-              pickup,
-              dropoff,
-              date: date.toISOString(),
-              vehicle: selectedVehicle,
-            })
-          }
+          onPress={handleCheckout}
         >
           <Text style={[styles.checkoutButtonText, { color: colors.buttonText }]}>Checkout</Text>
         </TouchableOpacity>
       </View>
 
       <View style={styles.section}>
-        <Text style={[styles.heading, { color: colors.iconRed }]}>Our Vehicles</Text>
+        <Text style={[styles.heading, { color: colors.iconRed }]}>Available Vehicle Types</Text>
         <View style={styles.vehicleGrid}>
           {vehicleOptions.map((v, i) => (
-            <TouchableOpacity
+            <View
               key={i}
               style={[
                 styles.vehicleBox,
                 {
                   backgroundColor: colors.cardBackground,
                   borderColor: colors.borderColor,
-                },
-                selectedVehicle === v.type && {
-                  borderColor: colors.iconRed,
-                  backgroundColor: isDarkMode ? colors.darkHighlight : colors.lightHighlight, // Use distinct highlight colors
-                },
+                }
               ]}
-              onPress={() => setSelectedVehicle(v.type)}
             >
               <Ionicons name={v.icon} size={30} color={colors.iconRed} />
               <Text style={[styles.vehicleLabel, { color: colors.text }]}>{v.type}</Text>
-            </TouchableOpacity>
+            </View>
           ))}
         </View>
       </View>
 
+      {/* Rest of your components remain the same */}
       <View style={styles.section}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
           <Text style={[styles.heading, { color: colors.iconRed }]}>Recent Activity</Text>
@@ -275,6 +290,7 @@ export default function Dashboard({ navigation }) {
     </ScrollView>
   );
 }
+
 
 const mapStyleLight = [
   // Default light map style

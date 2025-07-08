@@ -1,67 +1,49 @@
 import React, { useState, useContext, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Switch, ScrollView, ActivityIndicator, Modal } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Modal } from 'react-native';
 import { ThemeContext } from '../ThemeContext';
-
-// Import Firebase auth and database instances from your central firebase.js file
-import { auth, database } from '../firebase'; // <--- UPDATED: Import from your firebase.js
-
-// Firebase imports for Realtime Database functions (still needed for ref, push, set, update)
-import { ref, push, set, update, onValue } from 'firebase/database'; // Added onValue for consistency if needed, though not directly used in checkout flow for listening
-import { onAuthStateChanged, signInAnonymously, signInWithCustomToken } from 'firebase/auth'; // Specific auth functions
+import { auth, database } from '../firebase';
+import { ref, push, set, update } from 'firebase/database';
+import { onAuthStateChanged, signInAnonymously, signInWithCustomToken } from 'firebase/auth';
 
 export default function Checkout({ route, navigation }) {
   const { isDarkMode, colors } = useContext(ThemeContext);
 
+  // Dynamic color depending on theme
+  const THEME_BUTTON_COLOR = isDarkMode ? '#FFD700' : '#333333';
+
   const { pickup, dropoff, date } = route.params;
   const [selectedVehicle, setSelectedVehicle] = useState(null);
-  const [loadingHelp, setLoadingHelp] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [modalMessage, setModalMessage] = useState('');
   const [modalType, setModalType] = useState('success');
-
-  // Firebase state
-  // db and auth are now directly imported, no longer managed by useState here for initialization
   const [userId, setUserId] = useState(null);
   const [isAuthReady, setIsAuthReady] = useState(false);
 
-  // Initialize Firebase and authenticate
   useEffect(() => {
-    // No need for initializeApp or parsing firebaseConfig here, as it's done in firebase.js
-    try {
-      // Use the imported 'auth' instance directly
-      const unsubscribe = onAuthStateChanged(auth, async (user) => { // <--- UPDATED: Use imported 'auth'
-        if (user) {
-          setUserId(user.uid);
-          setIsAuthReady(true);
-        } else {
-          try {
-            // Check if __initial_auth_token is provided by the environment
-            if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-              await signInWithCustomToken(auth, __initial_auth_token); // <--- UPDATED: Use imported 'auth'
-            } else {
-              // Sign in anonymously if no custom token is provided (e.g., for new users)
-              await signInAnonymously(auth); // <--- UPDATED: Use imported 'auth'
-            }
-          } catch (error) {
-            console.error("Firebase authentication error:", error);
-            setModalMessage(`Authentication failed: ${error.message}`);
-            setModalType('error');
-            setShowModal(true);
-            setIsAuthReady(true);
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        setUserId(user.uid);
+        setIsAuthReady(true);
+      } else {
+        try {
+          if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+            await signInWithCustomToken(auth, __initial_auth_token);
+          } else {
+            await signInAnonymously(auth);
           }
+        } catch (error) {
+          console.error('Firebase authentication error:', error);
+          setModalMessage(`Authentication failed: ${error.message}`);
+          setModalType('error');
+          setShowModal(true);
+          setIsAuthReady(true);
         }
-      });
+      }
+    });
 
-      return () => unsubscribe();
-    } catch (error) {
-      console.error("Error initializing Firebase (from imported services):", error);
-      setModalMessage(`Firebase initialization error: ${error.message}`);
-      setModalType('error');
-      setShowModal(true);
-      setIsAuthReady(true);
-    }
-  }, []); // Empty dependency array means this runs once on mount
+    return () => unsubscribe();
+  }, []);
 
   const vehicleOptions = [
     { type: 'Mini Van', price: 150 },
@@ -73,15 +55,14 @@ export default function Checkout({ route, navigation }) {
 
   const handleConfirmBooking = async () => {
     if (!selectedVehicle) {
-      setModalMessage("Please select a vehicle type.");
+      setModalMessage('Please select a vehicle type to continue.');
       setModalType('error');
       setShowModal(true);
       return;
     }
 
-    // Use the imported 'database' (db) instance directly
-    if (!database || !userId) { // <--- UPDATED: Use imported 'database'
-      setModalMessage("Database not ready or user not authenticated. Please try again.");
+    if (!database || !userId) {
+      setModalMessage('System not ready. Please try again.');
       setModalType('error');
       setShowModal(true);
       return;
@@ -90,9 +71,7 @@ export default function Checkout({ route, navigation }) {
     setIsSaving(true);
     try {
       const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-
-      // Use the imported 'database' instance for ref
-      const userRidesRef = ref(database, `artifacts/${appId}/users/${userId}/rides`); // <--- UPDATED: Use imported 'database'
+      const userRidesRef = ref(database, `artifacts/${appId}/users/${userId}/rides`);
       const newCustomerBookingRef = push(userRidesRef);
       const customerBookingId = newCustomerBookingRef.key;
 
@@ -101,30 +80,27 @@ export default function Checkout({ route, navigation }) {
         dropoff,
         date: new Date(date).toISOString(),
         vehicle: selectedVehicle,
-        helpWithLoading: loadingHelp,
         bookingTime: new Date().toISOString(),
         status: 'pending',
         customerId: userId,
-        customerBookingId: customerBookingId,
+        customerBookingId,
       };
 
       await set(newCustomerBookingRef, bookingDataForCustomer);
 
-      // Use the imported 'database' instance for ref
-      const rideRequestsRef = ref(database, `artifacts/${appId}/ride_requests`); // <--- UPDATED: Use imported 'database'
+      const rideRequestsRef = ref(database, `artifacts/${appId}/ride_requests`);
       const newRideRequestRef = push(rideRequestsRef);
       const requestId = newRideRequestRef.key;
 
       const bookingDataForDriverRequest = {
         ...bookingDataForCustomer,
-        requestId: requestId,
+        requestId,
       };
 
       await set(newRideRequestRef, bookingDataForDriverRequest);
+      await update(newCustomerBookingRef, { requestId });
 
-      await update(newCustomerBookingRef, { requestId: requestId });
-
-      setModalMessage("Booking confirmed successfully!");
+      setModalMessage('Booking confirmed successfully!');
       setModalType('success');
       setShowModal(true);
 
@@ -135,11 +111,10 @@ export default function Checkout({ route, navigation }) {
           pickup,
           dropoff,
           date,
-          helpWithLoading: loadingHelp,
         });
       }, 1500);
     } catch (error) {
-      console.error("Error saving booking:", error);
+      console.error('Error saving booking:', error);
       setModalMessage(`Failed to confirm booking: ${error.message}`);
       setModalType('error');
       setShowModal(true);
@@ -150,7 +125,6 @@ export default function Checkout({ route, navigation }) {
 
   return (
     <ScrollView style={[styles.container, { backgroundColor: colors.background }]}>
-
       <Text style={[styles.title, { color: colors.iconRed }]}>Confirm Your Trip</Text>
 
       <View style={[styles.summaryBox, { backgroundColor: colors.cardBackground, borderColor: colors.borderColor }]}>
@@ -164,7 +138,7 @@ export default function Checkout({ route, navigation }) {
         <Text style={[styles.value, { color: colors.textSecondary }]}>{new Date(date).toLocaleString()}</Text>
       </View>
 
-      <Text style={[styles.heading, { color: colors.iconRed }]}>Choose a Vehicle</Text>
+      <Text style={[styles.heading, { color: colors.iconRed }]}>Choose a Vehicle *</Text>
       {vehicleOptions.map((v, index) => (
         <TouchableOpacity
           key={index}
@@ -186,40 +160,46 @@ export default function Checkout({ route, navigation }) {
         </TouchableOpacity>
       ))}
 
-      <View style={styles.switchRow}>
-        <Text style={[styles.switchLabel, { color: colors.text }]}>Need help loading/unloading?</Text>
-        <Switch
-          value={loadingHelp}
-          onValueChange={setLoadingHelp}
-          trackColor={{ false: colors.borderColor, true: colors.iconRed }}
-          thumbColor={isDarkMode ? colors.cardBackground : colors.buttonText}
-        />
-      </View>
+      {!selectedVehicle && (
+        <Text style={[styles.errorText, { color: THEME_BUTTON_COLOR }]}>
+          Please select a vehicle to continue
+        </Text>
+      )}
 
       <TouchableOpacity
-        style={[styles.confirmButton, { backgroundColor: colors.iconRed }]}
+        style={[
+          styles.confirmButton,
+          {
+            backgroundColor: selectedVehicle ? colors.iconRed : THEME_BUTTON_COLOR,
+            opacity: selectedVehicle ? 1 : 0.85,
+          },
+        ]}
         onPress={handleConfirmBooking}
-        disabled={isSaving || !isAuthReady}
+        disabled={isSaving || !isAuthReady || !selectedVehicle}
       >
         {isSaving ? (
           <ActivityIndicator color={colors.buttonText} />
         ) : (
-          <Text style={[styles.confirmButtonText, { color: colors.buttonText }]}>Confirm Booking</Text>
+          <Text style={[styles.confirmButtonText, { color: colors.buttonText }]}>
+            Confirm Booking
+          </Text>
         )}
       </TouchableOpacity>
 
       <Modal
-        transparent={true}
+        transparent
         animationType="fade"
         visible={showModal}
         onRequestClose={() => setShowModal(false)}
       >
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContainer, { backgroundColor: colors.cardBackground }]}>
-            <Text style={[
-              styles.modalMessage,
-              { color: modalType === 'success' ? colors.successText : colors.errorText }
-            ]}>
+            <Text
+              style={[
+                styles.modalMessage,
+                { color: modalType === 'success' ? colors.successText : colors.errorText },
+              ]}
+            >
               {modalMessage}
             </Text>
             <TouchableOpacity
@@ -231,7 +211,6 @@ export default function Checkout({ route, navigation }) {
           </View>
         </View>
       </Modal>
-
     </ScrollView>
   );
 }
@@ -280,19 +259,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
   },
-  switchRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginVertical: 20,
-  },
-  switchLabel: {
-    fontSize: 16,
-  },
   confirmButton: {
     paddingVertical: 15,
     borderRadius: 8,
     alignItems: 'center',
+    marginTop: 20,
   },
   confirmButtonText: {
     fontSize: 16,
@@ -324,5 +295,11 @@ const styles = StyleSheet.create({
   modalButtonText: {
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  errorText: {
+    fontSize: 14,
+    marginTop: 5,
+    textAlign: 'center',
+    marginBottom: 10,
   },
 });
