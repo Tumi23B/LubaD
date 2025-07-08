@@ -1,25 +1,52 @@
 import React, { useState, useContext } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Image, Alert, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
+import { 
+  View, 
+  Text, 
+  TextInput, 
+  TouchableOpacity, 
+  StyleSheet, 
+  Image, 
+  Alert, 
+  ScrollView, 
+  KeyboardAvoidingView, 
+  Platform,
+  ActivityIndicator
+} from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { auth, database } from '../firebase';
 import { ref, set } from 'firebase/database';
-import { uploadToCloudinary } from '../utils/cloudinary.js';
+import { uploadToCloudinary } from '../utils/cloudinary';
 import { ThemeContext } from '../ThemeContext';
+import { Picker } from '@react-native-picker/picker';
 
 export default function DriverApplication({ navigation }) {
-  const { isDarkMode, colors } = useContext(ThemeContext); // Use useContext to get theme
+  const { isDarkMode, colors } = useContext(ThemeContext);
 
-  const [fullName, setFullName] = useState('');
-  const [phoneNumber, setPhoneNumber] = useState('');
-  const [address, setAddress] = useState('');
-  const [driverImage, setDriverImage] = useState(null);
-  const [licensePhoto, setLicensePhoto] = useState(null);
-  const [carImage, setCarImage] = useState(null);
+  const [formData, setFormData] = useState({
+    fullName: '',
+    address: '',
+    vehicleType: 'mini van',
+    idNumber: '',
+    driverImage: null,
+    licensePhoto: null,
+    carImage: null,
+    idPhoto: null
+  });
 
-  const pickImage = async (setImage) => {
+  const [uploading, setUploading] = useState(false);
+
+  const vehicleTypes = [
+    { label: 'Mini Van', value: 'mini van' },
+    { label: 'Van', value: 'van' },
+    { label: 'Big Truck', value: 'big truck' },
+    { label: 'Bakkie', value: 'bakkie' },
+    { label: 'Mini Truck', value: 'mini truck' },
+  ];
+
+  const pickImage = async (field) => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Permission denied', 'Sorry, we need media library permissions to make this work!');
+      Alert.alert('Permission required', 'We need access to your photos to upload images');
       return;
     }
 
@@ -27,20 +54,29 @@ export default function DriverApplication({ navigation }) {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
-        quality: 0.7,
+        aspect: [4, 3],
+        quality: 0.8,
       });
 
       if (!result.canceled) {
-        setImage(result.assets[0].uri);
+        setFormData(prev => ({ ...prev, [field]: result.assets[0].uri }));
       }
     } catch (error) {
       Alert.alert('Error', 'Could not open image library');
     }
   };
 
+  const validateIDNumber = (id) => /^\d{13}$/.test(id);
+
   const handleSubmit = async () => {
-    if (!fullName || !phoneNumber || !address || !driverImage || !licensePhoto || !carImage) {
-      Alert.alert('Error', 'Please fill all fields and upload all photos.');
+    if (!formData.fullName || !formData.address || !formData.idNumber || 
+        !formData.driverImage || !formData.licensePhoto || !formData.carImage || !formData.idPhoto) {
+      Alert.alert('Error', 'Please fill all fields and upload all required photos');
+      return;
+    }
+
+    if (!validateIDNumber(formData.idNumber)) {
+      Alert.alert('Error', 'Please enter a valid South African ID number (13 digits)');
       return;
     }
 
@@ -50,53 +86,96 @@ export default function DriverApplication({ navigation }) {
       return;
     }
 
+    setUploading(true);
+
     try {
-      // Upload images to Cloudinary
-      const [driverImageUrl, licensePhotoUrl, carImageUrl] = await Promise.all([
-        uploadToCloudinary(driverImage),
-        uploadToCloudinary(licensePhoto),
-        uploadToCloudinary(carImage),
+      // Upload all images to Cloudinary
+      const [driverImageUrl, licensePhotoUrl, carImageUrl, idPhotoUrl] = await Promise.all([
+        uploadToCloudinary(formData.driverImage),
+        uploadToCloudinary(formData.licensePhoto),
+        uploadToCloudinary(formData.carImage),
+        uploadToCloudinary(formData.idPhoto),
       ]);
 
-      // Save application data to Realtime DB
-      await set(ref(database, 'driverApplications/' + user.uid), {
-        fullName,
-        phoneNumber,
-        address,
+      // Prepare application data
+      const applicationData = {
+        fullName: formData.fullName,
+        address: formData.address,
+        vehicleType: formData.vehicleType,
+        idNumber: formData.idNumber,
         status: 'approved',
         images: {
           driver: driverImageUrl,
           license: licensePhotoUrl,
           car: carImageUrl,
+          id: idPhotoUrl, // Stored but not displayed in profile
         },
-      });
+        createdAt: new Date().toISOString(),
+      };
 
-      Alert.alert('Application Submitted', 'You can now access the Driver Dashboard.');
-      navigation.navigate('DriverDashboard');
+      // Save to both application and driver profiles
+      await Promise.all([
+        set(ref(database, `driverApplications/${user.uid}`), applicationData),
+        set(ref(database, `drivers/${user.uid}`), {
+          fullName: formData.fullName,
+          vehicleType: formData.vehicleType,
+          status: 'active',
+          rating: 0,
+          tripsCompleted: 0,
+          // Only include displayable images
+          profileImage: driverImageUrl,
+          licenseImage: licensePhotoUrl,
+          vehicleImage: carImageUrl,
+          createdAt: new Date().toISOString(),
+        })
+      ]);
+
+      Alert.alert(
+        'Application Approved!',
+        'You are now a verified driver and can start accepting deliveries.',
+        [
+          {
+            text: 'OK',
+            onPress: () => navigation.reset({
+              index: 0,
+              routes: [{ name: 'DriverDashboard' }],
+            }),
+          },
+        ]
+      );
+
     } catch (error) {
       Alert.alert('Error', 'Failed to submit application. Please try again.');
-      console.error(error);
+      console.error('Submission error:', error);
+    } finally {
+      setUploading(false);
     }
   };
 
-  // Reusable photo field component (inline for now)
-  function PhotoInput({ label, image, onSelect }) {
-    return (
-      <View style={styles.field}>
-        <Text style={[styles.label, { color: colors.text }]}>{label}</Text>
-        {image ? (
-          <Image source={{ uri: image }} style={styles.previewImage} />
-        ) : (
-          <View style={[styles.placeholder, { backgroundColor: colors.background }]}>
-            <Text style={[styles.placeholderText, { color: colors.textSecondary }]}>No photo selected</Text>
-          </View>
-        )}
-        <TouchableOpacity style={[styles.uploadButton, { backgroundColor: colors.iconRed }]} onPress={onSelect}>
-          <Text style={[styles.uploadButtonText, { color: colors.buttonText }]}>Select Photo</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
+  const PhotoInput = ({ label, field, required = true }) => (
+    <View style={styles.field}>
+      <Text style={[styles.label, { color: colors.text }]}>
+        {label} {required && <Text style={{ color: colors.iconRed }}>*</Text>}
+      </Text>
+      {formData[field] ? (
+        <Image source={{ uri: formData[field] }} style={styles.previewImage} />
+      ) : (
+        <View style={[styles.placeholder, { backgroundColor: colors.cardBackground }]}>
+          <Text style={[styles.placeholderText, { color: colors.textSecondary }]}>
+            No photo selected
+          </Text>
+        </View>
+      )}
+      <TouchableOpacity
+        style={[styles.uploadButton, { backgroundColor: colors.iconRed }]}
+        onPress={() => pickImage(field)}
+      >
+        <Text style={[styles.uploadButtonText, { color: colors.buttonText }]}>
+          {formData[field] ? 'Change Photo' : 'Select Photo'}
+        </Text>
+      </TouchableOpacity>
+    </View>
+  );
 
   return (
     <KeyboardAvoidingView
@@ -104,7 +183,10 @@ export default function DriverApplication({ navigation }) {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={80}
     >
-      <ScrollView contentContainerStyle={[styles.container, { backgroundColor: colors.background }]} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        contentContainerStyle={[styles.container, { backgroundColor: colors.background }]}
+        keyboardShouldPersistTaps="handled"
+      >
         <Text style={[styles.title, { color: colors.iconRed }]}>Driver Application</Text>
 
         <Image
@@ -113,8 +195,11 @@ export default function DriverApplication({ navigation }) {
           resizeMode="contain"
         />
 
+        {/* Personal Information */}
         <View style={styles.field}>
-          <Text style={[styles.label, { color: colors.text }]}>Full Name</Text>
+          <Text style={[styles.label, { color: colors.text }]}>
+            Full Name <Text style={{ color: colors.iconRed }}>*</Text>
+          </Text>
           <TextInput
             style={[
               styles.input,
@@ -124,15 +209,17 @@ export default function DriverApplication({ navigation }) {
                 borderColor: colors.borderColor,
               },
             ]}
-            placeholder="Your full name"
+            placeholder="Your full legal name"
             placeholderTextColor={colors.textSecondary}
-            value={fullName}
-            onChangeText={setFullName}
+            value={formData.fullName}
+            onChangeText={(text) => setFormData({ ...formData, fullName: text })}
           />
         </View>
 
         <View style={styles.field}>
-          <Text style={[styles.label, { color: colors.text }]}>Phone Number</Text>
+          <Text style={[styles.label, { color: colors.text }]}>
+            Physical Address <Text style={{ color: colors.iconRed }}>*</Text>
+          </Text>
           <TextInput
             style={[
               styles.input,
@@ -142,16 +229,45 @@ export default function DriverApplication({ navigation }) {
                 borderColor: colors.borderColor,
               },
             ]}
-            placeholder="Phone number"
+            placeholder="Your current residential address"
             placeholderTextColor={colors.textSecondary}
-            keyboardType="phone-pad"
-            value={phoneNumber}
-            onChangeText={setPhoneNumber}
+            value={formData.address}
+            onChangeText={(text) => setFormData({ ...formData, address: text })}
+            multiline
           />
         </View>
 
+        {/* Vehicle Information */}
         <View style={styles.field}>
-          <Text style={[styles.label, { color: colors.text }]}>Address</Text>
+          <Text style={[styles.label, { color: colors.text }]}>
+            Vehicle Type <Text style={{ color: colors.iconRed }}>*</Text>
+          </Text>
+          <View
+            style={[
+              styles.pickerContainer,
+              {
+                backgroundColor: colors.cardBackground,
+                borderColor: colors.borderColor,
+              },
+            ]}
+          >
+            <Picker
+              selectedValue={formData.vehicleType}
+              onValueChange={(value) => setFormData({ ...formData, vehicleType: value })}
+              style={[styles.picker, { color: colors.text }]}
+              dropdownIconColor={colors.text}
+            >
+              {vehicleTypes.map((type) => (
+                <Picker.Item key={type.value} label={type.label} value={type.value} />
+              ))}
+            </Picker>
+          </View>
+        </View>
+
+        <View style={styles.field}>
+          <Text style={[styles.label, { color: colors.text }]}>
+            South African ID Number <Text style={{ color: colors.iconRed }}>*</Text>
+          </Text>
           <TextInput
             style={[
               styles.input,
@@ -161,33 +277,37 @@ export default function DriverApplication({ navigation }) {
                 borderColor: colors.borderColor,
               },
             ]}
-            placeholder="Physical address"
+            placeholder="13-digit ID number"
             placeholderTextColor={colors.textSecondary}
-            value={address}
-            onChangeText={setAddress}
+            keyboardType="numeric"
+            value={formData.idNumber}
+            onChangeText={(text) => setFormData({ ...formData, idNumber: text })}
+            maxLength={13}
           />
         </View>
 
-        <PhotoInput
-          label="Driver Photo"
-          image={driverImage}
-          onSelect={() => pickImage(setDriverImage)}
-        />
+        {/* Photo Uploads */}
+        <PhotoInput label="Your Photo" field="driverImage" />
+        <PhotoInput label="Driver License Photo" field="licensePhoto" />
+        <PhotoInput label="Vehicle Photo" field="carImage" />
+        <PhotoInput label="ID Document Photo" field="idPhoto" />
 
-        <PhotoInput
-          label="Driver License Photo"
-          image={licensePhoto}
-          onSelect={() => pickImage(setLicensePhoto)}
-        />
-
-        <PhotoInput
-          label="Car Photo"
-          image={carImage}
-          onSelect={() => pickImage(setCarImage)}
-        />
-
-        <TouchableOpacity style={[styles.submitButton, { backgroundColor: colors.iconRed }]} onPress={handleSubmit}>
-          <Text style={[styles.submitButtonText, { color: colors.buttonText }]}>Submit Application</Text>
+        {/* Submit Button */}
+        <TouchableOpacity
+          style={[styles.submitButton, { 
+            backgroundColor: uploading ? colors.borderColor : colors.iconRed,
+            opacity: uploading ? 0.7 : 1
+          }]}
+          onPress={handleSubmit}
+          disabled={uploading}
+        >
+          {uploading ? (
+            <ActivityIndicator color="white" />
+          ) : (
+            <Text style={[styles.submitButtonText, { color: colors.buttonText }]}>
+              Submit Application
+            </Text>
+          )}
         </TouchableOpacity>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -198,15 +318,13 @@ const styles = StyleSheet.create({
   container: {
     padding: 20,
     paddingBottom: 40,
-    // backgroundColor handled by theme
   },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
     marginBottom: 20,
-    marginTop: 40,
+    marginTop: 20,
     textAlign: 'center',
-    // color handled by theme
   },
   field: {
     marginBottom: 20,
@@ -214,60 +332,68 @@ const styles = StyleSheet.create({
   label: {
     fontWeight: '600',
     marginBottom: 8,
-    // color handled by theme
+    fontSize: 16,
   },
   input: {
     height: 50,
     borderWidth: 1,
     borderRadius: 8,
-    paddingHorizontal: 10,
-    // borderColor, backgroundColor, color handled by theme
+    paddingHorizontal: 15,
+    fontSize: 16,
+  },
+  pickerContainer: {
+    borderWidth: 1,
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  picker: {
+    height: 50,
+    width: '100%',
   },
   uploadButton: {
-    padding: 12,
+    padding: 14,
     borderRadius: 8,
     alignItems: 'center',
     marginTop: 10,
-    // backgroundColor handled by theme
   },
   uploadButtonText: {
     fontWeight: '600',
     fontSize: 16,
-    // color handled by theme
   },
   previewImage: {
     width: '100%',
-    height: 180,
+    height: 200,
     borderRadius: 10,
+    marginBottom: 5,
   },
   placeholder: {
-    height: 180,
+    height: 200,
     borderRadius: 10,
     justifyContent: 'center',
     alignItems: 'center',
-    // backgroundColor handled by theme
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    marginBottom: 5,
   },
   placeholderText: {
     fontStyle: 'italic',
-    // color handled by theme
+    fontSize: 16,
   },
   submitButton: {
-    paddingVertical: 15,
-    paddingHorizontal: 40,
+    paddingVertical: 16,
     borderRadius: 8,
-    alignSelf: 'center',
-    marginTop: 10,
-    // backgroundColor handled by theme
+    alignItems: 'center',
+    marginTop: 20,
+    marginBottom: 30,
   },
   submitButtonText: {
     fontWeight: 'bold',
     fontSize: 18,
-    // color handled by theme
   },
   logoImg: {
     width: 200,
+    height: 100,
     alignSelf: 'center',
-    height: 200,
-    marginVertical: 12,
+    marginVertical: 10,
   },
 });

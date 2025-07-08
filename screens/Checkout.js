@@ -1,14 +1,24 @@
 import React, { useState, useContext, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Modal } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  ScrollView,
+  ActivityIndicator,
+  Modal,
+} from 'react-native';
 import { ThemeContext } from '../ThemeContext';
 import { auth, database } from '../firebase';
 import { ref, push, set, update } from 'firebase/database';
-import { onAuthStateChanged, signInAnonymously, signInWithCustomToken } from 'firebase/auth';
+import {
+  onAuthStateChanged,
+  signInAnonymously,
+  signInWithCustomToken,
+} from 'firebase/auth';
 
 export default function Checkout({ route, navigation }) {
   const { isDarkMode, colors } = useContext(ThemeContext);
-
-  // Dynamic color depending on theme
   const THEME_BUTTON_COLOR = isDarkMode ? '#FFD700' : '#333333';
 
   const { pickup, dropoff, date } = route.params;
@@ -75,7 +85,10 @@ export default function Checkout({ route, navigation }) {
       const newCustomerBookingRef = push(userRidesRef);
       const customerBookingId = newCustomerBookingRef.key;
 
-      const bookingDataForCustomer = {
+      const vehicleDetails = vehicleOptions.find(v => v.type === selectedVehicle);
+      const vehiclePrice = vehicleDetails ? vehicleDetails.price : 0;
+
+      const bookingData = {
         pickup,
         dropoff,
         date: new Date(date).toISOString(),
@@ -84,20 +97,20 @@ export default function Checkout({ route, navigation }) {
         status: 'pending',
         customerId: userId,
         customerBookingId,
+        price: vehiclePrice,
       };
 
-      await set(newCustomerBookingRef, bookingDataForCustomer);
+      await set(newCustomerBookingRef, bookingData);
 
       const rideRequestsRef = ref(database, `artifacts/${appId}/ride_requests`);
       const newRideRequestRef = push(rideRequestsRef);
       const requestId = newRideRequestRef.key;
 
-      const bookingDataForDriverRequest = {
-        ...bookingDataForCustomer,
+      await set(newRideRequestRef, {
+        ...bookingData,
         requestId,
-      };
+      });
 
-      await set(newRideRequestRef, bookingDataForDriverRequest);
       await update(newCustomerBookingRef, { requestId });
 
       setModalMessage('Booking confirmed successfully!');
@@ -108,6 +121,7 @@ export default function Checkout({ route, navigation }) {
         setShowModal(false);
         navigation.navigate('Payment', {
           vehicle: selectedVehicle,
+          price: vehiclePrice,
           pickup,
           dropoff,
           date,
@@ -161,9 +175,7 @@ export default function Checkout({ route, navigation }) {
       ))}
 
       {!selectedVehicle && (
-        <Text style={[styles.errorText, { color: THEME_BUTTON_COLOR }]}>
-          Please select a vehicle to continue
-        </Text>
+        <Text style={[styles.errorText, { color: THEME_BUTTON_COLOR }]}>Please select a vehicle to continue</Text>
       )}
 
       <TouchableOpacity
@@ -180,18 +192,11 @@ export default function Checkout({ route, navigation }) {
         {isSaving ? (
           <ActivityIndicator color={colors.buttonText} />
         ) : (
-          <Text style={[styles.confirmButtonText, { color: colors.buttonText }]}>
-            Confirm Booking
-          </Text>
+          <Text style={[styles.confirmButtonText, { color: colors.buttonText }]}>Confirm Booking</Text>
         )}
       </TouchableOpacity>
 
-      <Modal
-        transparent
-        animationType="fade"
-        visible={showModal}
-        onRequestClose={() => setShowModal(false)}
-      >
+      <Modal transparent animationType="fade" visible={showModal} onRequestClose={() => setShowModal(false)}>
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContainer, { backgroundColor: colors.cardBackground }]}>
             <Text

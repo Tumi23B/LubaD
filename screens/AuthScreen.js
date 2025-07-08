@@ -30,17 +30,10 @@ export default function AuthScreen() {
     if (showLogin) setIsLogin(true);
   }, [showLogin]);
 
-  // Validate South African phone number
   const validateSAPhoneNumber = (phone) => {
-    // Remove all non-digit characters
     const cleaned = phone.replace(/\D/g, '');
-    
-    // Check if it starts with 0 and has 10 digits (e.g., 0821234567)
     if (/^0\d{9}$/.test(cleaned)) return true;
-    
-    // Check if it starts with +27 or 27 and has 11 digits (e.g., +27821234567 or 27821234567)
     if (/^(\+?27|0)\d{9}$/.test(cleaned)) return true;
-    
     return false;
   };
 
@@ -78,14 +71,12 @@ export default function AuthScreen() {
       }
     }
 
-    const passwordRegex =
-      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]).{8,}$/;
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]).{8,}$/;
     if (!password) {
       errs.password = 'Password is required.';
       valid = false;
     } else if (!passwordRegex.test(password)) {
-      errs.password =
-        'Password must be at least 8 characters and include uppercase, lowercase, number, and special character.';
+      errs.password = 'Password must be at least 8 characters and include uppercase, lowercase, number, and special character.';
       valid = false;
     }
 
@@ -130,8 +121,11 @@ export default function AuthScreen() {
         const userCredential = await signInWithEmailAndPassword(auth, trimmedEmail, password);
         const snapshot = await get(ref(database, 'users/' + userCredential.user.uid));
         const userData = snapshot.val();
-        const name = userData?.username || 'User';
-        navigation.navigate('Dashboard', { username: name });
+        navigation.navigate('Dashboard', { 
+          username: userData?.username || 'User',
+          email: trimmedEmail,
+          phoneNumber: userData?.phoneNumber || ''
+        });
       } else {
         const userCredential = await createUserWithEmailAndPassword(auth, trimmedEmail, password);
         const userId = userCredential.user.uid;
@@ -145,13 +139,13 @@ export default function AuthScreen() {
         });
 
         setSuccessMsg('Successfully Signed Up!');
-        navigation.navigate('Dashboard', { username });
+        navigation.navigate('Dashboard', { 
+          username,
+          phoneNumber: cleanedPhone
+        });
       }
     } catch (error) {
-      if (
-        error.code === 'auth/user-not-found' ||
-        error.code === 'auth/invalid-credential'
-      ) {
+      if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
         setFirebaseError('No account found for this email or password. Please sign up first.');
       } else {
         setFirebaseError(error.message);

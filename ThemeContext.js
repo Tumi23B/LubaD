@@ -29,23 +29,25 @@ export const ThemeProvider = ({ children }) => {
 
   const colors = isDarkMode
     ? {
+      // Dark mode colors
         background: '#121212',
         text: '#b80000',
         cardBackground: '#1E1E1E',
         iconRed: '#b80000', // For primary accent elements
         textSecondary: '#AAAAAA', // Lighter text for descriptions/placeholders
         borderColor: '#c5a34f', // Borders for inputs/cards in dark mode
-        buttonText: '#FFFFFF', // Text color for buttons (often white)
+        buttonText: '#c5a34f', // Text color for buttons (often white)
         tagline:'#c5a34f', // sub text color
       }
     : {
-        background: '#FFFFFF',
+      // Light mode colors
+        background: '#f0f0f0',
         text: '#b80000',
         cardBackground: '#F5F5F5',
         iconRed: '#b80000', // For primary accent elements
         textSecondary: '#666666', // Lighter text for descriptions/placeholders
         borderColor: '#c5a34f', // Borders for inputs/cards in light mode
-        buttonText: '#FFFFFF', // Text color for buttons (often white, for contrast on colored buttons)
+        buttonText: '#f0f0f0', // Text color for buttons (often white, for contrast on colored buttons)
         tagline:'#c5a34f', // sub text color
       };
 

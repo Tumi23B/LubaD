@@ -1,58 +1,113 @@
-import React, { useState, useEffect, useContext } from 'react'; // Import useContext
-import {View, Text, StyleSheet, Image, ScrollView, TextInput, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import React, { useState, useEffect, useContext } from 'react';
+import {
+  View, Text, StyleSheet, Image, ScrollView, TextInput,
+  TouchableOpacity, Alert, ActivityIndicator, Switch, Dimensions
+} from 'react-native';
+import { Ionicons, MaterialIcons, FontAwesome } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import axios from 'axios';
 import { auth, database } from '../firebase';
-import { EmailAuthProvider, reauthenticateWithCredential, updatePassword, signOut, deleteUser} from 'firebase/auth';
+import { EmailAuthProvider, reauthenticateWithCredential, updatePassword, signOut, deleteUser } from 'firebase/auth';
 import { ref, get, update, remove } from 'firebase/database';
 import { useNavigation } from '@react-navigation/native';
-import { ThemeContext } from '../ThemeContext'; // Import ThemeContext
+import { ThemeContext } from '../ThemeContext';
+import { LinearGradient } from 'expo-linear-gradient';
+
+const { width } = Dimensions.get('window');
 
 export default function DriverProfile() {
-  const { isDarkMode, colors } = useContext(ThemeContext); // Use useContext to get theme and colors
-
-  const [profile, setProfile] = useState(null);
+  const { isDarkMode, colors, toggleTheme } = useContext(ThemeContext);
+  const [profile, setProfile] = useState({
+    fullName: '',
+    email: '',
+    phoneNumber: '',
+    address: '',
+    vehicleType: '',
+    rating: 0,
+    tripsCompleted: 0,
+    onlineStatus: false,
+    profileImage: null,
+    licenseImage: null,
+    vehicleImage: null
+  });
   const [loading, setLoading] = useState(true);
-  const [driverImage, setDriverImage] = useState(null);
-  const [licensePhoto, setLicensePhoto] = useState(null);
-  const [carImage, setCarImage] = useState(null);
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [reactivating, setReactivating] = useState(false);
   const [editMode, setEditMode] = useState(false);
-
-  // Add editable fields for validation and editing
-  const [fullName, setFullName] = useState('');
-  const [phoneNumber, setPhoneNumber] = useState('');
-  const [address, setAddress] = useState('');
-  const [profileErrors, setProfileErrors] = useState({});
-
-  // Get navigation object
+  const [errors, setErrors] = useState({});
   const navigation = useNavigation();
+
+  // Format phone number for display
+  const formatPhoneNumber = (phone) => {
+    if (!phone) return 'Not provided';
+    
+    // Convert to string and remove all non-digit characters
+    const cleaned = String(phone).replace(/\D/g, '');
+    
+    if (cleaned.length === 11 && cleaned.startsWith('27')) {
+      return `+${cleaned.substring(0, 2)} ${cleaned.substring(2, 4)} ${cleaned.substring(4, 7)} ${cleaned.substring(7)}`;
+    }
+    if (cleaned.length === 10 && cleaned.startsWith('0')) {
+      return `${cleaned.substring(0, 3)} ${cleaned.substring(3, 6)} ${cleaned.substring(6)}`;
+    }
+    if (cleaned.length === 9) {
+      return `${cleaned.substring(0, 2)} ${cleaned.substring(2, 5)} ${cleaned.substring(5)}`;
+    }
+    return phone;
+  };
 
   useEffect(() => {
     const fetchProfile = async () => {
       const user = auth.currentUser;
-      if (!user) return;
+      if (!user) {
+        setLoading(false);
+        return;
+      }
 
       try {
-        const snapshot = await get(ref(database, 'driverApplications/' + user.uid));
-        if (snapshot.exists()) {
-          const data = snapshot.val();
-          setProfile(data);
-          setDriverImage(data.driverImage || null);
-          setLicensePhoto(data.licensePhoto || null);
-          setCarImage(data.carImage || null);
-          // Set editable fields
-          setFullName(data.fullName || '');
-          setPhoneNumber(data.phoneNumber || '');
-          setAddress(data.address || '');
-        }
+        const [profileSnapshot, applicationSnapshot] = await Promise.all([
+          get(ref(database, `drivers/${user.uid}`)),
+          get(ref(database, `driverApplications/${user.uid}`))
+        ]);
+
+        const profileData = profileSnapshot.exists() ? profileSnapshot.val() : {};
+        const applicationData = applicationSnapshot.exists() ? applicationSnapshot.val() : {};
+
+        // DEBUG: Log the raw data to see what's actually in the database
+        console.log('Profile Data:', profileData);
+        console.log('Application Data:', applicationData);
+        
+        // Try multiple possible field names for phone number
+        const phoneNumber = String(profileData.phoneNumber || 
+                           applicationData.phoneNumber || 
+                           profileData.phone || 
+                           applicationData.phone || 
+                           profileData.mobile || 
+                           applicationData.mobile || 
+                           profileData.cellphone || 
+                           applicationData.cellphone || 
+                           '');
+
+        console.log('Resolved phone number:', phoneNumber);
+
+        setProfile({
+          ...profileData,
+          profileImage: profileData.profileImage || applicationData.images?.driver,
+          licenseImage: profileData.licenseImage || applicationData.images?.license,
+          vehicleImage: profileData.vehicleImage || applicationData.images?.car,
+          fullName: profileData.fullName || applicationData.fullName || '',
+          phoneNumber: phoneNumber,
+          address: profileData.address || applicationData.address || '',
+          vehicleType: profileData.vehicleType || applicationData.vehicleType || '',
+          rating: profileData.rating || 0,
+          tripsCompleted: profileData.tripsCompleted || 0,
+          onlineStatus: profileData.onlineStatus || false,
+          email: user.email
+        });
+
       } catch (error) {
-        console.warn('Failed to fetch profile:', error);
-        Alert.alert('Error', 'Failed to load profile data.');
+        Alert.alert('Error', 'Failed to load profile data');
+        console.error('Profile fetch error:', error);
       } finally {
         setLoading(false);
       }
@@ -61,151 +116,75 @@ export default function DriverProfile() {
     fetchProfile();
   }, []);
 
-  // Validation logic for profile fields
-  const validateProfileFields = () => {
-    let errors = {};
-    let valid = true;
-
-    if (!fullName.trim() || fullName.trim().length < 3) {
-      errors.fullName = 'Full name must be at least 3 characters.';
-      valid = false;
-    }
-    if (!phoneNumber.trim() || !/^\d{10,15}$/.test(phoneNumber.trim())) {
-      errors.phoneNumber = 'Enter a valid phone number (10-15 digits).';
-      valid = false;
-    }
-    if (!address.trim() || address.trim().length < 5) {
-      errors.address = 'Address must be at least 5 characters.';
-      valid = false;
-    }
-
-    setProfileErrors(errors);
-    return valid;
+  const validateFields = () => {
+    const newErrors = {};
+    if (!profile.fullName.trim()) newErrors.fullName = 'Full name is required';
+    if (!profile.phoneNumber.trim()) newErrors.phoneNumber = 'Phone number is required';
+    if (!profile.address.trim()) newErrors.address = 'Address is required';
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
   };
 
-  // Helper to get user-friendly error messages
-  const getErrorMessage = (error) => {
-    if (!error) return 'An unknown error occurred.';
-    if (error.code) {
-      switch (error.code) {
-        case 'auth/network-request-failed':
-          return 'Network error. Please check your internet connection and try again.';
-        case 'auth/permission-denied':
-          return 'You do not have permission to perform this action.';
-        case 'auth/wrong-password':
-          return 'The current password you entered is incorrect.';
-        case 'auth/too-many-requests':
-          return 'Too many requests. Please try again later.';
-        case 'auth/user-not-found':
-          return 'User not found. Please log in again.';
-        default:
-          return error.message || 'An error occurred. Please try again.';
-      }
-    }
-    if (error.message && error.message.includes('Network')) {
-      return 'Network error. Please check your internet connection and try again.';
-    }
-    return error.message || 'An error occurred. Please try again.';
-  };
-
-  // Save profile handler
   const handleSaveProfile = async () => {
-    if (!validateProfileFields()) {
+    if (!validateFields()) return;
+
+    try {
+      const user = auth.currentUser;
+      const updateData = {
+        fullName: profile.fullName.trim(),
+        phoneNumber: profile.phoneNumber.trim(),
+        address: profile.address.trim(),
+        vehicleType: profile.vehicleType.trim()
+      };
+
+      await update(ref(database, `drivers/${user.uid}`), updateData);
+      Alert.alert('Success', 'Profile updated successfully');
+      setEditMode(false);
+      setErrors({});
+    } catch (error) {
+      Alert.alert('Error', 'Failed to update profile');
+      console.error('Profile update error:', error);
+    }
+  };
+
+  const pickImage = async (type) => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission required', 'We need access to your photos to upload images');
       return;
     }
-    const user = auth.currentUser;
-    if (!user) return;
 
     try {
-      await update(ref(database, 'driverApplications/' + user.uid), {
-        fullName: fullName.trim(),
-        phoneNumber: phoneNumber.trim(),
-        address: address.trim(),
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.8,
       });
-      Alert.alert('Success', 'Profile updated successfully.');
-      setProfile({
-        ...profile,
-        fullName: fullName.trim(),
-        phoneNumber: phoneNumber.trim(),
-        address: address.trim(),
-      });
-      setProfileErrors({});
-      setEditMode(false); // Exit edit mode after saving
-    } catch (error) {
-      Alert.alert('Error', getErrorMessage(error), [
-        { text: 'Retry', onPress: handleSaveProfile },
-        { text: 'Cancel', style: 'cancel' },
-      ]);
-    }
-  };
 
-  // Cloudinary config (replace with your own unsigned upload preset and cloud name)
-  const CLOUDINARY_URL = 'https://api.cloudinary.com/v1_1/dvxycdr6l/image/upload';
-  const CLOUDINARY_UPLOAD_PRESET = 'driver profile images';
-
-  // Helper to upload image to Cloudinary and return the URL
-  const uploadToCloudinary = async (uri) => {
-    const formData = new FormData();
-    formData.append('file', {
-      uri,
-      type: 'image/jpeg',
-      name: 'upload.jpg',
-    });
-    formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
-
-    try {
-      const response = await axios.post(CLOUDINARY_URL, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
-      return response.data.secure_url;
-    } catch (error) {
-      console.warn('Cloudinary upload error:', error);
-      throw new Error('Failed to upload image.');
-    }
-  };
-
-  // Update pickImage to use Cloudinary
-  const pickImage = async (type) => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      quality: 1,
-    });
-
-    if (!result.canceled) {
-      const uri = result.assets[0].uri;
-      try {
-        const imageUrl = await uploadToCloudinary(uri);
-
-        if (type === 'driverImage') setDriverImage(imageUrl);
-        else if (type === 'licensePhoto') setLicensePhoto(imageUrl);
-        else if (type === 'carImage') setCarImage(imageUrl);
-
+      if (!result.canceled) {
+        const updatedProfile = { ...profile, [type]: result.assets[0].uri };
+        setProfile(updatedProfile);
+        
         const user = auth.currentUser;
-        if (user) {
-          const updateData = {};
-          updateData[type] = imageUrl;
-          await update(ref(database, 'driverApplications/' + user.uid), updateData);
-        }
-        Alert.alert('Success', 'Image uploaded successfully');
-      } catch (error) {
-        Alert.alert('Failed to upload image', getErrorMessage(error), [
-          { text: 'Retry', onPress: () => pickImage(type) },
-          { text: 'Cancel', style: 'cancel' },
-        ]);
+        await update(ref(database, `drivers/${user.uid}`), { [type]: result.assets[0].uri });
       }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to select image');
+      console.error('Image selection error:', error);
     }
   };
 
   const handleChangePassword = async () => {
     if (!currentPassword || !newPassword || !confirmPassword) {
-      return Alert.alert('Error', 'Please fill in all password fields.');
+      return Alert.alert('Error', 'Please fill all password fields');
     }
     if (newPassword !== confirmPassword) {
-      return Alert.alert('Error', 'New passwords do not match.');
+      return Alert.alert('Error', 'New passwords do not match');
     }
     if (newPassword.length < 6) {
-      return Alert.alert('Error', 'New password must be at least 6 characters.');
+      return Alert.alert('Error', 'Password must be at least 6 characters');
     }
 
     try {
@@ -213,498 +192,699 @@ export default function DriverProfile() {
       const credential = EmailAuthProvider.credential(user.email, currentPassword);
       await reauthenticateWithCredential(user, credential);
       await updatePassword(user, newPassword);
-      Alert.alert('Success', 'Password updated successfully.');
+      Alert.alert('Success', 'Password updated successfully');
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
     } catch (error) {
-      Alert.alert('Error', getErrorMessage(error), [
-        { text: 'Retry', onPress: handleChangePassword },
-        { text: 'Cancel', style: 'cancel' },
-      ]);
+      Alert.alert('Error', error.message);
+      console.error('Password update error:', error);
     }
   };
 
   const handleLogout = async () => {
-    try {
-      await signOut(auth);
-      navigation.reset({
-        index: 0,
-        routes: [{ name: 'AuthScreen', params: { showLogin: true } }],
-      });
-    } catch (error) {
-      Alert.alert('Error', getErrorMessage(error), [
-        { text: 'Retry', onPress: handleLogout },
-        { text: 'Cancel', style: 'cancel' },
-      ]);
-    }
-  };
-
-  const handleDeactivateAccount = () => {
-    const user = auth.currentUser;
-    if (!user) return;
-
     Alert.alert(
-      'Deactivate Account',
-      'Are you sure you want to deactivate your account?',
+      'Logout',
+      'Are you sure you want to logout?',
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Yes',
+          text: 'Logout',
+          style: 'default',
           onPress: async () => {
             try {
-              await update(ref(database, 'driverApplications/' + user.uid), { active: false });
               await signOut(auth);
               navigation.reset({
                 index: 0,
-                routes: [{ name: 'App' }],
+                routes: [{ name: 'Auth' }]
               });
             } catch (error) {
-              Alert.alert('Error', getErrorMessage(error), [
-                { text: 'Retry', onPress: handleDeactivateAccount },
-                { text: 'Cancel', style: 'cancel' },
-              ]);
+              Alert.alert('Error', error.message);
+              console.error('Logout error:', error);
             }
-          },
-        },
+          }
+        }
       ]
     );
   };
 
-  const handleDeleteAccount = () => {
-    const user = auth.currentUser;
-    if (!user) return;
-
+  const handleDeleteAccount = async () => {
     Alert.alert(
       'Delete Account',
-      'This will permanently delete your account. Are you sure?',
+      'Are you sure you want to permanently delete your account? This action cannot be undone.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Delete',
+          style: 'destructive',
           onPress: async () => {
             try {
-              await remove(ref(database, 'driverApplications/' + user.uid));
+              const user = auth.currentUser;
+              await remove(ref(database, `drivers/${user.uid}`));
+              await remove(ref(database, `driverApplications/${user.uid}`));
               await deleteUser(user);
               navigation.reset({
                 index: 0,
-                routes: [{ name: 'App' }],
+                routes: [{ name: 'Auth' }]
               });
             } catch (error) {
-              Alert.alert('Error', getErrorMessage(error), [
-                { text: 'Retry', onPress: handleDeleteAccount },
-                { text: 'Cancel', style: 'cancel' },
-              ]);
+              Alert.alert('Error', error.message);
+              console.error('Delete account error:', error);
             }
-          },
-        },
+          }
+        }
       ]
     );
   };
 
-  const handleReactivateAccount = async () => {
-    const user = auth.currentUser;
-    if (!user) return;
-
-    setReactivating(true);
+  const toggleOnlineStatus = async () => {
     try {
-      await update(ref(database, 'driverApplications/' + user.uid), { active: true });
-      Alert.alert('Account Reactivated', 'Your account is now active again.');
-      const snapshot = await get(ref(database, 'driverApplications/' + user.uid));
-      if (snapshot.exists()) {
-        setProfile(snapshot.val());
-      }
+      const user = auth.currentUser;
+      const newStatus = !profile.onlineStatus;
+      await update(ref(database, `drivers/${user.uid}`), { onlineStatus: newStatus });
+      setProfile(prev => ({ ...prev, onlineStatus: newStatus }));
     } catch (error) {
-      Alert.alert('Error', getErrorMessage(error), [
-        { text: 'Retry', onPress: handleReactivateAccount },
-        { text: 'Cancel', style: 'cancel' },
-      ]);
-    } finally {
-      setReactivating(false);
+      Alert.alert('Error', 'Failed to update status');
+      console.error('Status update error:', error);
     }
   };
 
   if (loading) {
     return (
-      <View style={[styles.center, { backgroundColor: colors.background }]}> {/* Apply background color */}
-        <ActivityIndicator size="large" color={colors.iconRed} /> {/* Apply indicator color */}
-      </View>
-    );
-  }
-
-  if (!profile) {
-    return (
-      <View style={[styles.center, { backgroundColor: colors.background }]}> {/* Apply background color */}
-        <Text style={[styles.noProfileText, { color: colors.textSecondary }]}>Driver profile not found.</Text> {/* Apply text color */}
+      <View style={[styles.loadingContainer, { backgroundColor: colors.background }]}>
+        <ActivityIndicator size="large" color="#C41E3A" />
+        <Text style={[styles.loadingText, { color: colors.text }]}>Loading profile...</Text>
       </View>
     );
   }
 
   return (
-    <ScrollView style={[styles.container, { backgroundColor: colors.background }]} keyboardShouldPersistTaps="handled"> {/* Apply background color */}
-      <Text style={[styles.title, { color: colors.iconRed }]}>My Driver Profile</Text> {/* Apply title text color */}
+    <ScrollView style={[styles.container, { backgroundColor: colors.background }]}>
+      {/* Header Section */}
+      <View style={styles.header}>
+        <Text style={[styles.title, { color: '#C41E3A' }]}>My Driver Profile</Text>
+        <View style={styles.themeToggleContainer}>
+          <Ionicons 
+            name={isDarkMode ? 'moon' : 'sunny'} 
+            size={20} 
+            color={isDarkMode ? '#FFD700' : '#C41E3A'} 
+          />
+          <Switch
+            trackColor={{ false: '#767577', true: '#FFD700' }}
+            thumbColor={isDarkMode ? '#C41E3A' : '#FFD700'}
+            onValueChange={toggleTheme}
+            value={isDarkMode}
+            style={styles.themeSwitch}
+          />
+        </View>
+      </View>
 
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.horizontalScroll}
-        contentContainerStyle={styles.imageRow}
-      >
-        <View style={styles.imageContainer}>
-          <Text style={[styles.imageLabel, { color: colors.iconRed }]}>Driver Photo</Text> {/* Apply label text color */}
-          <TouchableOpacity activeOpacity={0.7} onPress={() => pickImage('driverImage')}>
-            {driverImage ? (
-              <Image source={{ uri: driverImage }} style={[styles.image, { borderColor: colors.iconRed }]} /> /* Apply border color */
-            ) : (
-              <View style={[styles.imagePlaceholder, styles.image, { backgroundColor: colors.imagePlaceholderBackground, borderColor: colors.iconRed }]}> {/* Apply colors */}
-                <Ionicons name="camera" size={30} color={colors.iconRed} /> {/* Apply icon color */}
-                <Text style={[styles.placeholderText, { color: colors.iconRed }]}>Add Photo</Text> {/* Apply text color */}
-              </View>
-            )}
+      {/* Profile Card */}
+      <View style={[styles.profileCard, { backgroundColor: isDarkMode ? '#2A2A2A' : '#F8F8F8' }]}>
+        <View style={styles.profileHeader}>
+          <TouchableOpacity onPress={() => pickImage('profileImage')}>
+            <Image
+              source={profile.profileImage ? 
+                { uri: profile.profileImage } : 
+                require('../assets/icon.jpeg')}
+              style={[styles.avatar, { borderColor: '#C41E3A' }]}
+            />
+            <View style={[styles.cameraIcon, { backgroundColor: '#C41E3A' }]}>
+              <Ionicons name="camera" size={16} color="white" />
+            </View>
           </TouchableOpacity>
+          
+          <View style={styles.profileInfo}>
+            <Text style={[styles.name, { color: colors.text }]}>
+              {profile.fullName || 'Driver Name'}
+            </Text>
+            
+            {/* Phone Number Display */}
+            <View style={styles.phoneContainer}>
+              <Ionicons name="call-outline" size={16} color={colors.textSecondary} />
+              <Text style={[styles.phoneText, { color: colors.textSecondary }]}>
+                {formatPhoneNumber(profile.phoneNumber)}
+              </Text>
+            </View>
+            
+            <View style={styles.ratingContainer}>
+              <FontAwesome name="star" size={16} color="#FFD700" />
+              <Text style={[styles.ratingText, { color: colors.textSecondary }]}>
+                {profile.rating ? profile.rating.toFixed(1) : 'New'}
+              </Text>
+              <Text style={[styles.tripsText, { color: colors.textSecondary }]}>
+                • {profile.tripsCompleted || 0} trips
+              </Text>
+            </View>
+            
+            <View style={styles.onlineStatusContainer}>
+              <View 
+                style={[
+                  styles.statusIndicator, 
+                  { backgroundColor: profile.onlineStatus ? '#4CAF50' : '#F44336' }
+                ]} 
+              />
+              <Text style={[styles.statusText, { color: colors.textSecondary }]}>
+                {profile.onlineStatus ? 'Online' : 'Offline'}
+              </Text>
+              <Switch
+                value={profile.onlineStatus}
+                onValueChange={toggleOnlineStatus}
+                trackColor={{ false: colors.border, true: '#C41E3A' }}
+                thumbColor={profile.onlineStatus ? 'white' : 'white'}
+              />
+            </View>
+          </View>
+        </View>
+      </View>
+
+      {/* Driver's License Section */}
+      <View style={[styles.imageCard, { backgroundColor: isDarkMode ? '#2A2A2A' : '#F8F8F8' }]}>
+        <Text style={[styles.sectionTitle, { color: '#C41E3A' }]}>Driver's License</Text>
+        <TouchableOpacity 
+          onPress={() => pickImage('licenseImage')}
+          style={styles.imageTouchable}
+        >
+          {profile.licenseImage ? (
+            <Image 
+              source={{ uri: profile.licenseImage }} 
+              style={[styles.largeImage, { borderColor: '#C41E3A' }]} 
+              resizeMode="contain"
+            />
+          ) : (
+            <View style={[styles.largeImagePlaceholder, { backgroundColor: isDarkMode ? '#3A3A3A' : '#EAEAEA' }]}>
+              <MaterialIcons name="card-membership" size={40} color="#C41E3A" />
+              <Text style={[styles.placeholderText, { color: colors.text }]}>Add License Photo</Text>
+            </View>
+          )}
+          <View style={[styles.imageOverlay, { backgroundColor: 'rgba(0,0,0,0.3)' }]}>
+            <Ionicons name="camera" size={24} color="white" />
+          </View>
+        </TouchableOpacity>
+      </View>
+
+      {/* Vehicle Section */}
+      <View style={[styles.imageCard, { backgroundColor: isDarkMode ? '#2A2A2A' : '#F8F8F8' }]}>
+        <Text style={[styles.sectionTitle, { color: '#C41E3A' }]}>Vehicle Information</Text>
+        <View style={styles.vehicleDetails}>
+          <View style={styles.detailRow}>
+            <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Type:</Text>
+            <Text style={[styles.detailValue, { color: colors.text }]}>
+              {profile.vehicleType || 'Not specified'}
+            </Text>
+          </View>
+        </View>
+        
+        <TouchableOpacity 
+          onPress={() => pickImage('vehicleImage')}
+          style={styles.imageTouchable}
+        >
+          {profile.vehicleImage ? (
+            <Image 
+              source={{ uri: profile.vehicleImage }} 
+              style={[styles.largeImage, { borderColor: '#C41E3A' }]} 
+              resizeMode="contain"
+            />
+          ) : (
+            <View style={[styles.largeImagePlaceholder, { backgroundColor: isDarkMode ? '#3A3A3A' : '#EAEAEA' }]}>
+              <Ionicons name="car-sport" size={40} color="#C41E3A" />
+              <Text style={[styles.placeholderText, { color: colors.text }]}>Add Vehicle Photo</Text>
+            </View>
+          )}
+          <View style={[styles.imageOverlay, { backgroundColor: 'rgba(0,0,0,0.3)' }]}>
+            <Ionicons name="camera" size={24} color="white" />
+          </View>
+        </TouchableOpacity>
+      </View>
+
+      {/* Contact Information */}
+      <View style={[styles.infoCard, { backgroundColor: isDarkMode ? '#2A2A2A' : '#F8F8F8' }]}>
+        <Text style={[styles.sectionTitle, { color: '#C41E3A' }]}>Contact Information</Text>
+        
+        <View style={styles.detailRow}>
+          <Ionicons name="mail-outline" size={20} color={colors.textSecondary} />
+          <Text style={[styles.detailValue, { color: colors.text }]}>{profile.email}</Text>
         </View>
 
-        <View style={styles.imageContainer}>
-          <Text style={[styles.imageLabel, { color: colors.iconRed }]}>License Photo</Text>
-          <TouchableOpacity activeOpacity={0.7} onPress={() => pickImage('licensePhoto')}>
-            {licensePhoto ? (
-              <Image source={{ uri: licensePhoto }} style={[styles.image, { borderColor: colors.iconRed }]} />
-            ) : (
-              <View style={[styles.imagePlaceholder, styles.image, { backgroundColor: colors.imagePlaceholderBackground, borderColor: colors.iconRed }]}>
-                <Ionicons name="camera" size={30} color={colors.iconRed} />
-                <Text style={[styles.placeholderText, { color: colors.iconRed }]}>Add Photo</Text>
-              </View>
-            )}
-          </TouchableOpacity>
+        <View style={styles.detailRow}>
+          <Ionicons name="call-outline" size={20} color={colors.textSecondary} />
+          {editMode ? (
+            <View style={styles.inputContainer}>
+              <TextInput
+                style={[
+                  styles.editInput,
+                  {
+                    backgroundColor: isDarkMode ? '#3A3A3A' : '#FFFFFF',
+                    color: colors.text,
+                    borderColor: errors.phoneNumber ? '#F44336' : '#C41E3A',
+                  },
+                ]}
+                value={profile.phoneNumber}
+                onChangeText={text => setProfile({ ...profile, phoneNumber: text })}
+                placeholder="Phone number"
+                keyboardType="phone-pad"
+                placeholderTextColor={isDarkMode ? '#AAAAAA' : '#888888'}
+              />
+              {errors.phoneNumber && (
+                <Text style={styles.errorText}>{errors.phoneNumber}</Text>
+              )}
+            </View>
+          ) : (
+            <Text style={[styles.detailValue, { color: colors.text }]}>
+              {formatPhoneNumber(profile.phoneNumber)}
+            </Text>
+          )}
         </View>
 
-        <View style={styles.imageContainer}>
-          <Text style={[styles.imageLabel, { color: colors.iconRed }]}>Car Photo</Text>
-          <TouchableOpacity activeOpacity={0.7} onPress={() => pickImage('carImage')}>
-            {carImage ? (
-              <Image source={{ uri: carImage }} style={[styles.image, { borderColor: colors.iconRed }]} />
-            ) : (
-              <View style={[styles.imagePlaceholder, styles.image, { backgroundColor: colors.imagePlaceholderBackground, borderColor: colors.iconRed }]}>
-                <Ionicons name="camera" size={30} color={colors.iconRed} />
-                <Text style={[styles.placeholderText, { color: colors.iconRed }]}>Add Photo</Text>
-              </View>
-            )}
-          </TouchableOpacity>
+        <View style={styles.detailRow}>
+          <Ionicons name="home-outline" size={20} color={colors.textSecondary} />
+          {editMode ? (
+            <View style={styles.inputContainer}>
+              <TextInput
+                style={[
+                  styles.editInput,
+                  {
+                    backgroundColor: isDarkMode ? '#3A3A3A' : '#FFFFFF',
+                    color: colors.text,
+                    borderColor: errors.address ? '#F44336' : '#C41E3A',
+                  },
+                ]}
+                value={profile.address}
+                onChangeText={text => setProfile({ ...profile, address: text })}
+                placeholder="Address"
+                placeholderTextColor={isDarkMode ? '#AAAAAA' : '#888888'}
+              />
+              {errors.address && (
+                <Text style={styles.errorText}>{errors.address}</Text>
+              )}
+            </View>
+          ) : (
+            <Text style={[styles.detailValue, { color: colors.text }]}>
+              {profile.address || 'Not specified'}
+            </Text>
+          )}
         </View>
-      </ScrollView>
 
-      <View style={[styles.infoSection, { borderTopColor: colors.borderColor }]}> {/* Apply border color */}
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Text style={[styles.label, { color: colors.iconRed }]}>Profile Information</Text> {/* Apply label text color */}
-          {!editMode ? (
-            <TouchableOpacity onPress={() => setEditMode(true)}>
-              <Ionicons name="create-outline" size={22} color={colors.iconRed} /> {/* Apply icon color */}
+        <View style={styles.detailRow}>
+          <Ionicons name="car-outline" size={20} color={colors.textSecondary} />
+          {editMode ? (
+            <TextInput
+              style={[
+                styles.editInput,
+                {
+                  backgroundColor: isDarkMode ? '#3A3A3A' : '#FFFFFF',
+                  color: colors.text,
+                  borderColor: '#C41E3A',
+                },
+              ]}
+              value={profile.vehicleType}
+              onChangeText={text => setProfile({ ...profile, vehicleType: text })}
+              placeholder="Vehicle type"
+              placeholderTextColor={isDarkMode ? '#AAAAAA' : '#888888'}
+            />
+          ) : (
+            <Text style={[styles.detailValue, { color: colors.text }]}>
+              {profile.vehicleType || 'Not specified'}
+            </Text>
+          )}
+        </View>
+      </View>
+
+      {/* Edit/Save Buttons */}
+      <View style={styles.buttonContainer}>
+        {editMode ? (
+          <>
+            <TouchableOpacity 
+              style={[styles.button, { backgroundColor: '#C41E3A' }]}
+              onPress={handleSaveProfile}
+            >
+              <LinearGradient
+                colors={['#C41E3A', '#A51930']}
+                style={styles.gradientButton}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+              >
+                <Text style={styles.buttonText}>Save Changes</Text>
+              </LinearGradient>
             </TouchableOpacity>
-          ) : null}
-        </View>
-
-        {/* Editable fields */}
-        <Text style={[styles.label, { color: colors.iconRed }]}>Full Name:</Text>
-        <TextInput
-          style={[
-            styles.input,
-            {
-              backgroundColor: editMode ? colors.inputBackground : colors.inputDisabledBackground, // Conditional background
-              color: editMode ? colors.text : colors.textSecondary, // Conditional text color
-              borderColor: colors.iconRed, // Always red border
-            },
-          ]}
-          value={fullName}
-          onChangeText={setFullName}
-          placeholder="Full Name"
-          placeholderTextColor={colors.placeholderText} // Placeholder color
-          editable={editMode}
-        />
-        {profileErrors.fullName && (
-          <Text style={[styles.errorText, { color: colors.errorText }]}>{profileErrors.fullName}</Text> /* Apply error text color */
-        )}
-
-        <Text style={[styles.label, { color: colors.iconRed }]}>Phone Number:</Text>
-        <TextInput
-          style={[
-            styles.input,
-            {
-              backgroundColor: editMode ? colors.inputBackground : colors.inputDisabledBackground,
-              color: editMode ? colors.text : colors.textSecondary,
-              borderColor: colors.iconRed,
-            },
-          ]}
-          value={phoneNumber}
-          onChangeText={setPhoneNumber}
-          placeholder="Phone Number"
-          placeholderTextColor={colors.placeholderText}
-          keyboardType="phone-pad"
-          editable={editMode}
-        />
-        {profileErrors.phoneNumber && (
-          <Text style={[styles.errorText, { color: colors.errorText }]}>{profileErrors.phoneNumber}</Text>
-        )}
-
-        <Text style={[styles.label, { color: colors.iconRed }]}>Address:</Text>
-        <TextInput
-          style={[
-            styles.input,
-            {
-              backgroundColor: editMode ? colors.inputBackground : colors.inputDisabledBackground,
-              color: editMode ? colors.text : colors.textSecondary,
-              borderColor: colors.iconRed,
-            },
-          ]}
-          value={address}
-          onChangeText={setAddress}
-          placeholder="Address"
-          placeholderTextColor={colors.placeholderText}
-          editable={editMode}
-        />
-        {profileErrors.address && (
-          <Text style={[styles.errorText, { color: colors.errorText }]}>{profileErrors.address}</Text>
-        )}
-
-        {/* Save and Cancel buttons in edit mode */}
-        {editMode && (
-          <View style={{ flexDirection: 'row', gap: 10, marginTop: 10 }}>
-            <TouchableOpacity style={[styles.saveButton, { backgroundColor: colors.iconRed }]} onPress={handleSaveProfile}>
-              <Text style={[styles.saveButtonText, { color: colors.buttonText }]}>Save</Text> {/* Apply button text color */}
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.saveButton, { backgroundColor: colors.buttonSecondary }]} // Apply secondary button color
+            <TouchableOpacity 
+              style={[styles.button, { backgroundColor: '#FFD700' }]}
               onPress={() => {
-                setFullName(profile.fullName || '');
-                setPhoneNumber(profile.phoneNumber || '');
-                setAddress(profile.address || '');
-                setProfileErrors({});
+                setErrors({});
                 setEditMode(false);
+                // Reset to original values - you might want to store original values in state
               }}
             >
-              <Text style={[styles.saveButtonText, { color: colors.buttonText }]}>Cancel</Text>
+              <Text style={[styles.buttonText, { color: '#000000' }]}>Cancel</Text>
             </TouchableOpacity>
-          </View>
-        )}
-
-        {/* Show reactivation button if account is inactive */}
-        {profile.active === false && (
-          <TouchableOpacity
-            style={[styles.reactivateButton, { backgroundColor: colors.successButton }]} // Apply success button color
-            onPress={handleReactivateAccount}
-            disabled={reactivating}
+          </>
+        ) : (
+          <TouchableOpacity 
+            style={[styles.button, { backgroundColor: '#C41E3A' }]}
+            onPress={() => setEditMode(true)}
           >
-            <Ionicons name="person-add-outline" size={18} color={colors.buttonText} />
-            <Text style={[styles.logoutText, { color: colors.buttonText }]}>
-              {reactivating ? 'Reactivating...' : 'Reactivate Account'}
-            </Text>
+            <LinearGradient
+              colors={['#C41E3A', '#A51930']}
+              style={styles.gradientButton}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+            >
+              <Text style={styles.buttonText}>Edit Profile</Text>
+            </LinearGradient>
           </TouchableOpacity>
         )}
       </View>
 
-      <View style={styles.passwordSection}>
-        <Text style={[styles.label, { color: colors.iconRed }]}>Change Password</Text>
+      {/* Password Change Section */}
+      <View style={[styles.infoCard, { backgroundColor: isDarkMode ? '#2A2A2A' : '#F8F8F8' }]}>
+        <Text style={[styles.sectionTitle, { color: '#C41E3A' }]}>Change Password</Text>
+        
         <TextInput
           style={[
             styles.input,
             {
-              backgroundColor: colors.inputBackground,
-              borderColor: colors.iconRed,
+              backgroundColor: isDarkMode ? '#3A3A3A' : '#FFFFFF',
               color: colors.text,
+              borderColor: '#C41E3A',
             },
           ]}
           placeholder="Current Password"
-          placeholderTextColor={colors.placeholderText}
+          placeholderTextColor={isDarkMode ? '#AAAAAA' : '#888888'}
           secureTextEntry
           value={currentPassword}
           onChangeText={setCurrentPassword}
         />
+        
         <TextInput
           style={[
             styles.input,
             {
-              backgroundColor: colors.inputBackground,
-              borderColor: colors.iconRed,
+              backgroundColor: isDarkMode ? '#3A3A3A' : '#FFFFFF',
               color: colors.text,
+              borderColor: '#C41E3A',
             },
           ]}
           placeholder="New Password"
-          placeholderTextColor={colors.placeholderText}
+          placeholderTextColor={isDarkMode ? '#AAAAAA' : '#888888'}
           secureTextEntry
           value={newPassword}
           onChangeText={setNewPassword}
         />
+        
         <TextInput
           style={[
             styles.input,
             {
-              backgroundColor: colors.inputBackground,
-              borderColor: colors.iconRed,
+              backgroundColor: isDarkMode ? '#3A3A3A' : '#FFFFFF',
               color: colors.text,
+              borderColor: '#C41E3A',
             },
           ]}
           placeholder="Confirm New Password"
-          placeholderTextColor={colors.placeholderText}
+          placeholderTextColor={isDarkMode ? '#AAAAAA' : '#888888'}
           secureTextEntry
           value={confirmPassword}
           onChangeText={setConfirmPassword}
         />
-        <TouchableOpacity style={[styles.saveButton, { backgroundColor: colors.iconRed }]} onPress={handleChangePassword}>
-          <Text style={[styles.saveButtonText, { color: colors.buttonText }]}>Update Password</Text>
+        
+        <TouchableOpacity 
+          style={[styles.button, { backgroundColor: '#C41E3A' }]}
+          onPress={handleChangePassword}
+        >
+          <LinearGradient
+            colors={['#C41E3A', '#A51930']}
+            style={styles.gradientButton}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+          >
+            <Text style={styles.buttonText}>Update Password</Text>
+          </LinearGradient>
         </TouchableOpacity>
       </View>
 
-      <TouchableOpacity style={[styles.logoutButton, { backgroundColor: colors.accentYellow }]} onPress={handleLogout}> {/* Apply accent color */}
-        <Ionicons name="log-out-outline" size={18} color={colors.buttonText} />
-        <Text style={[styles.logoutText, { color: colors.buttonText }]}>Logout</Text>
-      </TouchableOpacity>
+      {/* Account Actions */}
+      <View style={[styles.infoCard, { backgroundColor: isDarkMode ? '#2A2A2A' : '#F8F8F8' }]}>
+        <Text style={[styles.sectionTitle, { color: '#C41E3A' }]}>Account Actions</Text>
+        
+        <TouchableOpacity 
+          style={[styles.actionButton, { backgroundColor: '#FFD700' }]}
+          onPress={handleLogout}
+        >
+          <Ionicons name="log-out-outline" size={20} color="#000000" />
+          <Text style={[styles.actionButtonText, { color: '#000000' }]}>Logout</Text>
+        </TouchableOpacity>
 
-      <TouchableOpacity style={[styles.deactivateButton, { backgroundColor: colors.warningButton }]} onPress={handleDeactivateAccount}> {/* Apply warning color */}
-        <Ionicons name="person-remove-outline" size={18} color={colors.buttonText} />
-        <Text style={[styles.logoutText, { color: colors.buttonText }]}>Deactivate Account</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity style={[styles.deleteButton, { backgroundColor: colors.dangerButton }]} onPress={handleDeleteAccount}> {/* Apply danger color */}
-        <Ionicons name="trash-outline" size={18} color={colors.buttonText} />
-        <Text style={[styles.logoutText, { color: colors.buttonText }]}>Delete Account</Text>
-      </TouchableOpacity>
+        <TouchableOpacity 
+          style={[styles.actionButton, { backgroundColor: '#8B0000' }]}
+          onPress={handleDeleteAccount}
+        >
+          <Ionicons name="trash-outline" size={20} color="#FFFFFF" />
+          <Text style={[styles.actionButtonText, { color: '#FFFFFF' }]}>Delete Account</Text>
+        </TouchableOpacity>
+      </View>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    padding: 20,
     flex: 1,
+    paddingTop: 40,
+    padding: 16,
   },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    marginBottom: 20,
-    textAlign: 'center',
-    marginTop: 40,
-  },
-  horizontalScroll: {
-    marginBottom: 30,
-  },
-  imageRow: {
-    flexDirection: 'row',
-    paddingHorizontal: 10,
-    alignItems: 'center',
-  },
-  imageContainer: {
-    width: 120,
-    alignItems: 'center',
-    marginHorizontal: 8,
-  },
-  imageLabel: {
-    marginBottom: 8,
-    fontWeight: '600',
-    fontSize: 16,
-  },
-  image: {
-    width: 110,
-    height: 110,
-    borderRadius: 12,
-    borderWidth: 2,
-  },
-  imagePlaceholder: {
+  loadingContainer: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  placeholderText: {
-    marginTop: 4,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-  infoSection: {
-    marginBottom: 30,
-    paddingHorizontal: 10,
-    borderTopWidth: 1,
-    paddingTop: 20,
-  },
-  label: {
-    fontWeight: '700',
+  loadingText: {
+    marginTop: 10,
     fontSize: 16,
-    marginBottom: 6,
   },
-  infoText: { // This style is not used, can be removed if not intended for future use
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: 'bold',
+  },
+  themeToggleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  themeSwitch: {
+    transform: [{ scaleX: 0.8 }, { scaleY: 0.8 }],
+  },
+  profileCard: {
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  profileHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  avatar: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    marginRight: 16,
+    borderWidth: 2,
+  },
+  cameraIcon: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    padding: 6,
+    borderRadius: 20,
+  },
+  profileInfo: {
+    flex: 1,
+  },
+  name: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 4,
+  },
+  phoneContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  phoneText: {
+    fontSize: 14,
+    marginLeft: 4,
+  },
+  ratingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  ratingText: {
+    marginLeft: 4,
+    marginRight: 8,
+    fontSize: 14,
+  },
+  tripsText: {
+    fontSize: 14,
+  },
+  onlineStatusContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  statusIndicator: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    marginRight: 6,
+  },
+  statusText: {
+    fontSize: 14,
+    marginRight: 8,
+  },
+  imageCard: {
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  sectionTitle: {
     fontSize: 18,
-    marginBottom: 14,
-    paddingLeft: 6,
-    borderBottomWidth: 1,
-    paddingBottom: 8,
+    fontWeight: 'bold',
+    marginBottom: 16,
   },
-  passwordSection: {
-    marginBottom: 30,
+  largeImage: {
+    width: '100%',
+    height: 200,
+    borderRadius: 8,
+    borderWidth: 2,
+    marginBottom: 8,
+  },
+  largeImagePlaceholder: {
+    width: '100%',
+    height: 200,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderStyle: 'dashed',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  imageTouchable: {
+    position: 'relative',
+  },
+  imageOverlay: {
+    position: 'absolute',
+    bottom: 8,
+    right: 8,
+    padding: 8,
+    borderRadius: 20,
+  },
+  placeholderText: {
+    marginTop: 8,
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  vehicleDetails: {
+    marginBottom: 16,
+  },
+  detailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    paddingHorizontal: 8,
+  },
+  detailLabel: {
+    width: 80,
+    fontSize: 14,
+    marginRight: 8,
+  },
+  detailValue: {
+    flex: 1,
+    fontSize: 14,
+  },
+  inputContainer: {
+    flex: 1,
+  },
+  editInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderRadius: 6,
+    padding: 8,
+    fontSize: 14,
+  },
+  errorText: {
+    color: '#F44336',
+    fontSize: 12,
+    marginTop: 4,
+  },
+  infoCard: {
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  buttonContainer: {
+    marginBottom: 16,
+  },
+  button: {
+    borderRadius: 8,
+    overflow: 'hidden',
+    marginBottom: 12,
+  },
+  gradientButton: {
+    padding: 14,
+    alignItems: 'center',
+  },
+  buttonText: {
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: 16,
   },
   input: {
     borderWidth: 1,
-    marginTop: 8,
+    borderRadius: 8,
     padding: 12,
-    borderRadius: 8,
-  },
-  saveButton: {
-    marginTop: 20,
-    padding: 15,
-    borderRadius: 8,
-  },
-  saveButtonText: {
-    fontWeight: '700',
-    textAlign: 'center',
+    marginBottom: 12,
     fontSize: 16,
   },
-  logoutButton: {
-    padding: 15,
+  actionButton: {
     borderRadius: 8,
+    padding: 14,
     flexDirection: 'row',
     justifyContent: 'center',
-    gap: 8,
     alignItems: 'center',
-    marginBottom: 15,
-  },
-  deactivateButton: {
-    padding: 15,
-    borderRadius: 8,
-    flexDirection: 'row',
-    justifyContent: 'center',
+    marginBottom: 12,
     gap: 8,
-    alignItems: 'center',
-    marginBottom: 15,
   },
-  deleteButton: {
-    padding: 15,
-    borderRadius: 8,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 8,
-    alignItems: 'center',
-    marginBottom: 40,
-  },
-  reactivateButton: {
-    padding: 15,
-    borderRadius: 8,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 8,
-    alignItems: 'center',
-    marginBottom: 15,
-  },
-  logoutText: {
-    fontWeight: '700',
+  actionButtonText: {
+    fontWeight: 'bold',
     fontSize: 16,
   },
   center: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingTop: 100,
   },
   noProfileText: {
     fontSize: 18,
-  },
-  errorText: {
-    fontSize: 13,
-    marginBottom: 8,
-    marginLeft: 4,
   },
 });
