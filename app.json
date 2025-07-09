@@ -31,6 +31,9 @@
     },
     "plugins": [
       "expo-mail-composer"
-    ]
+    ],
+    "extra": {
+      "GEOAPIFY_API_KEY": "f00ccbb77a3943d0a3fddb6d436d4b99"
+    }
   }
 }

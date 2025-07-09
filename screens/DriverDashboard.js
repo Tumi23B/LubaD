@@ -13,6 +13,7 @@ import * as FileSystem from 'expo-file-system';
 import { logout } from '../utils/logout';
 import { generatePDFReport } from '../utils/pdfHelper';
 import { useRoute } from '@react-navigation/native';
+import { Constants } from 'expo-constants';
 
 export default function DriverDashboard({ navigation }) {
   const { isDarkMode, colors } = useContext(ThemeContext);

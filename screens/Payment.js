@@ -516,10 +516,12 @@ const styles = StyleSheet.create({
     flexGrow: 1,
   },
   summaryCard: {
-    borderRadius: 12,
+    borderRadius: 14,
     borderWidth: 1,
     padding: 20,
     marginBottom: 20,
+    width: '100%',
+    overflow: 'hidden',
   },
   sectionTitle: {
     fontSize: 18,
@@ -529,13 +531,19 @@ const styles = StyleSheet.create({
   detailRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 8,
+    marginBottom: 10,
+    alignItems: 'flex-start',
   },
   detailLabel: {
     fontSize: 14,
     opacity: 0.8,
+    width:80,
+    flexShrink:0,
   },
   detailValue: {
+    flexGrow:1,
+    flexShrink:1,
+    flexWrap: 'wrap',
     fontSize: 14,
     fontWeight: '500',
   },

@@ -39,9 +39,8 @@ export default function DriverProfile() {
 
   // Format phone number for display
   const formatPhoneNumber = (phone) => {
-    if (!phone) return 'Not provided';
+    if (!phone || phone === '') return 'Not provided';
     
-    // Convert to string and remove all non-digit characters
     const cleaned = String(phone).replace(/\D/g, '');
     
     if (cleaned.length === 11 && cleaned.startsWith('27')) {
@@ -73,30 +72,19 @@ export default function DriverProfile() {
         const profileData = profileSnapshot.exists() ? profileSnapshot.val() : {};
         const applicationData = applicationSnapshot.exists() ? applicationSnapshot.val() : {};
 
-        // DEBUG: Log the raw data to see what's actually in the database
-        console.log('Profile Data:', profileData);
-        console.log('Application Data:', applicationData);
-        
-        // Try multiple possible field names for phone number
-        const phoneNumber = String(profileData.phoneNumber || 
-                           applicationData.phoneNumber || 
-                           profileData.phone || 
-                           applicationData.phone || 
-                           profileData.mobile || 
-                           applicationData.mobile || 
-                           profileData.cellphone || 
-                           applicationData.cellphone || 
-                           '');
-
-        console.log('Resolved phone number:', phoneNumber);
+        // Get phone number with priority: Auth > Profile > Application
+        const phoneNumber = user.phoneNumber || 
+                          profileData.phoneNumber || 
+                          applicationData.phoneNumber || 
+                          '';
 
         setProfile({
           ...profileData,
+          phoneNumber,
           profileImage: profileData.profileImage || applicationData.images?.driver,
           licenseImage: profileData.licenseImage || applicationData.images?.license,
           vehicleImage: profileData.vehicleImage || applicationData.images?.car,
           fullName: profileData.fullName || applicationData.fullName || '',
-          phoneNumber: phoneNumber,
           address: profileData.address || applicationData.address || '',
           vehicleType: profileData.vehicleType || applicationData.vehicleType || '',
           rating: profileData.rating || 0,
@@ -163,7 +151,7 @@ export default function DriverProfile() {
         quality: 0.8,
       });
 
-      if (!result.canceled) {
+      if (!result.canceled && result.assets && result.assets[0]) {
         const updatedProfile = { ...profile, [type]: result.assets[0].uri };
         setProfile(updatedProfile);
         
@@ -532,7 +520,6 @@ export default function DriverProfile() {
               onPress={() => {
                 setErrors({});
                 setEditMode(false);
-                // Reset to original values - you might want to store original values in state
               }}
             >
               <Text style={[styles.buttonText, { color: '#000000' }]}>Cancel</Text>
@@ -878,13 +865,5 @@ const styles = StyleSheet.create({
   actionButtonText: {
     fontWeight: 'bold',
     fontSize: 16,
-  },
-  center: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  noProfileText: {
-    fontSize: 18,
   },
 });

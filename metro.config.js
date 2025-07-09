@@ -1,4 +1,5 @@
-// metro.config.js
 const { getDefaultConfig } = require('expo/metro-config');
 
-module.exports = getDefaultConfig(__dirname);
+const config = getDefaultConfig(__dirname);
+
+module.exports = config;

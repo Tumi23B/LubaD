@@ -24,10 +24,7 @@ export default function Settings({ navigation }) {
           <Text style={[styles.settingText, isDarkMode ? styles.darkText : styles.lightText]}>Profile Info</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={[styles.settingLink, isDarkMode ? styles.darkCard : styles.lightCard]} onPress={() => navigation.navigate('DriverApplication')}>
-          <Ionicons name="car-outline" size={20} color={isDarkMode ? "#fff" : "#b80000"} />
-          <Text style={[styles.settingText, isDarkMode ? styles.darkText : styles.lightText]}>Become a Driver</Text>
-        </TouchableOpacity>
+        
       </View>
 
       <View style={styles.section}>

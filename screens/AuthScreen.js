@@ -1,11 +1,27 @@
 import React, { useState, useEffect, useContext } from 'react';
-import { View, Text, TextInput, StyleSheet, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView, Image, Alert } from 'react-native';
+import {
+  View,
+  Text,
+  TextInput,
+  StyleSheet,
+  TouchableOpacity,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  Image,
+  Alert,
+} from 'react-native';
 import { auth, database } from '../firebase';
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
+import {
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  sendPasswordResetEmail,
+} from 'firebase/auth';
 import { ref, set, get } from 'firebase/database';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ThemeContext } from '../ThemeContext';
+import { Ionicons } from '@expo/vector-icons';
 
 const lightModeLogo = require('../assets/logotransparent.png');
 const darkModeLogo = require('../assets/logo-dark-mode.png');
@@ -25,6 +41,7 @@ export default function AuthScreen() {
   const [errors, setErrors] = useState({});
   const [firebaseError, setFirebaseError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+  const [role, setRole] = useState('customer'); 
 
   useEffect(() => {
     if (showLogin) setIsLogin(true);
@@ -35,6 +52,20 @@ export default function AuthScreen() {
     if (/^0\d{9}$/.test(cleaned)) return true;
     if (/^(\+?27|0)\d{9}$/.test(cleaned)) return true;
     return false;
+  };
+
+  const formatPhoneNumberForDisplay = (phone) => {
+    if (!phone) return '';
+    const cleaned = phone.replace(/\D/g, '');
+
+    if (cleaned.length === 10 && cleaned.startsWith('0')) {
+      return `${cleaned.substring(0, 3)} ${cleaned.substring(3, 6)} ${cleaned.substring(6)}`;
+    }
+    if (cleaned.length === 11 && cleaned.startsWith('27')) {
+      return `+${cleaned.substring(0, 2)} ${cleaned.substring(2, 5)} ${cleaned.substring(5, 8)} ${cleaned.substring(8)}`;
+    }
+
+    return phone;
   };
 
   const validate = () => {
@@ -71,12 +102,14 @@ export default function AuthScreen() {
       }
     }
 
-    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]).{8,}$/;
+    const passwordRegex =
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]).{8,}$/;
     if (!password) {
       errs.password = 'Password is required.';
       valid = false;
     } else if (!passwordRegex.test(password)) {
-      errs.password = 'Password must be at least 8 characters and include uppercase, lowercase, number, and special character.';
+      errs.password =
+        'Password must be at least 8 characters and include uppercase, lowercase, number, and special character.';
       valid = false;
     }
 
@@ -91,18 +124,15 @@ export default function AuthScreen() {
 
   const handleForgotPassword = async () => {
     const trimmedEmail = email.trim().toLowerCase();
-    
+
     if (!trimmedEmail) {
-      setErrors({...errors, email: 'Email is required to reset password.'});
+      setErrors({ ...errors, email: 'Email is required to reset password.' });
       return;
     }
 
     try {
       await sendPasswordResetEmail(auth, trimmedEmail);
-      Alert.alert(
-        'Password Reset Email Sent',
-        'Please check your email to reset your password.'
-      );
+      Alert.alert('Password Reset Email Sent', 'Please check your email to reset your password.');
     } catch (error) {
       setFirebaseError(error.message);
     }
@@ -121,11 +151,24 @@ export default function AuthScreen() {
         const userCredential = await signInWithEmailAndPassword(auth, trimmedEmail, password);
         const snapshot = await get(ref(database, 'users/' + userCredential.user.uid));
         const userData = snapshot.val();
-        navigation.navigate('Dashboard', { 
-          username: userData?.username || 'User',
-          email: trimmedEmail,
-          phoneNumber: userData?.phoneNumber || ''
-        });
+
+        // Redirect based on user role
+        if (userData?.role === 'driver') {
+          navigation.navigate('DriverDashboard', {
+            userId: userCredential.user.uid,
+            username: userData.username || 'Driver',
+            email: trimmedEmail,
+            phoneNumber: userData.phoneNumber || '',
+          });
+        } else {
+          navigation.navigate('Dashboard', {
+            userId: userCredential.user.uid,
+            username: userData?.username || 'User',
+            email: trimmedEmail,
+            phoneNumber: userData?.phoneNumber || '',
+            formattedPhoneNumber: formatPhoneNumberForDisplay(userData?.phoneNumber || ''),
+          });
+        }
       } else {
         const userCredential = await createUserWithEmailAndPassword(auth, trimmedEmail, password);
         const userId = userCredential.user.uid;
@@ -134,18 +177,31 @@ export default function AuthScreen() {
           username,
           email: trimmedEmail,
           phoneNumber: cleanedPhone,
-          role: 'customer',
+          role, // Save selected role here
           driverApplication: { status: 'not_applied' },
         });
 
         setSuccessMsg('Successfully Signed Up!');
-        navigation.navigate('Dashboard', { 
-          username,
-          phoneNumber: cleanedPhone
-        });
+        // Redirect after signup based on selected role
+        if (role === 'driver') {
+          navigation.navigate('DriverApplication', {
+            userId,
+            username,
+            email: trimmedEmail,
+            phoneNumber: cleanedPhone,
+          });
+        } else {
+          navigation.navigate('Dashboard', {
+            userId,
+            username,
+            email: trimmedEmail,
+            phoneNumber: cleanedPhone,
+            formattedPhoneNumber: formatPhoneNumberForDisplay(cleanedPhone),
+          });
+        }
       }
     } catch (error) {
-      if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
+      if (error.code === 'user-not-found' || error.code === 'invalid-credential') {
         setFirebaseError('No account found for this email or password. Please sign up first.');
       } else {
         setFirebaseError(error.message);
@@ -161,24 +217,23 @@ export default function AuthScreen() {
     >
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={[
-          { flexGrow: 1, paddingVertical: 24 },
-          { backgroundColor: colors.background }
-        ]}
+        contentContainerStyle={[{ flexGrow: 1, paddingVertical: 24 }, { backgroundColor: colors.background }]}
         keyboardShouldPersistTaps="handled"
       >
         <View style={[styles.container, { backgroundColor: colors.background }]}>
           <Text style={[styles.logo, { color: colors.iconRed }]}>Luba Delivery</Text>
           <Text style={[styles.tagline]}>Your Logistics Partner</Text>
 
-          <Image
-            source={isDarkMode ? darkModeLogo : lightModeLogo}
-            style={styles.logoImg}
-            resizeMode="contain"
-          />
+          <Image source={isDarkMode ? darkModeLogo : lightModeLogo} style={styles.logoImg} resizeMode="contain" />
 
           <View style={styles.tab}>
-            <TouchableOpacity onPress={() => { setIsLogin(true); setErrors({}); setFirebaseError(''); }}>
+            <TouchableOpacity
+              onPress={() => {
+                setIsLogin(true);
+                setErrors({});
+                setFirebaseError('');
+              }}
+            >
               <LinearGradient
                 colors={isLogin ? ['#7B0000', '#990000', '#B30000', '#CC0000', '#E60000'] : [colors.background, colors.background]}
                 style={styles.gradientTab}
@@ -187,7 +242,13 @@ export default function AuthScreen() {
               </LinearGradient>
             </TouchableOpacity>
 
-            <TouchableOpacity onPress={() => { setIsLogin(false); setErrors({}); setFirebaseError(''); }}>
+            <TouchableOpacity
+              onPress={() => {
+                setIsLogin(false);
+                setErrors({});
+                setFirebaseError('');
+              }}
+            >
               <LinearGradient
                 colors={!isLogin ? ['#7B0000', '#990000', '#B30000', '#CC0000', '#E60000'] : [colors.background, colors.background]}
                 style={styles.gradientTab}
@@ -200,17 +261,63 @@ export default function AuthScreen() {
           {isLogin && <Text style={[styles.infoMsg, { color: colors.text }]}>First time here? Sign Up to Login</Text>}
 
           {!isLogin && (
-            <View style={styles.field}>
-              <TextInput
-                placeholder="👤 Username"
-                style={[styles.input, { backgroundColor: colors.cardBackground, color: colors.text, borderColor: colors.borderColor }]}
-                placeholderTextColor={colors.textSecondary}
-                value={username}
-                onChangeText={setUsername}
-                autoCapitalize="none"
-              />
-              {errors.username && <Text style={[styles.error, { color: colors.iconRed }]}>{errors.username}</Text>}
-            </View>
+            <>
+              {/* Role Selection */}
+              <Text style={[{ color: colors.text, marginBottom: 10, fontWeight: '600', textAlign:'center' }]}>Register As</Text>
+              <View style={{ flexDirection: 'row', justifyContent: 'center', marginBottom: 15 }}>
+                <TouchableOpacity
+                  onPress={() => setRole('customer')}
+                  style={[
+                    styles.roleOption,
+                    {
+                      backgroundColor: role === 'customer' ? '#b48811' : colors.cardBackground,
+                      borderColor: role === 'customer' ? '#b48811' : colors.borderColor,
+                    },
+                  ]}
+                >
+                  <Ionicons
+                    name="person-outline"
+                    size={30}
+                    color={role === 'customer' ? '#fff' : colors.text}
+                    style={{ marginBottom: 5 }}
+                  />
+                  <Text style={{ color: role === 'customer' ? '#fff' : colors.text }}>CUSTOMER</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={() => setRole('driver')}
+                  style={[
+                    styles.roleOption,
+                    {
+                      backgroundColor: role === 'driver' ? '#b48811' : colors.cardBackground,
+                      borderColor: role === 'driver' ? '#b48811' : colors.borderColor,
+                      marginLeft: 20,
+                    },
+                  ]}
+                >
+                  <Ionicons
+                    name="car-outline"
+                    size={30}
+                    color={role === 'driver' ? '#fff' : colors.text}
+                    style={{ marginBottom: 5 }}
+                  />
+                  <Text style={{ color: role === 'driver' ? '#fff' : colors.text }}>DRIVER</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Username input */}
+              <View style={styles.field}>
+                <TextInput
+                  placeholder="👤 Username"
+                  style={[styles.input, { backgroundColor: colors.cardBackground, color: colors.text, borderColor: colors.borderColor }]}
+                  placeholderTextColor={colors.textSecondary}
+                  value={username}
+                  onChangeText={setUsername}
+                  autoCapitalize="none"
+                />
+                {errors.username && <Text style={[styles.error, { color: colors.iconRed }]}>{errors.username}</Text>}
+              </View>
+            </>
           )}
 
           <View style={styles.field}>
@@ -276,13 +383,8 @@ export default function AuthScreen() {
           {successMsg ? <Text style={[styles.successMsg, { color: 'green' }]}>{successMsg}</Text> : null}
 
           <TouchableOpacity onPress={handleAuth} activeOpacity={0.85}>
-            <LinearGradient
-              colors={['#ebd197', '#b48811', '#a2790d', '#bb9b49']}
-              style={styles.authButton}
-            >
-              <Text style={styles.authButtonText}>
-                {isLogin ? 'Login' : 'Sign Up'}
-              </Text>
+            <LinearGradient colors={['#ebd197', '#b48811', '#a2790d', '#bb9b49']} style={styles.authButton}>
+              <Text style={styles.authButtonText}>{isLogin ? 'Login' : 'Sign Up'}</Text>
             </LinearGradient>
           </TouchableOpacity>
         </View>
@@ -381,5 +483,14 @@ const styles = StyleSheet.create({
     textAlign: 'right',
     marginBottom: 15,
     fontSize: 12,
+  },
+
+  // Added style for role selection buttons
+  roleOption: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderRadius: 10,
   },
 });
