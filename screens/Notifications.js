@@ -10,7 +10,7 @@ import {
   FlatList,
   Alert
 } from 'react-native';
-import { Audio } from 'expo-audio';
+import { Audio } from 'expo-av'; 
 import * as Haptics from 'expo-haptics';
 import * as Notifications from 'expo-notifications';
 import { ThemeContext } from '../ThemeContext'; // Import ThemeContext
@@ -62,9 +62,35 @@ export default function NotificationSettings() {
     setTonePickerVisible(false);
   };
 
+  // Set up audio mode for notifications
+  useEffect(() => {
+  Audio.setAudioModeAsync({
+    allowsRecordingIOS: false,
+    staysActiveInBackground: false,
+    interruptionModeIOS: Audio.INTERRUPTION_MODE_IOS_DO_NOT_MIX,
+    playsInSilentModeIOS: true, // This one is for iOS!
+    shouldDuckAndroid: true,
+    interruptionModeAndroid: Audio.INTERRUPTION_MODE_ANDROID_DO_NOT_MIX,
+    playThroughEarpieceAndroid: false,
+  });
+}, []);
+
+  // Preload tones to cache them
+  useEffect(() => {
+  Object.values(toneFiles).forEach(async (file) => {
+    const sound = new Audio.Sound();
+    await sound.loadAsync(file);
+    await sound.unloadAsync(); // cache for future use
+  });
+}, []);
+
+  // Function to play notification tone
   async function playNotificationTone(toneId) {
     const soundObject = new Audio.Sound();
     try {
+      // Unload any previously loaded sound to avoid conflicts
+      if (soundObject._loaded) await soundObject.stopAsync();
+
       await soundObject.loadAsync(toneFiles[toneId]);
       await soundObject.playAsync();
       // Optionally unload after playing
@@ -77,7 +103,7 @@ export default function NotificationSettings() {
       console.log('Error playing sound:', error);
     }
   }
-
+  // Function to vibrate notification
   function vibrateNotification() {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   }
