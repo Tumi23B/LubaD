@@ -46,7 +46,7 @@ export default function App() {
               options={{ headerShown: false, title: 'Home' }}
             />
             <Stack.Screen name="Auth" component={AuthScreen} options={{ headerShown: false }} />
-            <Stack.Screen name="Dashboard" component={Dashboard} />
+            <Stack.Screen name="Dashboard" component={Dashboard} options={{ headerShown: false }}/>
             <Stack.Screen name="DriverApplication" component={DriverApplication} options={{ headerShown: false }} />
             <Stack.Screen name="DriverDashboard" component={DriverDashboard} options={{ headerShown: false }} />
             <Stack.Screen name="Checkout" component={Checkout} options={{ headerShown: false }} />

@@ -480,7 +480,7 @@ useEffect(() => {
           </View>
 
           {recentRides.length === 0 ? (
-            <Text style={{ color: colors.textSecondary }}>No recent rides yet.</Text>
+            <Text style={{ color: colors.textSecondary }}>View recent rides</Text>
           ) : (
             recentRides.map((ride, index) => (
               <View key={index} style={[styles.suggestionCard, { backgroundColor: colors.cardBackground }]}>

@@ -5,7 +5,7 @@ import {
   TextInput,
   StyleSheet,
   TouchableOpacity,
-  KeyboardAvoidingView,
+  Keyboard, LayoutAnimation,
   Platform,
   ScrollView,
   Image,
@@ -22,6 +22,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ThemeContext } from '../ThemeContext';
 import { Ionicons } from '@expo/vector-icons';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 
 const lightModeLogo = require('../assets/logotransparent.png');
 const darkModeLogo = require('../assets/logo-dark-mode.png');
@@ -209,187 +210,193 @@ export default function AuthScreen() {
     }
   };
 
+  // Listen for keyboard hide event to force layout update
+  useEffect(() => {
+  const keyboardHideListener = Keyboard.addListener('keyboardDidHide', () => {
+    setTimeout(() => {
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    }, 50);
+  });
+
+  return () => {
+    keyboardHideListener.remove();
+  };
+}, []);
+
+  // Render the AuthScreen component
   return (
-    <KeyboardAvoidingView
+    <KeyboardAwareScrollView
       style={{ flex: 1 }}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={40}
+      contentContainerStyle={[
+        { flexGrow: 1, paddingVertical: 24 },
+        { backgroundColor: colors.background },
+      ]}
+      keyboardShouldPersistTaps="handled"
+      enableOnAndroid={true}
+      extraScrollHeight={20}
     >
-      <ScrollView
-        style={{ flex: 1 }}
-        contentContainerStyle={[{ flexGrow: 1, paddingVertical: 24 }, { backgroundColor: colors.background }]}
-        keyboardShouldPersistTaps="handled"
-      >
-        <View style={[styles.container, { backgroundColor: colors.background }]}>
-          <Text style={[styles.logo, { color: colors.iconRed }]}>Luba Delivery</Text>
-          <Text style={[styles.tagline]}>Your Logistics Partner</Text>
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <Text style={[styles.logo, { color: colors.iconRed }]}>Luba Delivery</Text>
+        <Text style={styles.tagline}>Your Logistics Partner</Text>
+        <Image
+          source={isDarkMode ? require('../assets/logo-dark-mode.png') : require('../assets/logotransparent.png')}
+          style={styles.logoImg}
+          resizeMode="contain"
+        />
 
-          <Image source={isDarkMode ? darkModeLogo : lightModeLogo} style={styles.logoImg} resizeMode="contain" />
-
-          <View style={styles.tab}>
-            <TouchableOpacity
-              onPress={() => {
-                setIsLogin(true);
-                setErrors({});
-                setFirebaseError('');
-              }}
+        <View style={styles.tab}>
+          <TouchableOpacity onPress={() => { setIsLogin(true); setErrors({}); setFirebaseError(''); }}>
+            <LinearGradient
+              colors={isLogin ? ['#7B0000', '#990000', '#B30000', '#CC0000', '#E60000'] : [colors.background, colors.background]}
+              style={styles.gradientTab}
             >
-              <LinearGradient
-                colors={isLogin ? ['#7B0000', '#990000', '#B30000', '#CC0000', '#E60000'] : [colors.background, colors.background]}
-                style={styles.gradientTab}
-              >
-                <Text style={[styles.tabText, isLogin ? styles.activeText : { color: colors.text }]}>Login</Text>
-              </LinearGradient>
-            </TouchableOpacity>
+              <Text style={[styles.tabText, isLogin ? styles.activeText : { color: colors.text }]}>Login</Text>
+            </LinearGradient>
+          </TouchableOpacity>
 
-            <TouchableOpacity
-              onPress={() => {
-                setIsLogin(false);
-                setErrors({});
-                setFirebaseError('');
-              }}
+          <TouchableOpacity onPress={() => { setIsLogin(false); setErrors({}); setFirebaseError(''); }}>
+            <LinearGradient
+              colors={!isLogin ? ['#7B0000', '#990000', '#B30000', '#CC0000', '#E60000'] : [colors.background, colors.background]}
+              style={styles.gradientTab}
             >
-              <LinearGradient
-                colors={!isLogin ? ['#7B0000', '#990000', '#B30000', '#CC0000', '#E60000'] : [colors.background, colors.background]}
-                style={styles.gradientTab}
-              >
-                <Text style={[styles.tabText, !isLogin ? styles.activeText : { color: colors.text }]}>Sign Up</Text>
-              </LinearGradient>
-            </TouchableOpacity>
-          </View>
-
-          {isLogin && <Text style={[styles.infoMsg, { color: colors.text }]}>First time here? Sign Up to Login</Text>}
-
-          {!isLogin && (
-            <>
-              {/* Role Selection */}
-              <Text style={[{ color: colors.text, marginBottom: 10, fontWeight: '600', textAlign:'center' }]}>Register As</Text>
-              <View style={{ flexDirection: 'row', justifyContent: 'center', marginBottom: 15 }}>
-                <TouchableOpacity
-                  onPress={() => setRole('customer')}
-                  style={[
-                    styles.roleOption,
-                    {
-                      backgroundColor: role === 'customer' ? '#b48811' : colors.cardBackground,
-                      borderColor: role === 'customer' ? '#b48811' : colors.borderColor,
-                    },
-                  ]}
-                >
-                  <Ionicons
-                    name="person-outline"
-                    size={30}
-                    color={role === 'customer' ? '#fff' : colors.text}
-                    style={{ marginBottom: 5 }}
-                  />
-                  <Text style={{ color: role === 'customer' ? '#fff' : colors.text }}>CUSTOMER</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  onPress={() => setRole('driver')}
-                  style={[
-                    styles.roleOption,
-                    {
-                      backgroundColor: role === 'driver' ? '#b48811' : colors.cardBackground,
-                      borderColor: role === 'driver' ? '#b48811' : colors.borderColor,
-                      marginLeft: 20,
-                    },
-                  ]}
-                >
-                  <Ionicons
-                    name="car-outline"
-                    size={30}
-                    color={role === 'driver' ? '#fff' : colors.text}
-                    style={{ marginBottom: 5 }}
-                  />
-                  <Text style={{ color: role === 'driver' ? '#fff' : colors.text }}>DRIVER</Text>
-                </TouchableOpacity>
-              </View>
-
-              {/* Username input */}
-              <View style={styles.field}>
-                <TextInput
-                  placeholder="👤 Username"
-                  style={[styles.input, { backgroundColor: colors.cardBackground, color: colors.text, borderColor: colors.borderColor }]}
-                  placeholderTextColor={colors.textSecondary}
-                  value={username}
-                  onChangeText={setUsername}
-                  autoCapitalize="none"
-                />
-                {errors.username && <Text style={[styles.error, { color: colors.iconRed }]}>{errors.username}</Text>}
-              </View>
-            </>
-          )}
-
-          <View style={styles.field}>
-            <TextInput
-              placeholder="📧 Email"
-              style={[styles.input, { backgroundColor: colors.cardBackground, color: colors.text, borderColor: colors.borderColor }]}
-              placeholderTextColor={colors.textSecondary}
-              value={email}
-              onChangeText={setEmail}
-              autoCapitalize="none"
-              keyboardType="email-address"
-            />
-            {errors.email && <Text style={[styles.error, { color: colors.iconRed }]}>{errors.email}</Text>}
-          </View>
-
-          {!isLogin && (
-            <View style={styles.field}>
-              <TextInput
-                placeholder="📱 South African Phone (e.g.0821234567)"
-                style={[styles.input, { backgroundColor: colors.cardBackground, color: colors.text, borderColor: colors.borderColor }]}
-                placeholderTextColor={colors.textSecondary}
-                value={phoneNumber}
-                onChangeText={setPhoneNumber}
-                keyboardType="phone-pad"
-              />
-              {errors.phoneNumber && <Text style={[styles.error, { color: colors.iconRed }]}>{errors.phoneNumber}</Text>}
-            </View>
-          )}
-
-          <View style={styles.field}>
-            <TextInput
-              placeholder="🔒 Password"
-              secureTextEntry
-              style={[styles.input, { backgroundColor: colors.cardBackground, color: colors.text, borderColor: colors.borderColor }]}
-              placeholderTextColor={colors.textSecondary}
-              value={password}
-              onChangeText={setPassword}
-            />
-            {errors.password && <Text style={[styles.error, { color: colors.iconRed }]}>{errors.password}</Text>}
-          </View>
-
-          {!isLogin && (
-            <View style={styles.field}>
-              <TextInput
-                placeholder="🔒 Confirm Password"
-                secureTextEntry
-                style={[styles.input, { backgroundColor: colors.cardBackground, color: colors.text, borderColor: colors.borderColor }]}
-                placeholderTextColor={colors.textSecondary}
-                value={confirmPassword}
-                onChangeText={setConfirmPassword}
-              />
-              {errors.confirmPassword && <Text style={[styles.error, { color: colors.iconRed }]}>{errors.confirmPassword}</Text>}
-            </View>
-          )}
-
-          {isLogin && (
-            <TouchableOpacity onPress={handleForgotPassword}>
-              <Text style={[styles.forgotPassword, { color: colors.iconRed }]}>Forgot Password?</Text>
-            </TouchableOpacity>
-          )}
-
-          {firebaseError ? <Text style={[styles.error, { color: colors.iconRed }]}>{firebaseError}</Text> : null}
-          {successMsg ? <Text style={[styles.successMsg, { color: 'green' }]}>{successMsg}</Text> : null}
-
-          <TouchableOpacity onPress={handleAuth} activeOpacity={0.85}>
-            <LinearGradient colors={['#ebd197', '#b48811', '#a2790d', '#bb9b49']} style={styles.authButton}>
-              <Text style={styles.authButtonText}>{isLogin ? 'Login' : 'Sign Up'}</Text>
+              <Text style={[styles.tabText, !isLogin ? styles.activeText : { color: colors.text }]}>Sign Up</Text>
             </LinearGradient>
           </TouchableOpacity>
         </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+
+        {isLogin && (
+          <Text style={[styles.infoMsg, { color: colors.text }]}>
+            First time here? Sign Up to Login
+          </Text>
+        )}
+
+        {!isLogin && (
+          <>
+            <Text style={[{ color: colors.text, marginBottom: 10, fontWeight: '600', textAlign: 'center' }]}>Register As</Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'center', marginBottom: 15 }}>
+              <TouchableOpacity
+                onPress={() => setRole('customer')}
+                style={[
+                  styles.roleOption,
+                  {
+                    backgroundColor: role === 'customer' ? '#b48811' : colors.cardBackground,
+                    borderColor: role === 'customer' ? '#b48811' : colors.borderColor,
+                  },
+                ]}
+              >
+                <Ionicons
+                  name="person-outline"
+                  size={30}
+                  color={role === 'customer' ? '#fff' : colors.text}
+                  style={{ marginBottom: 5 }}
+                />
+                <Text style={{ color: role === 'customer' ? '#fff' : colors.text }}>CUSTOMER</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => setRole('driver')}
+                style={[
+                  styles.roleOption,
+                  {
+                    backgroundColor: role === 'driver' ? '#b48811' : colors.cardBackground,
+                    borderColor: role === 'driver' ? '#b48811' : colors.borderColor,
+                    marginLeft: 20,
+                  },
+                ]}
+              >
+                <Ionicons
+                  name="car-outline"
+                  size={30}
+                  color={role === 'driver' ? '#fff' : colors.text}
+                  style={{ marginBottom: 5 }}
+                />
+                <Text style={{ color: role === 'driver' ? '#fff' : colors.text }}>DRIVER</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.field}>
+              <TextInput
+                placeholder="👤 Username"
+                style={[styles.input, { backgroundColor: colors.cardBackground, color: colors.text, borderColor: colors.borderColor }]}
+                placeholderTextColor={colors.textSecondary}
+                value={username}
+                onChangeText={setUsername}
+                autoCapitalize="none"
+              />
+              {errors.username && <Text style={[styles.error, { color: colors.iconRed }]}>{errors.username}</Text>}
+            </View>
+          </>
+        )}
+
+        <View style={styles.field}>
+          <TextInput
+            placeholder="📧 Email"
+            style={[styles.input, { backgroundColor: colors.cardBackground, color: colors.text, borderColor: colors.borderColor }]}
+            placeholderTextColor={colors.textSecondary}
+            value={email}
+            onChangeText={setEmail}
+            autoCapitalize="none"
+            keyboardType="email-address"
+          />
+          {errors.email && <Text style={[styles.error, { color: colors.iconRed }]}>{errors.email}</Text>}
+        </View>
+
+        {!isLogin && (
+          <View style={styles.field}>
+            <TextInput
+              placeholder="📱 South African Phone (e.g.0821234567)"
+              style={[styles.input, { backgroundColor: colors.cardBackground, color: colors.text, borderColor: colors.borderColor }]}
+              placeholderTextColor={colors.textSecondary}
+              value={phoneNumber}
+              onChangeText={setPhoneNumber}
+              keyboardType="phone-pad"
+            />
+            {errors.phoneNumber && <Text style={[styles.error, { color: colors.iconRed }]}>{errors.phoneNumber}</Text>}
+          </View>
+        )}
+
+        <View style={styles.field}>
+          <TextInput
+            placeholder="🔒 Password"
+            secureTextEntry
+            style={[styles.input, { backgroundColor: colors.cardBackground, color: colors.text, borderColor: colors.borderColor }]}
+            placeholderTextColor={colors.textSecondary}
+            value={password}
+            onChangeText={setPassword}
+          />
+          {errors.password && <Text style={[styles.error, { color: colors.iconRed }]}>{errors.password}</Text>}
+        </View>
+
+        {!isLogin && (
+          <View style={styles.field}>
+            <TextInput
+              placeholder="🔒 Confirm Password"
+              secureTextEntry
+              style={[styles.input, { backgroundColor: colors.cardBackground, color: colors.text, borderColor: colors.borderColor }]}
+              placeholderTextColor={colors.textSecondary}
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
+            />
+            {errors.confirmPassword && <Text style={[styles.error, { color: colors.iconRed }]}>{errors.confirmPassword}</Text>}
+          </View>
+        )}
+
+        {isLogin && (
+          <TouchableOpacity onPress={handleForgotPassword}>
+            <Text style={[styles.forgotPassword, { color: colors.iconRed }]}>Forgot Password?</Text>
+          </TouchableOpacity>
+        )}
+
+        {firebaseError ? <Text style={[styles.error, { color: colors.iconRed }]}>{firebaseError}</Text> : null}
+        {successMsg ? <Text style={[styles.successMsg, { color: 'green' }]}>{successMsg}</Text> : null}
+
+        <TouchableOpacity onPress={handleAuth} activeOpacity={0.85}>
+          <LinearGradient colors={['#ebd197', '#b48811', '#a2790d', '#bb9b49']} style={styles.authButton}>
+            <Text style={styles.authButtonText}>{isLogin ? 'Login' : 'Sign Up'}</Text>
+          </LinearGradient>
+        </TouchableOpacity>
+      </View>
+    </KeyboardAwareScrollView>
   );
 }
 
