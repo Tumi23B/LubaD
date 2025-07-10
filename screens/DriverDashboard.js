@@ -645,6 +645,22 @@ export default function DriverDashboard({ navigation }) {
                       <Text style={{ color: colors.text }}>Scheduled: {new Date(item.date).toLocaleString()}</Text>
                       <Text style={{ color: colors.text }}>Status: {item.status}</Text>
 
+                      <TouchableOpacity
+                        style={[styles.actionButton, { backgroundColor: colors.iconRed, marginTop: 10 }]}
+                        onPress={() => {
+                          if (item.customerPhone && item.customerName) {
+                            navigation.navigate('DriverChatScreen', {
+                              customerName: item.customerName,
+                              customerPhone: item.customerPhone,
+                            });
+                          } else {
+                            Alert.alert('Missing Info', 'Customer name or phone number is not available.');
+                          }
+                        }}
+                      >
+                        <Text style={[styles.buttonText, { color: colors.buttonText }]}>Chat with Customer</Text>
+                      </TouchableOpacity>
+
                       {item.status === 'accepted' && (
                         <TouchableOpacity
                           style={[styles.actionButton, { backgroundColor: colors.iconRed, marginTop: 10 }]}

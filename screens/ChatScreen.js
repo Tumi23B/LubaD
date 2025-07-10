@@ -1,4 +1,4 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import {
   View,
   Text,
@@ -14,28 +14,99 @@ import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ThemeContext } from '../ThemeContext';
+import { getDatabase, ref, get, onValue, push, set } from 'firebase/database';
+import { getAuth } from 'firebase/auth';
 
 const userAvatar = require('../assets/icon.jpeg');
 const driverAvatar = require('../assets/icon.jpeg');
 
 export default function ChatScreen({ route }) {
-  const { isDarkMode, colors } = useContext(ThemeContext); // Use useContext to get theme
+  const { isDarkMode, colors } = useContext(ThemeContext);
+  const auth = getAuth();
+  const database = getDatabase();
 
-  const { bookingId, driverName, driverPhone } = route.params;
+  const { bookingId, driverName, driverPhone, driverId } = route.params;
 
-  const [messages, setMessages] = useState([
-    { id: '1', text: 'Hi, I’ll be there in 10 mins', sender: 'driver' },
-    { id: '2', text: 'Okay, thank you!', sender: 'user' },
-  ]);
+  const [messages, setMessages] = useState([]);
   const [inputText, setInputText] = useState('');
+  const [roomId, setRoomId] = useState(null);
+  const [driverOnline, setDriverOnline] = useState(true);
+  const [userPhone, setUserPhone] = useState('');
 
-  const sendMessage = () => {
-    if (!inputText.trim()) return;
-    setMessages([
-      ...messages,
-      { id: Date.now().toString(), text: inputText, sender: 'user' },
-    ]);
+  // Fetch phone numbers and set up chat room
+  useEffect(() => {
+    const fetchPhones = async () => {
+      try {
+        const userId = auth.currentUser.uid;
+        const userRef = ref(database, `users/${userId}/profile`);
+        const driverRef = ref(database, `drivers/${driverId}/profile`);
+
+        const userSnapshot = await get(userRef);
+        const driverSnapshot = await get(driverRef);
+
+        const fetchedUserPhone = userSnapshot.val().phoneNumber;
+        const fetchedDriverPhone = driverSnapshot.val().phoneNumber;
+
+        setUserPhone(fetchedUserPhone);
+
+        const generatedRoomId = [fetchedUserPhone, fetchedDriverPhone].sort().join('_');
+        setRoomId(generatedRoomId);
+
+        const messagesRef = ref(database, `chatRooms/${generatedRoomId}/messages`);
+        onValue(messagesRef, (snapshot) => {
+          const msgs = snapshot.val() || {};
+          const formatted = Object.entries(msgs).map(([id, msg]) => ({ ...msg, id }));
+          setMessages(formatted);
+        });
+      } catch (error) {
+        console.error('Error fetching phones or messages:', error);
+      }
+    };
+
+    fetchPhones();
+  }, []);
+
+  // Watch driver's online status
+  useEffect(() => {
+    const onlineRef = ref(database, `drivers/${driverId}/onlineStatus`);
+    onValue(onlineRef, (snapshot) => {
+      setDriverOnline(snapshot.val());
+    });
+  }, []);
+
+  const sendMessage = async () => {
+    if (!inputText.trim() || !roomId || !userPhone) return;
+
+    const newMessageRef = push(ref(database, `chatRooms/${roomId}/messages`));
+    await set(newMessageRef, {
+      sender: userPhone,
+      text: inputText,
+      timestamp: Date.now(),
+    });
+
     setInputText('');
+  };
+
+  const shareLocation = async () => {
+    if (!roomId || !userPhone) return;
+
+    let { status } = await Location.requestForegroundPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission denied', 'Location permission is needed to share your location.');
+      return;
+    }
+
+    let location = await Location.getCurrentPositionAsync({});
+    const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${location.coords.latitude},${location.coords.longitude}`;
+
+    const newMessageRef = push(ref(database, `chatRooms/${roomId}/messages`));
+    await set(newMessageRef, {
+      sender: userPhone,
+      text: `📍 Shared Location: ${mapsUrl}`,
+      isLocation: true,
+      mapsUrl,
+      timestamp: Date.now(),
+    });
   };
 
   const callDriver = () => {
@@ -46,41 +117,18 @@ export default function ChatScreen({ route }) {
     }
   };
 
-  const shareLocation = async () => {
-    let { status } = await Location.requestForegroundPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permission denied', 'Location permission is needed to share your location.');
-      return;
-    }
-
-    let location = await Location.getCurrentPositionAsync({});
-    const { latitude, longitude } = location.coords;
-    const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`;
-
-    setMessages([
-      ...messages,
-      {
-        id: Date.now().toString(),
-        text: `📍 Shared Location: ${mapsUrl}`,
-        sender: 'user',
-        isLocation: true,
-        mapsUrl,
-      },
-    ]);
-  };
-
   const renderMessage = ({ item }) => {
-    const isUser = item.sender === 'user';
+    const isUser = item.sender === userPhone;
 
-    if (item.isLocation) {
-      return (
-        <View style={[styles.messageRow, isUser ? styles.userRow : styles.driverRow]}>
-          {!isUser && <Image source={driverAvatar} style={styles.avatar} />}
+    return (
+      <View style={[styles.messageRow, isUser ? styles.userRow : styles.driverRow]}>
+        {!isUser && <Image source={driverAvatar} style={styles.avatar} />}
+        {item.isLocation ? (
           <TouchableOpacity
             style={[
               styles.messageBubble,
               isUser ? styles.userBubble : styles.driverBubble,
-              { backgroundColor: isUser ? colors.iconRed : colors.cardBackground } // Apply theme colors
+              { backgroundColor: isUser ? colors.iconRed : colors.cardBackground },
             ]}
             onPress={() => Linking.openURL(item.mapsUrl)}
           >
@@ -88,25 +136,19 @@ export default function ChatScreen({ route }) {
               {item.text}
             </Text>
           </TouchableOpacity>
-          {isUser && <Image source={userAvatar} style={styles.avatar} />}
-        </View>
-      );
-    }
-
-    return (
-      <View style={[styles.messageRow, isUser ? styles.userRow : styles.driverRow]}>
-        {!isUser && <Image source={driverAvatar} style={styles.avatar} />}
-        <View
-          style={[
-            styles.messageBubble,
-            isUser ? styles.userBubble : styles.driverBubble,
-            { backgroundColor: isUser ? colors.iconRed : colors.cardBackground } // Apply theme colors
-          ]}
-        >
-          <Text style={[styles.messageText, isUser ? { color: colors.buttonText } : { color: colors.text }]}>
-            {item.text}
-          </Text>
-        </View>
+        ) : (
+          <View
+            style={[
+              styles.messageBubble,
+              isUser ? styles.userBubble : styles.driverBubble,
+              { backgroundColor: isUser ? colors.iconRed : colors.cardBackground },
+            ]}
+          >
+            <Text style={[styles.messageText, isUser ? { color: colors.buttonText } : { color: colors.text }]}>
+              {item.text}
+            </Text>
+          </View>
+        )}
         {isUser && <Image source={userAvatar} style={styles.avatar} />}
       </View>
     );
@@ -129,6 +171,12 @@ export default function ChatScreen({ route }) {
             <Ionicons name="call" size={28} color={colors.iconRed} />
           </TouchableOpacity>
         </View>
+
+        {!driverOnline && (
+          <Text style={{ color: colors.textSecondary, textAlign: 'center', padding: 8 }}>
+            Driver is offline. Your messages will be delivered when they're back online.
+          </Text>
+        )}
 
         <FlatList
           data={messages}
@@ -165,19 +213,13 @@ export default function ChatScreen({ route }) {
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    // backgroundColor handled by theme
-  },
+  safeArea: { flex: 1 },
   container: { flex: 1 },
-
   driverHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    // backgroundColor handled by theme
     padding: 16,
     borderBottomWidth: 1,
-    // borderColor handled by theme
   },
   driverImage: {
     width: 50,
@@ -185,33 +227,17 @@ const styles = StyleSheet.create({
     borderRadius: 25,
     marginRight: 12,
     borderWidth: 2,
-    // borderColor handled by theme
   },
-  driverName: {
-    fontSize: 17,
-    fontWeight: '700',
-    // color handled by theme
-  },
-  driverPhone: {
-    fontSize: 13,
-    // color handled by theme
-  },
-
-  chatContainer: {
-    padding: 14,
-  },
+  driverName: { fontSize: 17, fontWeight: '700' },
+  driverPhone: { fontSize: 13 },
+  chatContainer: { padding: 14 },
   messageRow: {
     flexDirection: 'row',
     alignItems: 'flex-end',
     marginVertical: 6,
   },
-  userRow: {
-    justifyContent: 'flex-end',
-  },
-  driverRow: {
-    justifyContent: 'flex-start',
-  },
-
+  userRow: { justifyContent: 'flex-end' },
+  driverRow: { justifyContent: 'flex-start' },
   avatar: {
     width: 34,
     height: 34,
