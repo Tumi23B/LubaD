@@ -21,52 +21,21 @@ import axios from 'axios';
 import { Ionicons } from '@expo/vector-icons';
 import { ThemeContext } from '../ThemeContext';
 import Constants from 'expo-constants';
+import { Linking } from 'react-native';
+
 
 export default function Dashboard({ navigation }) {
   const { isDarkMode, colors } = useContext(ThemeContext);
 
-  const [username, setUsername] = useState('');
-  const [autocompleteError, setAutocompleteError] = useState(null);
-
-  // Address inputs & coords
+ const [username, setUsername] = useState('');
   const [pickup, setPickup] = useState('');
-  const [debouncedPickup, setDebouncedPickup] = useState('');
-  const [pickupCoords, setPickupCoords] = useState(null);
-  const [pickupSuggestions, setPickupSuggestions] = useState([]);
-  const [pickupLoading, setPickupLoading] = useState(false);
-
   const [dropoff, setDropoff] = useState('');
-  const [debouncedDropoff, setDebouncedDropoff] = useState('');
-  const [dropoffCoords, setDropoffCoords] = useState(null);
-  const [dropoffSuggestions, setDropoffSuggestions] = useState([]);
-  const [dropoffLoading, setDropoffLoading] = useState(false);
-
+  const [location, setLocation] = useState(null);
+  const [recentRides, setRecentRides] = useState([]);
   const [date, setDate] = useState(new Date());
   const [isDatePickerVisible, setDatePickerVisibility] = useState(false);
   const [timeNow, setTimeNow] = useState(true);
-  const [location, setLocation] = useState(null);
-  const [routeCoords, setRouteCoords] = useState([]);
-  const [recentRides, setRecentRides] = useState([]);
 
-  const geoapifyKey = Constants.expoConfig.extra.GEOAPIFY_API_KEY;
-
-  // Debounce pickup input
-  useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedPickup(pickup);
-    }, 500);
-    return () => clearTimeout(handler);
-  }, [pickup]);
-
-  // Debounce dropoff input
-  useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedDropoff(dropoff);
-    }, 500);
-    return () => clearTimeout(handler);
-  }, [dropoff]);
-
-  // Fetch user data and location
   useEffect(() => {
     const fetchUserData = async () => {
       const user = auth.currentUser;
@@ -97,186 +66,10 @@ export default function Dashboard({ navigation }) {
         longitude: currentLocation.coords.longitude,
       });
     };
+
     fetchUserData();
   }, []);
 
-  // Decode polyline returned by Geoapify
-  const decodePolyline = (encoded) => {
-    let points = [];
-    let index = 0,
-      len = encoded.length;
-    let lat = 0,
-      lng = 0;
-
-    while (index < len) {
-      let b,
-        shift = 0,
-        result = 0;
-      do {
-        b = encoded.charCodeAt(index++) - 63;
-        result |= (b & 0x1f) << shift;
-        shift += 5;
-      } while (b >= 0x20);
-      let dlat = (result & 1) ? ~(result >> 1) : (result >> 1);
-      lat += dlat;
-
-      shift = 0;
-      result = 0;
-      do {
-        b = encoded.charCodeAt(index++) - 63;
-        result |= (b & 0x1f) << shift;
-        shift += 5;
-      } while (b >= 0x20);
-      let dlng = (result & 1) ? ~(result >> 1) : (result >> 1);
-      lng += dlng;
-
-      points.push({ latitude: lat / 1e5, longitude: lng / 1e5 });
-    }
-    return points;
-  };
-
-  // Fetch suggestions from Geoapify autocomplete API
-  const fetchGeoapifySuggestions = useCallback(
-    async (query, setSuggestions, setLoading) => {
-      if (!query || query.length < 3) {
-        setSuggestions([]);
-        return;
-      }
-      setLoading(true);
-      setAutocompleteError(null);
-      try {
-        const response = await axios.get(
-          'https://api.geoapify.com/v1/geocode/autocomplete',
-          {
-            params: {
-              text: query,
-              apiKey: geoapifyKey,
-              limit: 5,
-              filter: 'countrycode:za',
-            },
-          }
-        );
-        if (response.data && response.data.features) {
-          setSuggestions(response.data.features);
-        } else {
-          setSuggestions([]);
-          setAutocompleteError('No suggestions found');
-        }
-      } catch (err) {
-        console.error('Geoapify autocomplete error:', err);
-        setAutocompleteError('Failed to fetch suggestions');
-        setSuggestions([]);
-      } finally {
-        setLoading(false);
-      }
-    },
-    [geoapifyKey]
-  );
-
-  // Fetch route from Geoapify routing API
-  const fetchRoute = useCallback(async () => {
-    if (!pickupCoords || !dropoffCoords) {
-      setRouteCoords([]);
-      return;
-    }
-    try {
-      const start = `${pickupCoords.latitude},${pickupCoords.longitude}`;
-      const end = `${dropoffCoords.latitude},${dropoffCoords.longitude}`;
-      // Geoapify Directions API endpoint:
-   
-      const response = await axios.get('https://api.geoapify.com/v1/routing', {
-        params: {
-          waypoints: `${start}|${end}`,
-          mode: 'drive',
-          apiKey: geoapifyKey,
-          details: 'true',
-          geometry_format: 'encodedpolyline',
-        },
-      });
-      console.log('Routing API response:', response.data);
-      if (
-        response.data &&
-        response.data.features &&
-        response.data.features.length > 0 &&
-        response.data.features[0].properties &&
-        response.data.features[0].properties.route_geometry
-      ) {
-        const encodedPolyline = response.data.features[0].properties.route_geometry;
-        const decoded = decodePolyline(encodedPolyline);
-        console.log('Decode polyline coordinates:', decoded);
-        setRouteCoords(decoded);
-      } else {
-        setRouteCoords([]);
-      }
-    } catch (error) {
-      //console.error('Please Enter valid locations');
-      setRouteCoords([]);
-    }
-  }, [pickupCoords, dropoffCoords, geoapifyKey]);
-
-  // Trigger suggestions fetch on debounced input changes
-  useEffect(() => {
-    fetchGeoapifySuggestions(debouncedPickup, setPickupSuggestions, setPickupLoading);
-  }, [debouncedPickup, fetchGeoapifySuggestions]);
-
-  useEffect(() => {
-    fetchGeoapifySuggestions(debouncedDropoff, setDropoffSuggestions, setDropoffLoading);
-  }, [debouncedDropoff, fetchGeoapifySuggestions]);
-
-useEffect(() => {
-  if (pickupCoords && dropoffCoords) {
-    fetchRoute(); // This calls Geoapify routing API to get directions polyline
-  } else {
-    setRouteCoords([]); // Clear route if either coordinate is missing
-  }
-}, [pickupCoords, dropoffCoords, fetchRoute]);
-  // On selecting a pickup suggestion
-  const onPickupSelect = (item) => {
-    setPickup(item.properties.formatted);
-    setPickupCoords({
-      latitude: item.geometry.coordinates[1],
-      longitude: item.geometry.coordinates[0],
-    });
-    setPickupSuggestions([]);
-    setAutocompleteError(null);
-  };
-
-  // On selecting a dropoff suggestion
-  const onDropoffSelect = (item) => {
-    setDropoff(item.properties.formatted);
-    setDropoffCoords({
-      latitude: item.geometry.coordinates[1],
-      longitude: item.geometry.coordinates[0],
-    });
-    setDropoffSuggestions([]);
-    setAutocompleteError(null);
-  };
-
-  // Input change handlers
-  const onPickupChange = (text) => {
-    setPickup(text);
-    setPickupCoords(null);
-    setPickupSuggestions([]);
-    setAutocompleteError(null);
-  };
-
-  const onDropoffChange = (text) => {
-    setDropoff(text);
-    setDropoffCoords(null);
-    setDropoffSuggestions([]);
-    setAutocompleteError(null);
-  };
-
-  // Fetch route whenever coords change
-  useEffect(() => {
-    if (pickupCoords && dropoffCoords) {
-      fetchRoute();
-    } else {
-      setRouteCoords([]);
-    }
-  }, [pickupCoords, dropoffCoords, fetchRoute]);
-
-  // Date picker handlers
   const showDatePicker = () => setDatePickerVisibility(true);
   const hideDatePicker = () => setDatePickerVisibility(false);
   const handleConfirm = (selectedDate) => {
@@ -284,26 +77,38 @@ useEffect(() => {
     hideDatePicker();
   };
 
-  // Handle checkout button press
   const handleCheckout = () => {
     if (!pickup || !dropoff) {
       Alert.alert('Missing Information', 'Please enter both pickup and dropoff locations');
       return;
     }
-    if (!pickupCoords || !dropoffCoords) {
-      Alert.alert('Invalid Locations', 'Please select valid locations from the suggestions');
-      return;
-    }
+
     navigation.navigate('Checkout', {
       pickup,
-      pickupCoords,
       dropoff,
-      dropoffCoords,
       date: date.toISOString(),
     });
   };
 
-  // Vehicle options data
+  const openGoogleMapsNavigation = () => {
+    if (!pickup || !dropoff) {
+      Alert.alert('Missing Information', 'Please enter both pickup and dropoff locations.');
+      return;
+    }
+
+    const origin = encodeURIComponent(pickup);
+    const destination = encodeURIComponent(dropoff);
+    const url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}`;
+
+    Linking.openURL(url).catch(() =>
+      Alert.alert('Error', 'Could not open Google Maps.')
+    );
+  };
+
+  const onDropoffChange = (text) => {
+    setDropoff(text);
+  };
+
   const vehicleOptions = [
     { type: 'Mini Van', icon: 'car-outline' },
     { type: 'Van', icon: 'bus-outline' },
@@ -311,26 +116,9 @@ useEffect(() => {
     { type: 'Full Truck', icon: 'trail-sign-outline' },
   ];
 
-  // Render autocomplete suggestion item
-  const renderSuggestion = (item, onSelect) => (
-    <TouchableOpacity
-      key={item.properties.place_id || item.properties.osm_id}
-      style={[styles.suggestionItem, { backgroundColor: colors.cardBackground }]}
-      onPress={() => onSelect(item)}
-    >
-      <Text style={{ color: colors.text }}>{item.properties.formatted}</Text>
-    </TouchableOpacity>
-  );
-
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={{ flex: 1 }}
-    >
-      <ScrollView
-        style={[styles.container, { backgroundColor: colors.background }]}
-        keyboardShouldPersistTaps="handled"
-      >
+    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+      <ScrollView style={[styles.container, { backgroundColor: colors.background }]} keyboardShouldPersistTaps="handled">
         <View style={styles.section}>
           <Text style={[styles.title, { color: colors.iconRed }]}>Welcome, {username} 👋</Text>
         </View>
@@ -353,71 +141,40 @@ useEffect(() => {
                     longitudeDelta: 0.1,
                   }
             }
-            customMapStyle={isDarkMode ? mapStyleDark : mapStyleLight}
+            customMapStyle={Platform.OS === 'ios' ? mapStyleDark : mapStyleLight}
           >
             {location && <Marker coordinate={location} pinColor={colors.iconRed} title="You are here" />}
-            {pickupCoords && <Marker coordinate={pickupCoords} pinColor="green" title="Pickup" />}
-            {dropoffCoords && <Marker coordinate={dropoffCoords} pinColor="blue" title="Dropoff" />}
-            {routeCoords.length > 0 && (
-              <Polyline coordinates={routeCoords} strokeWidth={4} strokeColor={colors.iconRed} />
-            )}
           </MapView>
 
-          {/* Pickup input */}
-          <View style={{ zIndex: 1000 }}>
-            <TextInput
-              placeholder="📍 Pickup Location"
-              placeholderTextColor={colors.textSecondary}
-              value={pickup}
-              onChangeText={onPickupChange}
-              style={[
-                styles.input,
-                {
-                  backgroundColor: colors.cardBackground,
-                  color: colors.text,
-                  borderColor: colors.borderColor,
-                },
-              ]}
-              returnKeyType="search"
-            />
-            {pickupLoading && <ActivityIndicator size="small" color={colors.iconRed} />}
-            {autocompleteError && pickupSuggestions.length === 0 && (
-              <Text style={[styles.errorText, { color: colors.iconRed }]}>{autocompleteError}</Text>
-            )}
-            {pickupSuggestions.length > 0 && (
-              <View style={[styles.suggestionsContainer, { backgroundColor: colors.cardBackground }]}>
-                {pickupSuggestions.map((item) => renderSuggestion(item, onPickupSelect))}
-              </View>
-            )}
-          </View>
+          <TextInput
+            placeholder="📍 Pickup Location"
+            placeholderTextColor={colors.textSecondary}
+            value={pickup}
+            onChangeText={setPickup}
+            style={[
+              styles.input,
+              {
+                backgroundColor: colors.cardBackground,
+                color: colors.text,
+                borderColor: colors.borderColor,
+              },
+            ]}
+          />
 
-          {/* Dropoff input */}
-          <View style={{ zIndex: 999 }}>
-            <TextInput
-              placeholder="📦 Dropoff Location"
-              placeholderTextColor={colors.textSecondary}
-              value={dropoff}
-              onChangeText={onDropoffChange}
-              style={[
-                styles.input,
-                {
-                  backgroundColor: colors.cardBackground,
-                  color: colors.text,
-                  borderColor: colors.borderColor,
-                },
-              ]}
-              returnKeyType="search"
-            />
-            {dropoffLoading && <ActivityIndicator size="small" color={colors.iconRed} />}
-            {autocompleteError && dropoffSuggestions.length === 0 && (
-              <Text style={[styles.errorText, { color: colors.iconRed }]}>{autocompleteError}</Text>
-            )}
-            {dropoffSuggestions.length > 0 && (
-              <View style={[styles.suggestionsContainer, { backgroundColor: colors.cardBackground }]}>
-                {dropoffSuggestions.map((item) => renderSuggestion(item, onDropoffSelect))}
-              </View>
-            )}
-          </View>
+          <TextInput
+            placeholder="📦 Dropoff Location"
+            placeholderTextColor={colors.textSecondary}
+            value={dropoff}
+            onChangeText={onDropoffChange}
+            style={[
+              styles.input,
+              {
+                backgroundColor: colors.cardBackground,
+                color: colors.text,
+                borderColor: colors.borderColor,
+              },
+            ]}
+          />
 
           <TouchableOpacity style={styles.timeToggle} onPress={() => setTimeNow(!timeNow)}>
             <Text style={[styles.linkText, { color: colors.iconRed }]}>
@@ -441,13 +198,23 @@ useEffect(() => {
             onCancel={hideDatePicker}
           />
 
+            <TouchableOpacity
+            style={[styles.checkoutButton, { backgroundColor: '#4285F4' }]}
+            onPress={openGoogleMapsNavigation}
+          >
+            <Text style={[styles.checkoutButtonText, { color: 'white' }]}>
+              Open Route in Google Maps
+            </Text>
+          </TouchableOpacity>
+
           <TouchableOpacity
             style={[styles.checkoutButton, { backgroundColor: colors.iconRed }]}
             onPress={handleCheckout}
-            disabled={!pickupCoords || !dropoffCoords}
           >
             <Text style={[styles.checkoutButtonText, { color: colors.buttonText }]}>Checkout</Text>
           </TouchableOpacity>
+
+         
         </View>
 
         <View style={styles.section}>
@@ -510,6 +277,7 @@ useEffect(() => {
     </KeyboardAvoidingView>
   );
 }
+
 
 const mapStyleLight = [
   {
