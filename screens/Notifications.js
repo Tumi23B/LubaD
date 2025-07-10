@@ -259,9 +259,8 @@ export default function NotificationSettings() {
       </Modal>
 
       <TouchableOpacity
-        style={[styles.toneSelector, { backgroundColor: colors.borderColor }]} // Apply test notification button background
+        style={[styles.toneSelector, { backgroundColor: colors.borderColor }]}
         onPress={() => {
-          // Play both tones if their toggles are enabled
           if (soundEnabled) {
             if (appAlerts) playNotificationTone(appAlertTone.id);
             if (driverMessages) playNotificationTone(driverTone.id);
@@ -269,7 +268,7 @@ export default function NotificationSettings() {
           if (vibrationEnabled) vibrateNotification();
         }}
       >
-        <Text style={{ color: colors.buttonText, fontWeight: 'bold' }}>Test Notification</Text> {/* Apply text color */}
+        <Text style={{ color: colors.background, fontWeight: 'bold' }}>Test Notification</Text>
       </TouchableOpacity>
     </ScrollView>
   );
@@ -309,6 +308,8 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 1 }, // iOS shadow
     shadowOpacity: 0.15,
     shadowRadius: 2,
+    justifyContent: 'center', // Vertical centering
+    alignItems: 'center',     // Horizontal centering
   },
   toneName: {
     fontWeight: '700',

@@ -381,15 +381,11 @@ export default function Profile() {
           />
 
           <TouchableOpacity 
-            style={styles.saveButton} 
+            style={[styles.logoutButton, { backgroundColor: colors.borderColor }]} 
             onPress={handleChangePassword}
           >
-            <LinearGradient
-              colors={['#ebd197', '#b48811', '#a2790d', '#bb9b49']}
-              style={styles.gradientButton}
-            >
-              <Text style={styles.saveButtonText}>Update Password</Text>
-            </LinearGradient>
+            <Ionicons name="key-outline" size={18} color={colors.background} />
+            <Text style={[styles.logoutText, { color: colors.background }]}>Update Password</Text>
           </TouchableOpacity>
 
           <TouchableOpacity 

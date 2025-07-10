@@ -36,6 +36,9 @@ export default function DriverProfile() {
   const [editMode, setEditMode] = useState(false);
   const [errors, setErrors] = useState({});
   const navigation = useNavigation();
+  const [editingPhone, setEditingPhone] = useState(false);
+  const [tempPhoneNumber, setTempPhoneNumber] = useState('');
+
 
   // Format phone number for display
   const formatPhoneNumber = (phone) => {
@@ -55,6 +58,7 @@ export default function DriverProfile() {
     return phone;
   };
 
+  {/* Fetch driver profile */}
   useEffect(() => {
     const fetchProfile = async () => {
       const user = auth.currentUser;
@@ -72,7 +76,11 @@ export default function DriverProfile() {
         const profileData = profileSnapshot.exists() ? profileSnapshot.val() : {};
         const applicationData = applicationSnapshot.exists() ? applicationSnapshot.val() : {};
 
-        // Get phone number with priority: Auth > Profile > Application
+        {/* ensures that tempPhoneNumber reflects the accurate, pre-filled value when the screen loads */}
+        setTempPhoneNumber(phoneNumber);
+
+
+        {/* Get phone number with priority: Auth > Profile > Application*/}
         const phoneNumber = user.phoneNumber || 
                           profileData.phoneNumber || 
                           applicationData.phoneNumber || 
@@ -104,6 +112,13 @@ export default function DriverProfile() {
     fetchProfile();
   }, []);
 
+  {/* Validation Function for phone numbers*/}
+  const validateSAPhoneNumber = (phone) => {
+  const cleaned = phone.replace(/\D/g, '');
+  return /^(\+?27|0)\d{9}$/.test(cleaned);
+};
+
+
   const validateFields = () => {
     const newErrors = {};
     if (!profile.fullName.trim()) newErrors.fullName = 'Full name is required';
@@ -113,6 +128,26 @@ export default function DriverProfile() {
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
+
+  {/* Phone Update Handler*/}
+  const handleUpdatePhoneNumber = async () => {
+  if (!validateSAPhoneNumber(tempPhoneNumber)) {
+    setErrors(prev => ({ ...prev, phoneNumber: 'Enter a valid SA number' }));
+    return;
+  }
+  try {
+    const user = auth.currentUser;
+    const cleanedPhone = tempPhoneNumber.replace(/\D/g, '');
+    await update(ref(database, `drivers/${user.uid}`), { phoneNumber: cleanedPhone });
+    setProfile(prev => ({ ...prev, phoneNumber: cleanedPhone }));
+    setEditingPhone(false);
+    setErrors({});
+    Alert.alert('Success', 'Phone number updated');
+  } catch (error) {
+    Alert.alert('Error', error.message);
+    console.error('Phone update error:', error);
+  }
+};
 
   const handleSaveProfile = async () => {
     if (!validateFields()) return;
@@ -408,7 +443,7 @@ export default function DriverProfile() {
       {/* Contact Information */}
       <View style={[styles.infoCard, { backgroundColor: isDarkMode ? '#2A2A2A' : '#F8F8F8' }]}>
         <Text style={[styles.sectionTitle, { color: '#C41E3A' }]}>Contact Information</Text>
-        
+
         <View style={styles.detailRow}>
           <Ionicons name="mail-outline" size={20} color={colors.textSecondary} />
           <Text style={[styles.detailValue, { color: colors.text }]}>{profile.email}</Text>
@@ -416,7 +451,7 @@ export default function DriverProfile() {
 
         <View style={styles.detailRow}>
           <Ionicons name="call-outline" size={20} color={colors.textSecondary} />
-          {editMode ? (
+          {editingPhone ? (
             <View style={styles.inputContainer}>
               <TextInput
                 style={[
@@ -427,8 +462,11 @@ export default function DriverProfile() {
                     borderColor: errors.phoneNumber ? '#F44336' : '#C41E3A',
                   },
                 ]}
-                value={profile.phoneNumber}
-                onChangeText={text => setProfile({ ...profile, phoneNumber: text })}
+                value={tempPhoneNumber}
+                onChangeText={(text) => {
+                  setTempPhoneNumber(text);
+                  setErrors(prev => ({ ...prev, phoneNumber: '' }));
+                }}
                 placeholder="Phone number"
                 keyboardType="phone-pad"
                 placeholderTextColor={isDarkMode ? '#AAAAAA' : '#888888'}
@@ -436,11 +474,31 @@ export default function DriverProfile() {
               {errors.phoneNumber && (
                 <Text style={styles.errorText}>{errors.phoneNumber}</Text>
               )}
+              <View style={styles.phoneButtonRow}>
+                <TouchableOpacity
+                  onPress={handleUpdatePhoneNumber}
+                  style={[styles.phoneActionButton, { backgroundColor: '#b80000' }]}
+                >
+                  <Text style={[styles.phoneActionText, { color: '#c5a34f' }]}>Save</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => {
+                    setEditingPhone(false);
+                    setTempPhoneNumber(profile.phoneNumber);
+                    setErrors({});
+                  }}
+                  style={[styles.phoneActionButton, { backgroundColor: '#b80000' }]}
+                >
+                  <Text style={[styles.phoneActionText, { color: '#c5a34f' }]}>Cancel</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           ) : (
-            <Text style={[styles.detailValue, { color: colors.text }]}>
-              {formatPhoneNumber(profile.phoneNumber)}
-            </Text>
+            <TouchableOpacity onPress={() => setEditingPhone(true)}>
+              <Text style={[styles.detailValue, { color: colors.text }]}>
+                {formatPhoneNumber(profile.phoneNumber)}
+              </Text>
+            </TouchableOpacity>
           )}
         </View>
 
@@ -595,7 +653,7 @@ export default function DriverProfile() {
         />
         
         <TouchableOpacity 
-          style={[styles.button, { backgroundColor: '#C41E3A' }]}
+          style={[styles.button, { backgroundColor: '#b80000' }]}
           onPress={handleChangePassword}
         >
           <LinearGradient
@@ -614,11 +672,11 @@ export default function DriverProfile() {
         <Text style={[styles.sectionTitle, { color: '#C41E3A' }]}>Account Actions</Text>
         
         <TouchableOpacity 
-          style={[styles.actionButton, { backgroundColor: '#FFD700' }]}
+          style={[styles.actionButton, { backgroundColor: '#c5a34f' }]}
           onPress={handleLogout}
         >
-          <Ionicons name="log-out-outline" size={20} color="#000000" />
-          <Text style={[styles.actionButtonText, { color: '#000000' }]}>Logout</Text>
+          <Ionicons name="log-out-outline" size={20} color="#fefefefe" />
+          <Text style={[styles.actionButtonText, { color: '#fefefefe' }]}>Logout</Text>
         </TouchableOpacity>
 
         <TouchableOpacity 
@@ -866,4 +924,25 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 16,
   },
+
+  phoneButtonRow: {
+  flexDirection: 'row',
+  justifyContent: 'space-between',
+  marginTop: 12,
+},
+// phone number button styles
+phoneActionButton: {
+  flex: 1,
+  paddingVertical: 10,
+  borderRadius: 6,
+  marginHorizontal: 4,
+  alignItems: 'center',
+},
+
+phoneActionText: {
+  fontWeight: 'bold',
+  fontSize: 14,
+  color: 'white',
+},
+
 });

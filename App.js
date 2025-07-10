@@ -32,7 +32,7 @@ const Stack = createNativeStackNavigator();
 
 // Import both light and dark mode logo images for HomeScreen
 const lightModeHomeLogo = require('./assets/logotransparent.png');
-const darkModeHomeLogo = require('./assets/logo-dark-mode.png'); // Assuming this is your dark mode logo
+const darkModeHomeLogo = require('./assets/logotransparent.png'); // Assuming this is your dark mode logo
 
 export default function App() {
   return (
