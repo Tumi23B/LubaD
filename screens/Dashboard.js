@@ -111,7 +111,7 @@ const getCoordsFromAddress = async (address) => {
   const data = await response.json();
 
   if (data.length === 0) {
-    throw new Error('No results found');
+    throw new Error('Please Enter Valid Addresses!');
   }
 
   return {
@@ -148,7 +148,7 @@ const getCoordsFromAddress = async (address) => {
     rideId,
   });
 } catch (error) {
-  console.error('Error in handleCheckout:', error);
+  //console.error('Error in handleCheckout:', error);
   Alert.alert('Error', error.message || 'Failed to send ride request');
 }
 
