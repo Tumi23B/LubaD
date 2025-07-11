@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useContext, useRef } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, FlatList, ActivityIndicator, ScrollView, Modal } from 'react-native';
+import { Alert, View, Text, TouchableOpacity, StyleSheet, FlatList, ActivityIndicator, ScrollView, Modal } from 'react-native';
 import { auth, database } from '../firebase';
 import { ref, get, update, onValue, remove, increment } from 'firebase/database';
 import { onAuthStateChanged, signInAnonymously, signInWithCustomToken } from 'firebase/auth';
@@ -7,6 +7,7 @@ import MapView, { Marker } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { ThemeContext } from '../ThemeContext';
 import { Ionicons } from '@expo/vector-icons';
+import { Linking } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as MailComposer from 'expo-mail-composer';
 import * as FileSystem from 'expo-file-system';
@@ -14,6 +15,8 @@ import { logout } from '../utils/logout';
 import { generatePDFReport } from '../utils/pdfHelper';
 import { useRoute } from '@react-navigation/native';
 import { Constants } from 'expo-constants';
+
+
 
 export default function DriverDashboard({ navigation }) {
   const { isDarkMode, colors } = useContext(ThemeContext);
@@ -39,7 +42,7 @@ export default function DriverDashboard({ navigation }) {
   const nameDriver = route.params?.username || 'Driver';
   const hasResetThisWeek = useRef(false);
 
-  // Initialize Firebase authentication
+  // Initializing Firebase authentication
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
       if (user) {
@@ -321,147 +324,176 @@ export default function DriverDashboard({ navigation }) {
     }
   };
 
-  const acceptRide = async (request) => {
-    if (!userId || !database || !driverName) {
-      setModalMessage("Driver data not ready. Cannot accept ride.");
-      setModalType('error');
-      setShowModal(true);
-      return;
-    }
- 
-    setModalMessage(`Accepting ride from ${request.pickup} to ${request.dropoff}. Confirm?`);
-    setModalType('confirm');
-    setModalAction(() => async () => {
-      try {
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+// Updated acceptRide function with deep linking by address strings
+const acceptRide = (request) => {
+  if (!userId || !database || !driverName) {
+    setModalMessage("Driver data not ready. Cannot accept ride.");
+    setModalType('error');
+    setShowModal(true);
+    return;
+  }
 
-        const publicRequestRef = ref(database, `artifacts/${appId}/ride_requests/${request.id}`);
-        await update(publicRequestRef, {
+  // Ask driver for confirmation to accept
+  setModalMessage(`Accept ride from ${request.pickup} to ${request.dropoff}?`);
+  setModalType('confirm');
+  setModalAction(() => async () => {
+    console.log("OK tapped, now processing ride acceptance...");
+
+    try {
+      const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+
+      //  Updated public ride status
+      const publicRequestRef = ref(database, `artifacts/${appId}/ride_requests/${request.id}`);
+      await update(publicRequestRef, {
+        status: 'accepted',
+        driverId: userId,
+        driverName: driverName,
+        acceptedAt: new Date().toISOString(),
+      });
+
+      //  Updated customer's booking
+      if (request.customerId && request.customerBookingId) {
+        const customerBookingRef = ref(database, `artifacts/${appId}/users/${request.customerId}/rides/${request.customerBookingId}`);
+        await update(customerBookingRef, {
           status: 'accepted',
           driverId: userId,
           driverName: driverName,
           acceptedAt: new Date().toISOString(),
         });
+      }
 
-        if (request.customerId && request.customerBookingId) {
-          const customerBookingRef = ref(database, `artifacts/${appId}/users/${request.customerId}/rides/${request.customerBookingId}`);
-          await update(customerBookingRef, {
-            status: 'accepted',
-            driverId: userId,
-            driverName: driverName,
-            acceptedAt: new Date().toISOString(),
-          });
+      //  Setting modal to open Google Maps
+      setModalMessage("Ride accepted successfully! Tap OK to open Google Maps.");
+      setModalType('success');
+      setModalAction(() => async () => {
+        const pickup = request.pickup?.trim();
+        const dropoff = request.dropoff?.trim();
+
+        console.log("Pickup:", pickup);
+        console.log("Dropoff:", dropoff);
+
+        if (!pickup || !dropoff) {
+          Alert.alert('Missing Address', 'Pickup or dropoff address is missing or invalid.');
+          return;
         }
 
-        setModalMessage("Ride accepted successfully!");
-        setModalType('success');
-        setShowModal(true);
-      } catch (error) {
-        console.error('Error accepting ride:', error);
-        setModalMessage(`Failed to accept ride: ${error.message}`);
-        setModalType('error');
-        setShowModal(true);
-      }
-    });
-    setShowModal(true);
-  };
+        const origin = encodeURIComponent(pickup);
+        const destination = encodeURIComponent(dropoff);
+        const mapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&travelmode=driving`;
 
-  const declineRide = async (request) => {
-    if (!userId || !database) return;
-
-    setModalMessage(`Decline ride from ${request.pickup} to ${request.dropoff}?`);
-    setModalType('confirm');
-    setModalAction(() => async () => {
-      try {
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-
-        const publicRequestRef = ref(database, `artifacts/${appId}/ride_requests/${request.id}`);
-        await update(publicRequestRef, {
-          status: 'declined',
-          declinedBy: userId,
-          declinedAt: new Date().toISOString(),
-        });
-
-        if (request.customerId && request.customerBookingId) {
-          const customerBookingRef = ref(database, `artifacts/${appId}/users/${request.customerId}/rides/${request.customerBookingId}`);
-          await update(customerBookingRef, {
-            status: 'driver_declined',
-          });
+        const supported = await Linking.canOpenURL(mapsUrl);
+        if (supported) {
+          Linking.openURL(mapsUrl);
+        } else {
+          Alert.alert('Error', 'Unable to open Google Maps.');
         }
+      });
 
-        setModalMessage("Ride declined.");
-        setModalType('info');
-        setShowModal(true);
-      } catch (error) {
-        console.error('Error declining ride:', error);
-        setModalMessage(`Failed to decline ride: ${error.message}`);
-        setModalType('error');
-        setShowModal(true);
-      }
-    });
-    setShowModal(true);
-  };
+      setShowModal(true);
+    } catch (error) {
+      console.error('Error accepting ride:', error);
+      setModalMessage(`Failed to accept ride: ${error.message}`);
+      setModalType('error');
+      setShowModal(true);
+    }
+  });
+
+  setShowModal(true);
+};
+
+
+// Updated navigateToPickup function to use address string and deep linking
+const navigateToPickup = (pickupAddress) => {
+  if (!pickupAddress) {
+    Alert.alert('Missing Address', 'Pickup address is missing.');
+    return;
+  }
+
+  const destination = encodeURIComponent(pickupAddress);
+  const mapsUrl = `comgooglemaps://?daddr=${destination}&directionsmode=driving`;
+
+  Linking.canOpenURL(mapsUrl).then((supported) => {
+    if (supported) {
+      Linking.openURL(mapsUrl);
+    } else {
+      // fallback to browser maps
+      const webUrl = `https://www.google.com/maps/dir/?api=1&destination=${destination}&travelmode=driving`;
+      Linking.openURL(webUrl).catch(() => {
+        Alert.alert('Error', 'Could not open Google Maps.');
+      });
+    }
+  });
+};
 
   const completeRide = async (ride) => {
-    if (!userId || !database) return;
+  if (!userId || !database) return;
 
-    setModalMessage(`Mark ride from ${ride.pickup} to ${ride.dropoff} as complete?`);
-    setModalType('confirm');
-    setModalAction(() => async () => {
-      try {
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+  setModalMessage(`Mark ride from ${ride.pickup} to ${ride.dropoff} as complete?`);
+  setModalType('confirm');
+  setModalAction(() => async () => {
+    try {
+      const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
-        // Update ride status
-        const publicRequestRef = ref(database, `artifacts/${appId}/ride_requests/${ride.id}`);
-        await update(publicRequestRef, {
+      // Update public ride request
+      const publicRequestRef = ref(database, `artifacts/${appId}/ride_requests/${ride.id}`);
+      await update(publicRequestRef, {
+        status: 'completed',
+        completedAt: new Date().toISOString(),
+      });
+
+      // Update customer’s private booking
+      if (ride.customerId && ride.customerBookingId) {
+        const customerBookingRef = ref(
+          database,
+          `artifacts/${appId}/users/${ride.customerId}/rides/${ride.customerBookingId}`
+        );
+
+        await update(customerBookingRef, {
           status: 'completed',
+          driverId: userId,
+          driverName: driverName,
           completedAt: new Date().toISOString(),
+          pickupCoords: ride.pickupCoords || null,
+          dropoffCoords: ride.dropoffCoords || null,
         });
-
-        // Update customer booking
-        if (ride.customerId && ride.customerBookingId) {
-          const customerBookingRef = ref(database, `artifacts/${appId}/users/${ride.customerId}/rides/${ride.customerBookingId}`);
-          await update(customerBookingRef, {
-            status: 'completed',
-            completedAt: new Date().toISOString(),
-          });
-        }
-
-        // Update earnings
-        const ridePrice = ride.price || 0;
-        setTotalEarnings((prev) => {
-          const updated = prev + ridePrice;
-          AsyncStorage.setItem('sessionEarnings', JSON.stringify(updated));
-          return updated;
-        });
-
-        // Update shift record
-        if (currentShiftId) {
-          const shiftRef = ref(database, `driverShifts/${userId}/${currentShiftId}`);
-          await update(shiftRef, {
-            totalEarnings: increment(ridePrice),
-            completedRides: increment(1),
-          });
-        }
-
-        // Update driver's trip count in profile
-        const driverProfileRef = ref(database, `drivers/${userId}`);
-        await update(driverProfileRef, {
-          tripsCompleted: increment(1),
-        });
-
-        setModalMessage("Ride completed successfully! Trip count updated.");
-        setModalType('success');
-        setShowModal(true);
-      } catch (error) {
-        console.error('Error completing ride:', error);
-        setModalMessage(`Failed to complete ride: ${error.message}`);
-        setModalType('error');
-        setShowModal(true);
       }
-    });
-    setShowModal(true);
-  };
+
+      // Update driver's shift stats
+      const ridePrice = ride.price || 0;
+      setTotalEarnings((prev) => {
+        const updated = prev + ridePrice;
+        AsyncStorage.setItem('sessionEarnings', JSON.stringify(updated));
+        return updated;
+      });
+
+      if (currentShiftId) {
+        const shiftRef = ref(database, `driverShifts/${userId}/${currentShiftId}`);
+        await update(shiftRef, {
+          totalEarnings: increment(ridePrice),
+          completedRides: increment(1),
+        });
+      }
+
+      // Update driver profile trip count
+      const driverProfileRef = ref(database, `drivers/${userId}`);
+      await update(driverProfileRef, {
+        tripsCompleted: increment(1),
+      });
+
+      setModalMessage("Ride completed successfully! Trip count updated.");
+      setModalType('success');
+      setShowModal(true);
+    } catch (error) {
+      console.error('Error completing ride:', error);
+      setModalMessage(`Failed to complete ride: ${error.message}`);
+      setModalType('error');
+      setShowModal(true);
+    }
+  });
+
+  setShowModal(true);
+};
+
 
   const endShift = () => {
     setModalAction(() => async () => {
@@ -494,6 +526,7 @@ export default function DriverDashboard({ navigation }) {
     0
   );
 
+  
   const weeklyEarnings = pastShifts.reduce(
     (sum, shift) => sum + (shift.totalEarnings || 0),
     0
@@ -576,9 +609,10 @@ export default function DriverDashboard({ navigation }) {
                 >
                   <Marker coordinate={driverLocation} title="You" pinColor={colors.iconRed} />
                 </MapView>
+
               </View>
             )}
-
+    
             <View style={[styles.earningsContainer, { backgroundColor: colors.cardBackground, borderColor: colors.borderColor }]}>
               <Text style={[styles.earningsTitle, { color: colors.text }]}>Earning Summary</Text>
               <Text style={[styles.earningsAmount, { color: colors.iconRed }]}>R {totalEarnings.toFixed(2)}</Text>
@@ -630,7 +664,8 @@ export default function DriverDashboard({ navigation }) {
               <Text style={[styles.sectionTitle, { color: colors.iconRed }]}>Your Assigned Rides</Text>
               {assignedRides.length === 0 ? (
                 <Text style={[styles.noRidesText, { color: colors.textSecondary }]}>No rides currently assigned to you.</Text>
-              ) : (
+              ) :
+               (
                 <FlatList
                   scrollEnabled={false}
                   data={assignedRides}
@@ -658,17 +693,29 @@ export default function DriverDashboard({ navigation }) {
                           }
                         }}
                       >
-                        <Text style={[styles.buttonText, { color: colors.buttonText }]}>Chat with Customer</Text>
-                      </TouchableOpacity>
+                       <Text style={[styles.buttonText, { color: colors.buttonText }]}>Chat with Customer</Text>
+</TouchableOpacity>
 
-                      {item.status === 'accepted' && (
-                        <TouchableOpacity
-                          style={[styles.actionButton, { backgroundColor: colors.iconRed, marginTop: 10 }]}
-                          onPress={() => completeRide(item)}
-                        >
-                          <Text style={[styles.buttonText, { color: colors.buttonText }]}>Mark as Complete</Text>
-                        </TouchableOpacity>
-                      )}
+{item.status === 'accepted' && (
+  <>
+    {item.pickup && (
+      <TouchableOpacity
+        style={[styles.actionButton, { backgroundColor: '#4285F4', marginTop: 30 }]}
+        onPress={() => navigateToPickup(item.pickup)}
+      >
+        <Text style={[styles.buttonText, { color: 'white' }]}>Navigate to Pickup</Text>
+      </TouchableOpacity>
+    )}
+
+    <TouchableOpacity
+      style={[styles.actionButton, { backgroundColor: colors.iconRed, marginTop: 10 }]}
+      onPress={() => completeRide(item)}
+    >
+      <Text style={[styles.buttonText, { color: colors.buttonText }]}>Mark as Complete</Text>
+    </TouchableOpacity>
+  </>
+)}
+
                     </View>
                   )}
                 />

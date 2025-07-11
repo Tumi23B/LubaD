@@ -13,7 +13,7 @@ import {
   ScrollView as RNScrollView,
 } from 'react-native';
 import { auth, database } from '../firebase';
-import { ref, get, onValue } from 'firebase/database';
+import { ref, get, onValue, push, set } from 'firebase/database';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import MapView, { Marker, Polyline } from 'react-native-maps';
 import * as Location from 'expo-location';
@@ -35,6 +35,7 @@ export default function Dashboard({ navigation }) {
   const [date, setDate] = useState(new Date());
   const [isDatePickerVisible, setDatePickerVisibility] = useState(false);
   const [timeNow, setTimeNow] = useState(true);
+  const [rideId, setRideId] = useState(null);
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -77,17 +78,85 @@ export default function Dashboard({ navigation }) {
     hideDatePicker();
   };
 
-  const handleCheckout = () => {
-    if (!pickup || !dropoff) {
-      Alert.alert('Missing Information', 'Please enter both pickup and dropoff locations');
-      return;
-    }
+   const sendRideRequest = async (pickup, dropoff, pickupCoords, dropoffCoords, customerId) => {
+  const rideRef = push(ref(database, 'rides'));
+  await set(rideRef, {
+    customerId,
+    driverId: null,
+    pickup,
+    dropoff,
+    pickupCoords,
+    dropoffCoords,
+    status: 'requested',
+    timestamp: Date.now(),
+    driverLocation: null,
+  });
+  return rideRef.key;
+};
 
-    navigation.navigate('Checkout', {
-      pickup,
-      dropoff,
-      date: date.toISOString(),
-    });
+const getCoordsFromAddress = async (address) => {
+  const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`;
+
+  const response = await fetch(url, {
+    headers: {
+      'User-Agent': 'YourAppName/1.0 (LubaD)', 
+      'Accept': 'application/json'
+    }
+  });
+
+  if (!response.ok) {
+    throw new Error('Geocoding failed: ' + response.statusText);
+  }
+
+  const data = await response.json();
+
+  if (data.length === 0) {
+    throw new Error('No results found');
+  }
+
+  return {
+    latitude: parseFloat(data[0].lat),
+    longitude: parseFloat(data[0].lon),
+  };
+};
+
+
+
+
+  const handleCheckout = async () => {
+  if (!pickup || !dropoff) {
+    Alert.alert('Missing Information', 'Please enter both pickup and dropoff locations');
+    return;
+  }
+
+  const customerId = auth.currentUser?.uid;
+  if (!customerId) {
+    Alert.alert('Error', 'User not logged in');
+    return;
+  }
+
+  try {
+  const pickupCoords = await getCoordsFromAddress(pickup);
+  const dropoffCoords = await getCoordsFromAddress(dropoff);
+
+  const rideId = await sendRideRequest(pickup, dropoff, pickupCoords, dropoffCoords, customerId);
+
+  navigation.navigate('Checkout', {
+    pickup,
+    dropoff,
+    date: date.toISOString(),
+    rideId,
+  });
+} catch (error) {
+  console.error('Error in handleCheckout:', error);
+  Alert.alert('Error', error.message || 'Failed to send ride request');
+}
+
+};
+
+{
+
+
   };
 
   const openGoogleMapsNavigation = () => {
