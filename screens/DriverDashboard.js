@@ -13,8 +13,10 @@ import * as MailComposer from 'expo-mail-composer';
 import * as FileSystem from 'expo-file-system';
 import { logout } from '../utils/logout';
 import { generatePDFReport } from '../utils/pdfHelper';
-import { useRoute } from '@react-navigation/native';
+import { useRoute, useNavigation } from '@react-navigation/native';
 import { Constants } from 'expo-constants';
+import fetchUserDetails from '../utils/firebaseHelpers';
+
 
 
 
@@ -36,6 +38,7 @@ export default function DriverDashboard({ navigation }) {
   const [modalAction, setModalAction] = useState(null);
   const [currentShiftId, setCurrentShiftId] = useState(null);
   const [pastShifts, setPastShifts] = useState([]);
+  
 
   const route = useRoute();
   const driverEmail = route.params?.email || '';
@@ -324,9 +327,36 @@ export default function DriverDashboard({ navigation }) {
     }
   };
 
+  // Reusable helper to get customer profile info by ID
+  const fetchUserDetails = async (database, userId) => {
+  try {
+    const userRef = ref(database, `users/${userId}`);
+    const snapshot = await get(userRef);
+
+    console.log('Fetched snapshot for user:', snapshot.val());
+
+    if (snapshot.exists()) {
+      const data = snapshot.val();
+      return {
+        username: data.username || 'Unknown',
+        phoneNumber: data.phoneNumber || 'N/A',
+      };
+    } else {
+      console.warn('No user data found for:', userId);
+      return { username: 'Unknown', phoneNumber: 'N/A' };
+    }
+  } catch (error) {
+    console.error('Error fetching user details:', error);
+    return { username: 'Unknown', phoneNumber: 'N/A' };
+  }
+};
+
+
+
 // Updated acceptRide function with deep linking by address strings
 const acceptRide = (request) => {
   if (!userId || !database || !driverName) {
+
     setModalMessage("Driver data not ready. Cannot accept ride.");
     setModalType('error');
     setShowModal(true);
@@ -361,6 +391,16 @@ const acceptRide = (request) => {
           acceptedAt: new Date().toISOString(),
         });
       }
+
+      const { username, phoneNumber, imageUrl} = await fetchUserDetails(database, request.customerId);
+      console.log("Fetched user details:", username, phoneNumber, imageUrl);
+
+      // navigation to chat screen once accept button is clicked
+        navigation.navigate('DriverChat', {
+          customerName: username,
+          customerPhone: phoneNumber,
+          customerId: request.customerId,
+        });
 
       //  Setting modal to open Google Maps
       setModalMessage("Ride accepted successfully! Tap OK to open Google Maps.");
@@ -675,6 +715,8 @@ const navigateToPickup = (pickupAddress) => {
                       <Text style={[styles.rideCustomer, { color: colors.text }]}>
                         Assigned: {item.vehicle || 'Vehicle'}
                       </Text>
+                      <Text style={{ color: colors.text }}>Customer: {item.customerName}</Text>
+                      <Text style={{ color: colors.text }}>Phone: {item.customerPhone}</Text>
                       <Text style={{ color: colors.text }}>Pickup: {item.pickup}</Text>
                       <Text style={{ color: colors.text }}>Dropoff: {item.dropoff}</Text>
                       <Text style={{ color: colors.text }}>Scheduled: {new Date(item.date).toLocaleString()}</Text>
@@ -684,7 +726,7 @@ const navigateToPickup = (pickupAddress) => {
                         style={[styles.actionButton, { backgroundColor: colors.iconRed, marginTop: 10 }]}
                         onPress={() => {
                           if (item.customerPhone && item.customerName) {
-                            navigation.navigate('DriverChatScreen', {
+                            navigation.navigate('DriverChat', {
                               customerName: item.customerName,
                               customerPhone: item.customerPhone,
                             });
@@ -694,27 +736,27 @@ const navigateToPickup = (pickupAddress) => {
                         }}
                       >
                        <Text style={[styles.buttonText, { color: colors.buttonText }]}>Chat with Customer</Text>
-</TouchableOpacity>
+                      </TouchableOpacity>
 
-{item.status === 'accepted' && (
-  <>
-    {item.pickup && (
-      <TouchableOpacity
-        style={[styles.actionButton, { backgroundColor: '#4285F4', marginTop: 30 }]}
-        onPress={() => navigateToPickup(item.pickup)}
-      >
-        <Text style={[styles.buttonText, { color: 'white' }]}>Navigate to Pickup</Text>
-      </TouchableOpacity>
-    )}
+                        {item.status === 'accepted' && (
+                          <>
+                            {item.pickup && (
+                              <TouchableOpacity
+                                style={[styles.actionButton, { backgroundColor: '#4285F4', marginTop: 30 }]}
+                                onPress={() => navigateToPickup(item.pickup)}
+                              >
+                                <Text style={[styles.buttonText, { color: 'white' }]}>Navigate to Pickup</Text>
+                              </TouchableOpacity>
+                            )}
 
-    <TouchableOpacity
-      style={[styles.actionButton, { backgroundColor: colors.iconRed, marginTop: 10 }]}
-      onPress={() => completeRide(item)}
-    >
-      <Text style={[styles.buttonText, { color: colors.buttonText }]}>Mark as Complete</Text>
-    </TouchableOpacity>
-  </>
-)}
+                            <TouchableOpacity
+                              style={[styles.actionButton, { backgroundColor: colors.iconRed, marginTop: 10 }]}
+                              onPress={() => completeRide(item)}
+                            >
+                              <Text style={[styles.buttonText, { color: colors.buttonText }]}>Mark as Complete</Text>
+                            </TouchableOpacity>
+                          </>
+                        )}
 
                     </View>
                   )}

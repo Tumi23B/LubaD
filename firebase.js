@@ -28,9 +28,5 @@ const auth = initializeAuth(app, {
 // Initialize Realtime Database
 const database = getDatabase(app);
 
-// --- REMOVED: setLogLevel call as it was causing the TypeError ---
-// setLogLevel('silent');
-// --- END REMOVED ---
-
 // Export services
 export { auth, database };

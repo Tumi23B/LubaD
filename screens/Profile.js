@@ -26,6 +26,8 @@ import { ref, get, update, remove, set } from 'firebase/database';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { ThemeContext } from '../ThemeContext';
 import { LinearGradient } from 'expo-linear-gradient';
+import { saveImageUrlToFirebase } from '../utils/firebaseHelpers'; 
+
 
 const lightModeLogo = require('../assets/logotransparent.png');
 const darkModeLogo = require('../assets/logo-dark-mode.png');
@@ -71,7 +73,7 @@ export default function Profile() {
     fetchProfile();
   }, []);
 
-  const pickImage = async () => {
+    const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
@@ -79,16 +81,18 @@ export default function Profile() {
     });
 
     if (!result.canceled) {
-      const uri = result.assets[0].uri;
-      const imageUrl = await uploadToCloudinary(uri);
+      const imageUri = result.assets[0].uri;
+
+      const imageUrl = await uploadToCloudinary(imageUri); // Fixed here
       setImage(imageUrl);
 
       const user = auth.currentUser;
-      const userRef = ref(database, 'users/' + user.uid);
-      await update(userRef, { imageUrl });
+      await saveImageUrlToFirebase(user.uid, imageUrl);
+
       Alert.alert('Success', 'Profile picture updated successfully');
     }
   };
+
 
   const validateSAPhoneNumber = (phone) => {
     const cleaned = phone.replace(/\D/g, '');

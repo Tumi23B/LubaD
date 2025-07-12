@@ -1,14 +1,14 @@
 import { StatusBar } from 'expo-status-bar';
-import React, { useContext } from 'react'; // Import useContext
+import React, { useContext } from 'react'; 
 import { Text, View, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { StripeProvider } from '@stripe/stripe-react-native';
-import { ThemeProvider, ThemeContext } from './ThemeContext'; // Import ThemeContext here
+import { ThemeProvider, ThemeContext } from './ThemeContext'; 
 
-// This is the main entry point of the app, wrapping everything in the ThemeProvider
+{/* This is the main entry point of the app, wrapping everything in the ThemeProvider*/}
 
-// Screens
+{/* Screens*/}
 import Dashboard from './screens/Dashboard';
 import AuthScreen from './screens/AuthScreen';
 import DriverApplication from './screens/DriverApplication';
@@ -30,9 +30,9 @@ import DriverChat from './screens/DriverChat';
 
 const Stack = createNativeStackNavigator();
 
-// Import both light and dark mode logo images for HomeScreen
+{/*Import both light and dark mode logo images for HomeScreen*/}
 const lightModeHomeLogo = require('./assets/logotransparent.png');
-const darkModeHomeLogo = require('./assets/logotransparent.png'); // Assuming this is your dark mode logo
+const darkModeHomeLogo = require('./assets/logotransparent.png'); {/* Assuming this is your dark mode logo*/}
 
 export default function App() {
   return (
@@ -72,7 +72,7 @@ export default function App() {
 }
 
 function HomeScreen({ navigation }) {
-  // Use useContext to get the current theme colors and isDarkMode status
+  {/*Use useContext to get the current theme colors and isDarkMode status*/}
   const { isDarkMode, colors } = useContext(ThemeContext);
 
   return (
@@ -94,7 +94,7 @@ function HomeScreen({ navigation }) {
   );
 }
 
-// Styles
+{/* Styles*/}
 export const styles = StyleSheet.create({
   container: {
     flex: 1,

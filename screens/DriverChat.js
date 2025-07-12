@@ -11,12 +11,45 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ThemeContext } from '../ThemeContext';
-const customerAvatar = require('../assets/icon.jpeg');
+import { ref, get } from 'firebase/database';
+import { useEffect, useState } from 'react';
+import { database } from '../firebase'; // adjust based on your setup
+
+
 
 export default function DriverChatScreen({ route }) {
   const { isDarkMode, colors } = useContext(ThemeContext);
   const customerName = route.params?.customerName || 'Customer';
   const customerPhone = route.params?.customerPhone || 'No number';
+  console.log("Chat screen params:", route.params);
+  const customerImage = route.params?.customerImage;
+  console.log('Customer image URL:', customerImage);
+  const customerId = route.params?.customerId;
+  const [loadingImage, setLoadingImage] = useState(true);
+
+
+  {/* Fetch image URL from database */}
+  const [customerImageUrl, setCustomerImageUrl] = useState(customerImage || null);
+  console.log('Final image URL used:', customerImageUrl);
+
+  useEffect(() => {
+  const fetchImage = async () => {
+    if (!customerImageUrl && customerId) {
+      const userRef = ref(database, 'users/' + customerId);
+      const snapshot = await get(userRef);
+
+      if (snapshot.exists()) {
+        const data = snapshot.val();
+        if (data.imageUrl) {
+          setCustomerImageUrl(data.imageUrl);
+        }
+      }
+    }
+  };
+
+  fetchImage();
+}, [customerId]);
+
 
   const openWhatsApp = (phoneNumber) => {
     const url = `https://wa.me/${phoneNumber}`;
@@ -35,7 +68,21 @@ export default function DriverChatScreen({ route }) {
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
       <View style={styles.container}>
         <View style={[styles.header, { backgroundColor: colors.cardBackground, borderBottomColor: colors.borderColor }]}>
-          <Image source={customerAvatar} style={[styles.avatar, { borderColor: colors.iconRed }]} />
+          {customerImageUrl ? (
+            <Image
+              source={{ uri: customerImageUrl }}
+              style={[styles.avatar, { borderColor: colors.iconRed }]}
+              resizeMode="cover"
+            />
+          ) : (
+            <Ionicons
+              name="person-circle"
+              size={50}
+              color={colors.iconRed}
+              style={[styles.avatar, { borderWidth: 0 }]}
+            />
+          )}
+
           <View style={{ flex: 1 }}>
             <Text style={[styles.customerName, { color: colors.iconRed }]} numberOfLines={1}>
               {customerName}
