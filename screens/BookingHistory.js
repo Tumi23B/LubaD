@@ -77,6 +77,12 @@ export default function BookingHistory({ navigation }) {
       const allRides = [];
       if (data) {
         Object.entries(data).forEach(([key, value]) => {
+           // 💬 Debug: Log each ride’s driver data
+            console.log(`Ride ID: ${key}`);
+            console.log('Driver Name:', value.driverName);
+            console.log('Driver Phone:', value.driverPhone);
+            console.log('Driver Image:', value.driverImage);
+
           if (value.status !== 'driver_declined') {
             allRides.push({ id: key, ...value });
           }
@@ -289,6 +295,7 @@ export default function BookingHistory({ navigation }) {
                 <Ionicons name="trash-outline" size={18} color={colors.iconRed} />
               </TouchableOpacity>
             </View>
+
             <View style={styles.cardContent}>
               <Text style={[styles.label, { color: colors.textSecondary }]}>Pickup:</Text>
               <Text style={[styles.value, { color: colors.text }]}>{ride.pickup}</Text>
@@ -326,12 +333,37 @@ export default function BookingHistory({ navigation }) {
               )}
             </View>
 
-            <TouchableOpacity style={[styles.rebookButton, { backgroundColor: colors.iconRed }]} onPress={() => rebookRide(ride)}>
-              <Ionicons name="repeat-outline" size={18} color={colors.buttonText} />
-              <Text style={[styles.rebookText, { color: colors.buttonText }]}>Rebook</Text>
-            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', gap: 10, marginTop: 10 }}>
+              <TouchableOpacity style={[styles.rebookButton, { backgroundColor: colors.iconRed }]} onPress={() => rebookRide(ride)}>
+                <Ionicons name="repeat-outline" size={18} color={colors.buttonText} />
+                <Text style={[styles.rebookText, { color: colors.buttonText }]}>Rebook</Text>
+              </TouchableOpacity>
+
+              {ride.status === 'accepted' && ride.driverId && (
+                <TouchableOpacity
+                  style={[styles.rebookButton, { backgroundColor: colors.iconRed }]}
+                  onPress={() => {
+                    console.log('Ride object:', ride)
+                    console.log('Driver Phone:', ride.driverPhone)
+                    console.log('Driver Image:', ride.driverImage)
+
+                    navigation.navigate('ChatScreen', {
+                      customerId: auth.currentUser.uid,
+                      driverId: ride.driverId,
+                      driverName: ride.driverName,
+                      driverPhone: ride.driverPhone || 'N/A',
+                      driverImage: ride.driverImage || null,
+                    })
+                  }}
+                >
+                  <Ionicons name="chatbubble-outline" size={18} color={colors.buttonText} />
+                  <Text style={[styles.rebookText, { color: colors.buttonText }]}>Chat with Driver</Text>
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
         ))
+        
       )}
 
       {/* Custom Modal for alerts and confirmations */}

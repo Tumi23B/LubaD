@@ -76,15 +76,13 @@ export default function DriverProfile() {
         const profileData = profileSnapshot.exists() ? profileSnapshot.val() : {};
         const applicationData = applicationSnapshot.exists() ? applicationSnapshot.val() : {};
 
-        {/* ensures that tempPhoneNumber reflects the accurate, pre-filled value when the screen loads */}
-        setTempPhoneNumber(phoneNumber);
-
-
         {/* Get phone number with priority: Auth > Profile > Application*/}
         const phoneNumber = user.phoneNumber || 
                           profileData.phoneNumber || 
                           applicationData.phoneNumber || 
                           '';
+        {/* ensures that tempPhoneNumber reflects the accurate, pre-filled value when the screen loads */}
+        setTempPhoneNumber(phoneNumber);
 
         setProfile({
           ...profileData,

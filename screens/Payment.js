@@ -479,30 +479,6 @@ export default function Payment({ route, navigation }) {
               )}
             </View>
           </View>
-
-          <TouchableOpacity
-            style={[
-              styles.chatButton, 
-              { 
-                backgroundColor: colors.iconRed,
-                marginTop: 15
-              }
-            ]}
-            onPress={handleChatPress}
-          >
-            <Ionicons 
-              name="chatbubble-ellipses" 
-              size={20} 
-              color={colors.buttonText} 
-              style={styles.chatIcon}
-            />
-            <Text style={[
-              styles.chatButtonText, 
-              { color: colors.buttonText }
-            ]}>
-              Chat with Driver
-            </Text>
-          </TouchableOpacity>
         </View>
       )}
     </ScrollView>

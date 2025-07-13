@@ -367,19 +367,45 @@ const acceptRide = (request) => {
   setModalMessage(`Accept ride from ${request.pickup} to ${request.dropoff}?`);
   setModalType('confirm');
   setModalAction(() => async () => {
-    console.log("OK tapped, now processing ride acceptance...");
+    console.log("OK tapped, now processing ride acceptance...")
+
+    /*if (driverSnap.exists()) {
+      const driverData = driverSnap.val();
+      driverFullName = driverData.fullName || driverName;
+      driverPhone = driverData.phoneNumber || 'N/A';
+      driverImage = driverData.profileImage || null;
+    }*/
 
     try {
       const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
-      //  Updated public ride status
-      const publicRequestRef = ref(database, `artifacts/${appId}/ride_requests/${request.id}`);
-      await update(publicRequestRef, {
+      // Fetch driver's full profile
+      const profileSnap = await get(ref(database, `drivers/${userId}`));
+      const profile = profileSnap.exists() ? profileSnap.val() : {};
+
+      // Update ride request with driver details
+    const publicRequestRef = ref(database, `artifacts/${appId}/ride_requests/${request.id}`);
+    await update(publicRequestRef, {
+      status: 'accepted',
+      driverId: userId,
+      driverName: profile.fullName || driverName,
+      driverPhone: profile.phoneNumber || 'N/A',
+      driverImage: profile.profileImage || null,
+      acceptedAt: new Date().toISOString(),
+    });
+
+      // Update customer booking with same profile info
+    if (request.customerId && request.customerBookingId) {
+      const customerBookingRef = ref(database, `artifacts/${appId}/users/${request.customerId}/rides/${request.customerBookingId}`);
+      await update(customerBookingRef, {
         status: 'accepted',
         driverId: userId,
-        driverName: driverName,
+        driverName: profile.fullName || driverName,
+        driverPhone: profile.phoneNumber || 'N/A',
+        driverImage: profile.profileImage || null,
         acceptedAt: new Date().toISOString(),
       });
+    }
 
       //  Updated customer's booking
       if (request.customerId && request.customerBookingId) {
@@ -395,12 +421,26 @@ const acceptRide = (request) => {
       const { username, phoneNumber, imageUrl} = await fetchUserDetails(database, request.customerId);
       console.log("Fetched user details:", username, phoneNumber, imageUrl);
 
-      // navigation to chat screen once accept button is clicked
+      // navigation to driver chat screen once accept button is clicked to display customer's name, phone number, and profile image
         navigation.navigate('DriverChat', {
           customerName: username,
           customerPhone: phoneNumber,
           customerId: request.customerId,
+          driverName: profile.fullName || driverName,
+          driverPhone: profile.phoneNumber || 'N/A',
+          driverImage: profile.profileImage || null,
         });
+        
+      //  Update driver's profile with trip count
+      await update(publicRequestRef, {
+        status: 'accepted',
+        driverId: userId,
+        driverName: profile.fullName || driverName,
+        driverPhone: profile.phoneNumber || 'N/A',
+        driverImage: profile.profileImage || null,
+        acceptedAt: new Date().toISOString(),
+      });
+
 
       //  Setting modal to open Google Maps
       setModalMessage("Ride accepted successfully! Tap OK to open Google Maps.");
