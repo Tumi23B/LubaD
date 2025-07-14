@@ -57,5 +57,8 @@
     "@react-native-community/cli": "latest",
     "react-native-dotenv": "^3.4.11"
   },
+  "engines": {
+  "node": ">=22.0.0"
+},
   "private": true
 }

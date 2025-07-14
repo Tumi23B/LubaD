@@ -81,41 +81,52 @@ export default function Payment({ route, navigation }) {
     return true;
   };
 
-  const handlePayPress = () => {
-    if (!selectedMethod) {
-      Alert.alert('Select Payment Method', 'Please choose how you want to pay.');
-      return;
-    }
+    const handlePayPress = async () => {
+  if (!selectedMethod) {
+    Alert.alert('Select Payment Method', 'Please choose how you want to pay.');
+    return;
+  }
 
-    if (selectedMethod === 'Card') {
-      if (!validateCard()) return;
+  if (selectedMethod === 'Card') {
+  // No need to validate card details, we redirect to PayFast
 
-      // Generate PayFast payment URL
-      const payfastBase = 'https://www.payfast.co.za/eng/process';
+ fetch('https://0a95a1e2e1c5.ngrok-free.app/payfast', {
+    method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    amount: totalCost.toFixed(2),  // e.g., "100.00"
+    item_name: 'Trip Booking Payment',
+    username: 'example',
+    email: 'example@example.com',
+    cell_number: '0761234567'
+  }),
+})
+.then((response) => {
+  console.log('Response status:', response.status);
+  return response.json(); // parse response regardless of status
+})
+.then((data) => {
+  console.log('Response body:', data);
+  if (data.success && data.paymentUrl) {
+    setPaymentUrl(data.paymentUrl);
+    setTimeout(() => setIsPaying(true), 500);
+  } else {
+    Alert.alert('Payment Failed', JSON.stringify(data.details || data.error || 'Unknown error'));
+  }
+})
+.catch((error) => {
+  console.error('❌ Payment error:', error);
+  Alert.alert('Error', 'Failed to connect to payment server.');
+});
 
-      const paymentData = {
-        merchant_id: 'YOUR_MERCHANT_ID', 
-        merchant_key: 'YOUR_MERCHANT_KEY',
-        return_url: 'https://your-app.com/success',
-        cancel_url: 'https://your-app.com/cancel',
-        notify_url: 'https://your-backend.com/payfast/notify',
-        amount: totalCost.toFixed(2),
-        item_name: 'Trip Payment',
-        email_address: 'user@email.com', 
-      };
+  return;
+}
 
-      const queryString = Object.entries(paymentData)
-        .map(([key, val]) => `${key}=${encodeURIComponent(val)}`)
-        .join('&');
 
-      setPaymentUrl(`${payfastBase}?${queryString}`);
-      setIsPaying(true);
-      return;
-    }
+  // Cash payment case
+  setPaymentDone(true);
+};
 
-    // If Cash
-    setPaymentDone(true);
-  };
 
   const handleWebViewChange = (navState) => {
     const { url } = navState;
@@ -334,70 +345,32 @@ export default function Payment({ route, navigation }) {
 
           {/* Card Payment Form */}
           {selectedMethod === 'Card' && (
-            <View
-              style={[
-                styles.cardForm,
-                {
-                  backgroundColor: colors.cardBackground,
-                  borderColor: colors.borderColor,
-                },
-              ]}
-            >
-              <TextInput
-                style={[
-                  styles.input,
-                  {
-                    borderColor: colors.borderColor,
-                    color: colors.text,
-                    backgroundColor: colors.inputBackground,
-                  },
-                ]}
-                placeholder="Card Number (e.g., 1234 5678 9012 3456)"
-                placeholderTextColor={colors.textSecondary}
-                keyboardType="numeric"
-                value={formatCardNumber(cardNumber)}
-                onChangeText={(text) => setCardNumber(text.replace(/\s/g, ''))}
-                maxLength={19}
-              />
+  <View
+    style={[
+      styles.cardForm,
+      {
+        backgroundColor: colors.cardBackground,
+        borderColor: colors.borderColor,
+        alignItems: 'center',
+        paddingVertical: 25,
+      },
+    ]}
+  >
+    <Ionicons name="lock-closed" size={40} color={colors.iconRed} />
+    <Text
+      style={{
+        color: colors.text,
+        fontSize: 16,
+        fontWeight: '500',
+        textAlign: 'center',
+        marginTop: 10,
+      }}
+    >
+      You will be securely redirected to PayFast to complete your payment.
+    </Text>
+  </View>
+)}
 
-              <View style={styles.cardDetailsRow}>
-                <TextInput
-                  style={[
-                    styles.inputSmall,
-                    {
-                      borderColor: colors.borderColor,
-                      color: colors.text,
-                      backgroundColor: colors.inputBackground,
-                    },
-                  ]}
-                  placeholder="MM/YY"
-                  placeholderTextColor={colors.textSecondary}
-                  keyboardType="numeric"
-                  value={cardExpiry}
-                  onChangeText={setCardExpiry}
-                  maxLength={5}
-                />
-
-                <TextInput
-                  style={[
-                    styles.inputSmall,
-                    {
-                      borderColor: colors.borderColor,
-                      color: colors.text,
-                      backgroundColor: colors.inputBackground,
-                    },
-                  ]}
-                  placeholder="CVV"
-                  placeholderTextColor={colors.textSecondary}
-                  keyboardType="numeric"
-                  secureTextEntry
-                  value={cardCVC}
-                  onChangeText={setCardCVC}
-                  maxLength={4}
-                />
-              </View>
-            </View>
-          )}
 
           {/* Total Amount */}
           <View
@@ -554,15 +527,20 @@ export default function Payment({ route, navigation }) {
           >
             <Text style={{ color: 'red', fontWeight: 'bold' }}>Cancel</Text>
           </TouchableOpacity>
+
+          {/*ACTIVITY INDICATOR */}
+
           {paymentUrl ? (
-            <WebView
-              source={{ uri: paymentUrl }}
-              onNavigationStateChange={handleWebViewChange}
-              startInLoadingState
-            />
-          ) : (
-            <ActivityIndicator size="large" style={{ flex: 1 }} />
-          )}
+  <WebView
+    source={{ uri: paymentUrl }}
+    onNavigationStateChange={handleWebViewChange}
+    startInLoadingState
+    renderLoading={() => <ActivityIndicator size="large" color={colors.iconRed} style={{ flex: 1 }} />}
+  />
+) : (
+  <ActivityIndicator size="large" />
+)}
+
         </SafeAreaView>
       </Modal>
     </ScrollView>
