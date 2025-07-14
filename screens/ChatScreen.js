@@ -1,24 +1,27 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Image, Alert, Linking } from 'react-native';
+import React, { useState, useEffect, useContext } from 'react';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  Image,
+  Alert,
+  Linking,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ThemeContext } from '../ThemeContext';
 import { ref, get } from 'firebase/database';
 import { database } from '../firebase';
-import { initializeApp } from 'firebase/app';
-import { getDatabase } from 'firebase/database';
 
 const driverAvatar = require('../assets/icon.jpeg');
 
 export default function ChatScreen({ route }) {
-  const { isDarkMode, colors } = React.useContext(ThemeContext);
-  const { driverName, driverPhone, driverImage } = route.params;
+  const { colors } = useContext(ThemeContext);
+  const { driverId } = route.params;
   const [driverProfile, setDriverProfile] = useState(null);
 
-
-// State to hold the driver's profile data
   useEffect(() => {
-    const { driverId } = route.params;
     if (!driverId || !database) return;
 
     const driverRef = ref(database, `drivers/${driverId}`);
@@ -26,7 +29,7 @@ export default function ChatScreen({ route }) {
       .then((snapshot) => {
         if (snapshot.exists()) {
           const profile = snapshot.val();
-          setDriverProfile(profile); // Store in state
+          setDriverProfile(profile);
         } else {
           console.warn('Driver not found');
         }
@@ -34,12 +37,17 @@ export default function ChatScreen({ route }) {
       .catch((error) => {
         console.error('Error fetching driver profile:', error);
       });
-  }, []);
+  }, [driverId]);
 
-
-// Function to open WhatsApp with the driver's phone number
   const openWhatsApp = (phoneNumber) => {
-    const url = `https://wa.me/${phoneNumber}`;
+    if (!phoneNumber) {
+      Alert.alert('Missing Number', 'Driver phone number is not available.');
+      return;
+    }
+
+    const cleanedNumber = phoneNumber.replace(/[^0-9]/g, '');
+    const url = `https://wa.me/${cleanedNumber}`;
+
     Linking.canOpenURL(url)
       .then((supported) => {
         if (!supported) {
@@ -51,10 +59,27 @@ export default function ChatScreen({ route }) {
       .catch((err) => console.error('Failed to open WhatsApp', err));
   };
 
-      return (
-  <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
-    <View style={styles.container}>
-      <View style={[styles.driverHeader, { backgroundColor: colors.cardBackground, borderBottomColor: colors.borderColor }]}>
+  const callDriver = (phoneNumber) => {
+    if (!phoneNumber) {
+      Alert.alert('Missing Number', 'Driver phone number is not available.');
+      return;
+    }
+
+    const telURL = `tel:${phoneNumber}`;
+    Linking.canOpenURL(telURL)
+      .then((supported) => {
+        if (!supported) {
+          Alert.alert('Error', 'Phone app is not available.');
+        } else {
+          return Linking.openURL(telURL);
+        }
+      })
+      .catch((err) => console.error('Failed to make a call', err));
+  };
+
+  return (
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
+      <View style={styles.centerContent}>
         <Image
           source={
             driverProfile?.profileImage
@@ -63,65 +88,87 @@ export default function ChatScreen({ route }) {
           }
           style={[styles.driverImage, { borderColor: colors.iconRed }]}
         />
-        <View style={{ flex: 1 }}>
-          <Text style={[styles.driverName, { color: colors.iconRed }]} numberOfLines={1}>
-            {driverProfile?.fullName || 'Driver'}
-          </Text>
-          <Text style={[styles.driverPhone, { color: colors.textSecondary }]} numberOfLines={1}>
-            {driverProfile?.phoneNumber || 'N/A'}
-          </Text>
+        <Text style={[styles.driverName, { color: colors.iconRed }]}>
+          {driverProfile?.fullName || 'Driver'}
+        </Text>
+        <Text style={[styles.driverPhone, { color: colors.textSecondary }]}>
+          {driverProfile?.phoneNumber || 'N/A'}
+        </Text>
+
+        {/* WhatsApp & Call Buttons */}
+        <View style={styles.buttonRow}>
+          <TouchableOpacity
+            onPress={() => openWhatsApp(driverProfile?.phoneNumber)}
+            style={[styles.button, { backgroundColor: '#25D366' }]}
+          >
+            <Ionicons name="logo-whatsapp" size={20} color="#fff" />
+            <Text style={styles.buttonText}>WhatsApp</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => callDriver(driverProfile?.phoneNumber)}
+            style={[styles.button, { backgroundColor: '#007AFF' }]}
+          >
+            <Ionicons name="call" size={20} color="#fff" />
+            <Text style={styles.buttonText}>Call</Text>
+          </TouchableOpacity>
         </View>
-        <TouchableOpacity
-          onPress={() => openWhatsApp(driverProfile?.phoneNumber)}
-          style={styles.whatsappButton}
-        >
-          <Ionicons name="logo-whatsapp" size={30} color={colors.iconRed} />
-        </TouchableOpacity>
-      </View>
-      <View style={styles.infoTextWrapper}>
+
         <Text style={[styles.infoText, { color: colors.text }]}>
           For direct communication and live location sharing, please use WhatsApp.
         </Text>
       </View>
-    </View>
-  </SafeAreaView>
-);
-
+    </SafeAreaView>
+  );
 }
 
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
   },
-  container: { flex: 1 },
-  driverHeader: {
-    flexDirection: 'row',
+  centerContent: {
+    flex: 1,
+    justifyContent: 'center',
     alignItems: 'center',
-    padding: 16,
-    borderBottomWidth: 1,
+    padding: 20,
   },
   driverImage: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    marginRight: 12,
+    width: 90,
+    height: 90,
+    borderRadius: 45,
     borderWidth: 2,
+    marginBottom: 12,
   },
   driverName: {
-    fontSize: 17,
+    fontSize: 20,
     fontWeight: '700',
+    marginBottom: 4,
   },
   driverPhone: {
-    fontSize: 13,
+    fontSize: 14,
+    marginBottom: 16,
   },
-  whatsappButton: {
-    marginRight: 12,
+  buttonRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 20,
   },
-  infoTextWrapper: {
-    padding: 20,
+  button: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+  },
+  buttonText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '600',
+    marginLeft: 8,
   },
   infoText: {
     fontSize: 15,
     textAlign: 'center',
+    paddingHorizontal: 10,
   },
 });

@@ -225,7 +225,7 @@ export default function DriverDashboard({ navigation }) {
               hasResetThisWeek.current = true;
             })
             .catch((err) => {
-              console.error('Error generating PDF:', err);
+              console.error('Error generating PDF!', err);
             });
         } else {
           setPastShifts([]);
@@ -263,7 +263,7 @@ export default function DriverDashboard({ navigation }) {
           });
           setDriverLocation(coords);
         } catch (error) {
-          console.warn('Error updating location:', error);
+          console.warn('Error updating location!', error);
         }
       }, 10000);
     };
@@ -421,16 +421,6 @@ const acceptRide = (request) => {
       const { username, phoneNumber, imageUrl} = await fetchUserDetails(database, request.customerId);
       console.log("Fetched user details:", username, phoneNumber, imageUrl);
 
-      // navigation to driver chat screen once accept button is clicked to display customer's name, phone number, and profile image
-        navigation.navigate('DriverChat', {
-          customerName: username,
-          customerPhone: phoneNumber,
-          customerId: request.customerId,
-          driverName: profile.fullName || driverName,
-          driverPhone: profile.phoneNumber || 'N/A',
-          driverImage: profile.profileImage || null,
-        });
-        
       //  Update driver's profile with trip count
       await update(publicRequestRef, {
         status: 'accepted',
@@ -642,13 +632,6 @@ const navigateToPickup = (pickupAddress) => {
               >
                 <Text style={[styles.buttonText, { color: colors.buttonText }]}>My Profile</Text>
               </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.smallButton, { backgroundColor: colors.iconRed }]}
-                onPress={() => navigation.navigate('DriverChat')}
-              >
-                <Text style={[styles.buttonText, { color: colors.buttonText }]}>Chat</Text>
-              </TouchableOpacity>
             </View>
 
             <View style={styles.ridesContainer}>
@@ -755,8 +738,7 @@ const navigateToPickup = (pickupAddress) => {
                       <Text style={[styles.rideCustomer, { color: colors.text }]}>
                         Assigned: {item.vehicle || 'Vehicle'}
                       </Text>
-                      <Text style={{ color: colors.text }}>Customer: {item.customerName}</Text>
-                      <Text style={{ color: colors.text }}>Phone: {item.customerPhone}</Text>
+                      
                       <Text style={{ color: colors.text }}>Pickup: {item.pickup}</Text>
                       <Text style={{ color: colors.text }}>Dropoff: {item.dropoff}</Text>
                       <Text style={{ color: colors.text }}>Scheduled: {new Date(item.date).toLocaleString()}</Text>
@@ -764,16 +746,30 @@ const navigateToPickup = (pickupAddress) => {
 
                       <TouchableOpacity
                         style={[styles.actionButton, { backgroundColor: colors.iconRed, marginTop: 10 }]}
-                        onPress={() => {
-                          if (item.customerPhone && item.customerName) {
-                            navigation.navigate('DriverChat', {
-                              customerName: item.customerName,
-                              customerPhone: item.customerPhone,
-                            });
-                          } else {
-                            Alert.alert('Missing Info', 'Customer name or phone number is not available.');
-                          }
-                        }}
+                        onPress={async () => {
+  try {
+    if (!item.customerId) {
+      Alert.alert('Missing Info', 'Customer ID not found for this ride.');
+      return;
+    }
+
+    const { username, phoneNumber } = await fetchUserDetails(database, item.customerId);
+
+    if (!username || !phoneNumber) {
+      Alert.alert('Missing Info', 'Could not fetch customer info.');
+      return;
+    }
+
+    navigation.navigate('DriverChat', {
+      customerName: username,
+      customerPhone: phoneNumber,
+    });
+  } catch (error) {
+    console.error('Error fetching customer info:', error);
+    Alert.alert('Error', 'Failed to fetch customer details.');
+  }
+}}
+
                       >
                        <Text style={[styles.buttonText, { color: colors.buttonText }]}>Chat with Customer</Text>
                       </TouchableOpacity>

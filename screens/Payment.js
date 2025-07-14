@@ -8,9 +8,13 @@ import {
   ScrollView,
   TextInput,
   Switch,
+  ActivityIndicator,
 } from 'react-native';
 import { ThemeContext } from '../ThemeContext';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
+import { WebView } from 'react-native-webview';
+import Modal from 'react-native-modal'; 
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function Payment({ route, navigation }) {
   const { isDarkMode, colors } = useContext(ThemeContext);
@@ -23,23 +27,30 @@ export default function Payment({ route, navigation }) {
   const [cardNumber, setCardNumber] = useState('');
   const [cardExpiry, setCardExpiry] = useState('');
   const [cardCVC, setCardCVC] = useState('');
+  const [isPaying, setIsPaying] = useState(false);
+  const [paymentUrl, setPaymentUrl] = useState('');
 
+  //payment methods
   const methods = [
-    { 
-      name: 'Cash', 
-      icon: () => <Ionicons 
-        name="cash" 
-        size={24} 
-        color={isDarkMode ? '#4CAF50' : '#2E7D32'} 
-      /> 
+    {
+      name: 'Cash',
+      icon: () => (
+        <Ionicons
+          name="cash"
+          size={24}
+          color={isDarkMode ? '#4CAF50' : '#2E7D32'}
+        />
+      ),
     },
-    { 
-      name: 'Card', 
-      icon: () => <MaterialIcons 
-        name="credit-card" 
-        size={24} 
-        color={isDarkMode ? '#90A4AE' : '#37474F'} 
-      /> 
+    {
+      name: 'Card',
+      icon: () => (
+        <MaterialIcons
+          name="credit-card"
+          size={24}
+          color={isDarkMode ? '#90A4AE' : '#37474F'}
+        />
+      ),
     },
   ];
 
@@ -50,7 +61,7 @@ export default function Payment({ route, navigation }) {
     if (increment && helpersCount < 3) setHelpersCount(helpersCount + 1);
     if (!increment && helpersCount > 0) setHelpersCount(helpersCount - 1);
   };
-
+//card validation 
   const validateCard = () => {
     if (!/^\d{16}$/.test(cardNumber.replace(/\s/g, ''))) {
       Alert.alert('Invalid Card', 'Please enter a valid 16-digit card number');
@@ -76,19 +87,47 @@ export default function Payment({ route, navigation }) {
       return;
     }
 
-    if (selectedMethod === 'Card' && !validateCard()) {
+    if (selectedMethod === 'Card') {
+      if (!validateCard()) return;
+
+      // Generate PayFast payment URL
+      const payfastBase = 'https://www.payfast.co.za/eng/process';
+
+      const paymentData = {
+        merchant_id: 'YOUR_MERCHANT_ID', 
+        merchant_key: 'YOUR_MERCHANT_KEY',
+        return_url: 'https://your-app.com/success',
+        cancel_url: 'https://your-app.com/cancel',
+        notify_url: 'https://your-backend.com/payfast/notify',
+        amount: totalCost.toFixed(2),
+        item_name: 'Trip Payment',
+        email_address: 'user@email.com', 
+      };
+
+      const queryString = Object.entries(paymentData)
+        .map(([key, val]) => `${key}=${encodeURIComponent(val)}`)
+        .join('&');
+
+      setPaymentUrl(`${payfastBase}?${queryString}`);
+      setIsPaying(true);
       return;
     }
 
+    // If Cash
     setPaymentDone(true);
   };
 
-  const handleChatPress = () => {
-    navigation.navigate('ChatScreen', {
-      bookingId: 'ABC123',
-      driverName: 'John Doe',
-      driverPhone: '+1234567890',
-    });
+  const handleWebViewChange = (navState) => {
+    const { url } = navState;
+
+    if (url.includes('success')) {
+      setIsPaying(false);
+      setPaymentDone(true);
+      Alert.alert('Payment Success', 'Thank you for your payment!');
+    } else if (url.includes('cancel')) {
+      setIsPaying(false);
+      Alert.alert('Payment Cancelled', 'You cancelled the payment.');
+    }
   };
 
   const formatCardNumber = (text) => {
@@ -98,74 +137,95 @@ export default function Payment({ route, navigation }) {
   };
 
   return (
-    <ScrollView 
+    <ScrollView
       contentContainerStyle={[
-        styles.container, 
-        { backgroundColor: colors.background }
+        styles.container,
+        { backgroundColor: colors.background },
       ]}
     >
       {/* Booking Summary Section */}
-      <View style={[
-        styles.summaryCard, 
-        { 
-          backgroundColor: colors.cardBackground,
-          borderColor: colors.borderColor
-        }
-      ]}>
-        <Text style={[
-          styles.sectionTitle, 
-          { color: colors.iconRed }
-        ]}>
+      <View
+        style={[
+          styles.summaryCard,
+          {
+            backgroundColor: colors.cardBackground,
+            borderColor: colors.borderColor,
+          },
+        ]}
+      >
+        <Text style={[styles.sectionTitle, { color: colors.iconRed }]}>
           Your Booking Details
         </Text>
-        
+
         <View style={styles.detailRow}>
-          <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Vehicle:</Text>
-          <Text style={[styles.detailValue, { color: colors.text }]}>{vehicle}</Text>
+          <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>
+            Vehicle:
+          </Text>
+          <Text style={[styles.detailValue, { color: colors.text }]}>
+            {vehicle}
+          </Text>
         </View>
-        
+
         <View style={styles.detailRow}>
-          <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Pickup:</Text>
-          <Text style={[styles.detailValue, { color: colors.text }]}>{pickup}</Text>
+          <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>
+            Pickup:
+          </Text>
+          <Text style={[styles.detailValue, { color: colors.text }]}>
+            {pickup}
+          </Text>
         </View>
-        
+
         <View style={styles.detailRow}>
-          <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Dropoff:</Text>
-          <Text style={[styles.detailValue, { color: colors.text }]}>{dropoff}</Text>
+          <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>
+            Dropoff:
+          </Text>
+          <Text style={[styles.detailValue, { color: colors.text }]}>
+            {dropoff}
+          </Text>
         </View>
-        
+
         <View style={styles.detailRow}>
-          <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Date:</Text>
+          <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>
+            Date:
+          </Text>
           <Text style={[styles.detailValue, { color: colors.text }]}>
             {new Date(date).toLocaleString('en-ZA', {
               weekday: 'long',
               day: 'numeric',
               month: 'long',
               hour: '2-digit',
-              minute: '2-digit'
+              minute: '2-digit',
             })}
           </Text>
         </View>
-        
+
         <View style={styles.detailRow}>
-          <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Base Price:</Text>
-          <Text style={[styles.detailValue, { color: colors.text }]}>R{price}</Text>
+          <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>
+            Base Price:
+          </Text>
+          <Text style={[styles.detailValue, { color: colors.text }]}>
+            R{price}
+          </Text>
         </View>
       </View>
 
       {!paymentDone ? (
         <>
-          {/* Helpers Section - Improved Toggle Layout */}
-          <View style={[
-            styles.helpersSection,
-            { 
-              backgroundColor: colors.cardBackground,
-              borderColor: colors.borderColor,
-              borderWidth: 1,
-              borderRadius: 12
-            }
-          ]}>
-            <View style={[styles.toggleRow, { marginBottom: showHelpers ? 15 : 0 }]}>
+          {/* Helpers Section */}
+          <View
+            style={[
+              styles.helpersSection,
+              {
+                backgroundColor: colors.cardBackground,
+                borderColor: colors.borderColor,
+                borderWidth: 1,
+                borderRadius: 12,
+              },
+            ]}
+          >
+            <View
+              style={[styles.toggleRow, { marginBottom: showHelpers ? 15 : 0 }]}
+            >
               <View style={{ flex: 1 }}>
                 <Text style={[styles.toggleLabel, { color: colors.text }]}>
                   Need help with loading/unloading?
@@ -192,12 +252,12 @@ export default function Payment({ route, navigation }) {
                 <View style={styles.helpersControls}>
                   <TouchableOpacity
                     style={[
-                      styles.helperButton, 
-                      { 
-                        backgroundColor: helpersCount > 0 ? 
-                          colors.iconRed : 
-                          colors.disabledButton 
-                      }
+                      styles.helperButton,
+                      {
+                        backgroundColor: helpersCount > 0
+                          ? colors.iconRed
+                          : colors.disabledButton,
+                      },
                     ]}
                     onPress={() => toggleHelperCount(false)}
                     disabled={helpersCount <= 0}
@@ -205,24 +265,20 @@ export default function Payment({ route, navigation }) {
                     <Text style={styles.helperBtnText}>-</Text>
                   </TouchableOpacity>
 
-                  <Text style={[
-                    styles.helpersCount, 
-                    { 
-                      color: colors.text,
-                      marginHorizontal: 20
-                    }
-                  ]}>
+                  <Text
+                    style={[styles.helpersCount, { color: colors.text, marginHorizontal: 20 }]}
+                  >
                     {helpersCount}
                   </Text>
 
                   <TouchableOpacity
                     style={[
-                      styles.helperButton, 
-                      { 
-                        backgroundColor: helpersCount < 3 ? 
-                          colors.iconRed : 
-                          colors.disabledButton 
-                      }
+                      styles.helperButton,
+                      {
+                        backgroundColor: helpersCount < 3
+                          ? colors.iconRed
+                          : colors.disabledButton,
+                      },
                     ]}
                     onPress={() => toggleHelperCount(true)}
                     disabled={helpersCount >= 3}
@@ -230,10 +286,7 @@ export default function Payment({ route, navigation }) {
                     <Text style={styles.helperBtnText}>+</Text>
                   </TouchableOpacity>
                 </View>
-                <Text style={[
-                  styles.helperCostText,
-                  { color: colors.text }
-                ]}>
+                <Text style={[styles.helperCostText, { color: colors.text }]}>
                   Helpers cost: R{helpersCost}
                 </Text>
               </View>
@@ -241,17 +294,10 @@ export default function Payment({ route, navigation }) {
           </View>
 
           {/* Payment Method Selection */}
-          <Text style={[
-            styles.sectionTitle, 
-            { 
-              color: colors.iconRed, 
-              marginTop: 20,
-              marginBottom: 10
-            }
-          ]}>
+          <Text style={[styles.sectionTitle, { color: colors.iconRed, marginTop: 20, marginBottom: 10 }]}>
             Select Payment Method
           </Text>
-          
+
           <View style={styles.methodsContainer}>
             {methods.map(({ name, icon: Icon }) => (
               <TouchableOpacity
@@ -259,12 +305,12 @@ export default function Payment({ route, navigation }) {
                 style={[
                   styles.methodButton,
                   {
-                    backgroundColor: selectedMethod === name ? 
-                      colors.selectedMethodBackground : 
-                      colors.cardBackground,
-                    borderColor: selectedMethod === name ? 
-                      colors.iconRed : 
-                      colors.borderColor,
+                    backgroundColor: selectedMethod === name
+                      ? colors.selectedMethodBackground
+                      : colors.cardBackground,
+                    borderColor: selectedMethod === name
+                      ? colors.iconRed
+                      : colors.borderColor,
                   },
                 ]}
                 onPress={() => setSelectedMethod(name)}
@@ -273,10 +319,10 @@ export default function Payment({ route, navigation }) {
                 <Text
                   style={[
                     styles.methodText,
-                    { 
-                      color: selectedMethod === name ? 
-                        colors.iconRed : 
-                        colors.text 
+                    {
+                      color: selectedMethod === name
+                        ? colors.iconRed
+                        : colors.text,
                     },
                   ]}
                 >
@@ -288,21 +334,23 @@ export default function Payment({ route, navigation }) {
 
           {/* Card Payment Form */}
           {selectedMethod === 'Card' && (
-            <View style={[
-              styles.cardForm, 
-              { 
-                backgroundColor: colors.cardBackground,
-                borderColor: colors.borderColor 
-              }
-            ]}>
+            <View
+              style={[
+                styles.cardForm,
+                {
+                  backgroundColor: colors.cardBackground,
+                  borderColor: colors.borderColor,
+                },
+              ]}
+            >
               <TextInput
                 style={[
-                  styles.input, 
-                  { 
-                    borderColor: colors.borderColor, 
+                  styles.input,
+                  {
+                    borderColor: colors.borderColor,
                     color: colors.text,
-                    backgroundColor: colors.inputBackground
-                  }
+                    backgroundColor: colors.inputBackground,
+                  },
                 ]}
                 placeholder="Card Number (e.g., 1234 5678 9012 3456)"
                 placeholderTextColor={colors.textSecondary}
@@ -311,16 +359,16 @@ export default function Payment({ route, navigation }) {
                 onChangeText={(text) => setCardNumber(text.replace(/\s/g, ''))}
                 maxLength={19}
               />
-              
+
               <View style={styles.cardDetailsRow}>
                 <TextInput
                   style={[
-                    styles.inputSmall, 
-                    { 
-                      borderColor: colors.borderColor, 
+                    styles.inputSmall,
+                    {
+                      borderColor: colors.borderColor,
                       color: colors.text,
-                      backgroundColor: colors.inputBackground
-                    }
+                      backgroundColor: colors.inputBackground,
+                    },
                   ]}
                   placeholder="MM/YY"
                   placeholderTextColor={colors.textSecondary}
@@ -329,15 +377,15 @@ export default function Payment({ route, navigation }) {
                   onChangeText={setCardExpiry}
                   maxLength={5}
                 />
-                
+
                 <TextInput
                   style={[
-                    styles.inputSmall, 
-                    { 
-                      borderColor: colors.borderColor, 
+                    styles.inputSmall,
+                    {
+                      borderColor: colors.borderColor,
                       color: colors.text,
-                      backgroundColor: colors.inputBackground
-                    }
+                      backgroundColor: colors.inputBackground,
+                    },
                   ]}
                   placeholder="CVV"
                   placeholderTextColor={colors.textSecondary}
@@ -352,14 +400,16 @@ export default function Payment({ route, navigation }) {
           )}
 
           {/* Total Amount */}
-          <View style={[
-            styles.totalContainer,
-            { 
-              backgroundColor: colors.cardBackground,
-              borderColor: colors.borderColor,
-              borderWidth: 1
-            }
-          ]}>
+          <View
+            style={[
+              styles.totalContainer,
+              {
+                backgroundColor: colors.cardBackground,
+                borderColor: colors.borderColor,
+                borderWidth: 1,
+              },
+            ]}
+          >
             <Text style={[styles.totalLabel, { color: colors.text }]}>Total Amount:</Text>
             <Text style={[styles.totalAmount, { color: colors.iconRed }]}>R{totalCost}</Text>
           </View>
@@ -367,20 +417,17 @@ export default function Payment({ route, navigation }) {
           {/* Pay Button */}
           <TouchableOpacity
             style={[
-              styles.payButton, 
-              { 
+              styles.payButton,
+              {
                 backgroundColor: colors.iconRed,
                 opacity: selectedMethod ? 1 : 0.6,
-                marginTop: 10
-              }
+                marginTop: 10,
+              },
             ]}
             onPress={handlePayPress}
             disabled={!selectedMethod}
           >
-            <Text style={[
-              styles.payButtonText, 
-              { color: colors.buttonText }
-            ]}>
+            <Text style={[styles.payButtonText, { color: colors.buttonText }]}>
               {selectedMethod === 'Cash' ? 'Confirm Booking' : 'Pay Now'}
             </Text>
           </TouchableOpacity>
@@ -388,90 +435,106 @@ export default function Payment({ route, navigation }) {
       ) : (
         /* Payment Confirmation Screen */
         <View style={styles.confirmationContainer}>
-          <View style={[
-            styles.successCard,
-            { 
-              backgroundColor: colors.cardBackground,
-              borderColor: colors.borderColor,
-              borderWidth: 1
-            }
-          ]}>
-            <Ionicons 
-              name="checkmark-circle" 
-              size={60} 
-              color="#4CAF50" 
+          <View
+            style={[
+              styles.successCard,
+              {
+                backgroundColor: colors.cardBackground,
+                borderColor: colors.borderColor,
+                borderWidth: 1,
+              },
+            ]}
+          >
+            <Ionicons
+              name="checkmark-circle"
+              size={60}
+              color="#4CAF50"
               style={styles.successIcon}
             />
-            
-            <Text style={[
-              styles.successTitle,
-              { color: colors.text }
-            ]}>
+
+            <Text style={[styles.successTitle, { color: colors.text }]}>
               Booking Confirmed!
             </Text>
-            
-            <Text style={[
-              styles.successText,
-              { color: colors.textSecondary }
-            ]}>
-              {selectedMethod === 'Cash' 
-                ? `Please pay R${totalCost} to the driver at drop-off location` 
+
+            <Text style={[styles.successText, { color: colors.textSecondary }]}>
+              {selectedMethod === 'Cash'
+                ? `Please pay R${totalCost} to the driver at drop-off location`
                 : `Payment of R${totalCost} processed successfully`}
             </Text>
 
-            <View style={[
-              styles.bookingSummary,
-              { 
-                backgroundColor: colors.slightlyDifferentCard,
-                padding: 15,
-                borderRadius: 8,
-                marginTop: 20,
-                borderWidth: 0
-              }
-            ]}>
-              <Text style={[
-                styles.summaryText, 
-                { 
-                  color: colors.text, 
-                  fontWeight: '600',
-                  fontSize: 16,
-                  marginBottom: 12 
-                }
-              ]}>
+            <View
+              style={[
+                styles.bookingSummary,
+                {
+                  backgroundColor: colors.slightlyDifferentCard,
+                  padding: 15,
+                  borderRadius: 8,
+                  marginTop: 20,
+                  borderWidth: 0,
+                },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.summaryText,
+                  {
+                    color: colors.text,
+                    fontWeight: '600',
+                    fontSize: 16,
+                    marginBottom: 12,
+                  },
+                ]}
+              >
                 Trip Details
               </Text>
-              
+
               <View style={styles.detailRow}>
-                <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Vehicle:</Text>
-                <Text style={[styles.detailValue, { color: colors.text }]}>{vehicle}</Text>
+                <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>
+                  Vehicle:
+                </Text>
+                <Text style={[styles.detailValue, { color: colors.text }]}>
+                  {vehicle}
+                </Text>
               </View>
-              
+
               <View style={styles.detailRow}>
-                <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>From:</Text>
-                <Text style={[styles.detailValue, { color: colors.text }]}>{pickup}</Text>
+                <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>
+                  From:
+                </Text>
+                <Text style={[styles.detailValue, { color: colors.text }]}>
+                  {pickup}
+                </Text>
               </View>
-              
+
               <View style={styles.detailRow}>
-                <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>To:</Text>
-                <Text style={[styles.detailValue, { color: colors.text }]}>{dropoff}</Text>
+                <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>
+                  To:
+                </Text>
+                <Text style={[styles.detailValue, { color: colors.text }]}>
+                  {dropoff}
+                </Text>
               </View>
-              
+
               <View style={styles.detailRow}>
-                <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>When:</Text>
+                <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>
+                  When:
+                </Text>
                 <Text style={[styles.detailValue, { color: colors.text }]}>
                   {new Date(date).toLocaleString('en-ZA', {
                     weekday: 'long',
                     day: 'numeric',
                     month: 'long',
                     hour: '2-digit',
-                    minute: '2-digit'
+                    minute: '2-digit',
                   })}
                 </Text>
               </View>
-              
+
               {helpersCount > 0 && (
                 <View style={styles.detailRow}>
-                  <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Helpers:</Text>
+                  <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>
+                    Helpers:
+                  </Text>
                   <Text style={[styles.detailValue, { color: colors.text }]}>
                     {helpersCount} (R{helpersCost})
                   </Text>
@@ -481,6 +544,27 @@ export default function Payment({ route, navigation }) {
           </View>
         </View>
       )}
+
+      {/* WebView Modal for PayFast */}
+      <Modal isVisible={isPaying} onBackdropPress={() => setIsPaying(false)}>
+        <SafeAreaView style={{ flex: 1 }}>
+          <TouchableOpacity
+            style={{ padding: 10, alignItems: 'flex-end' }}
+            onPress={() => setIsPaying(false)}
+          >
+            <Text style={{ color: 'red', fontWeight: 'bold' }}>Cancel</Text>
+          </TouchableOpacity>
+          {paymentUrl ? (
+            <WebView
+              source={{ uri: paymentUrl }}
+              onNavigationStateChange={handleWebViewChange}
+              startInLoadingState
+            />
+          ) : (
+            <ActivityIndicator size="large" style={{ flex: 1 }} />
+          )}
+        </SafeAreaView>
+      </Modal>
     </ScrollView>
   );
 }
@@ -513,12 +597,12 @@ const styles = StyleSheet.create({
   detailLabel: {
     fontSize: 14,
     opacity: 0.8,
-    width:80,
-    flexShrink:0,
+    width: 80,
+    flexShrink: 0,
   },
   detailValue: {
-    flexGrow:1,
-    flexShrink:1,
+    flexGrow: 1,
+    flexShrink: 1,
     flexWrap: 'wrap',
     fontSize: 14,
     fontWeight: '500',
@@ -681,21 +765,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: 'center',
     marginBottom: 8,
-  },
-  chatButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 15,
-    borderRadius: 10,
-    width: '100%',
-    justifyContent: 'center',
-  },
-  chatIcon: {
-    marginRight: 10,
-  },
-  chatButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
   },
   disabledButton: {
     opacity: 0.6,

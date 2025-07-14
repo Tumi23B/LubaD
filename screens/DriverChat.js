@@ -1,4 +1,4 @@
-import React, { useContext } from 'react';
+import React, { useContext, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -12,47 +12,44 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ThemeContext } from '../ThemeContext';
 import { ref, get } from 'firebase/database';
-import { useEffect, useState } from 'react';
-import { database } from '../firebase'; // adjust based on your setup
+import { database } from '../firebase';
 
-
+const defaultAvatar = require('../assets/icon.jpeg');
 
 export default function DriverChatScreen({ route }) {
-  const { isDarkMode, colors } = useContext(ThemeContext);
+  const { colors } = useContext(ThemeContext);
   const customerName = route.params?.customerName || 'Customer';
-  const customerPhone = route.params?.customerPhone || 'No number';
-  console.log("Chat screen params:", route.params);
+  const customerPhone = route.params?.customerPhone || '';
   const customerImage = route.params?.customerImage;
-  console.log('Customer image URL:', customerImage);
   const customerId = route.params?.customerId;
-  const [loadingImage, setLoadingImage] = useState(true);
 
-
-  {/* Fetch image URL from database */}
   const [customerImageUrl, setCustomerImageUrl] = useState(customerImage || null);
-  console.log('Final image URL used:', customerImageUrl);
 
   useEffect(() => {
-  const fetchImage = async () => {
-    if (!customerImageUrl && customerId) {
-      const userRef = ref(database, 'users/' + customerId);
-      const snapshot = await get(userRef);
-
-      if (snapshot.exists()) {
-        const data = snapshot.val();
-        if (data.imageUrl) {
-          setCustomerImageUrl(data.imageUrl);
+    const fetchImage = async () => {
+      if (!customerImageUrl && customerId) {
+        const userRef = ref(database, 'users/' + customerId);
+        const snapshot = await get(userRef);
+        if (snapshot.exists()) {
+          const data = snapshot.val();
+          if (data.imageUrl) {
+            setCustomerImageUrl(data.imageUrl);
+          }
         }
       }
-    }
-  };
-
-  fetchImage();
-}, [customerId]);
-
+    };
+    fetchImage();
+  }, [customerId]);
 
   const openWhatsApp = (phoneNumber) => {
-    const url = `https://wa.me/${phoneNumber}`;
+    if (!phoneNumber) {
+      Alert.alert('Missing Number', 'Customer phone number is not available.');
+      return;
+    }
+
+    const cleaned = phoneNumber.startsWith('+') ? phoneNumber : `+27${phoneNumber.replace(/^0/, '')}`;
+    const url = `https://wa.me/${cleaned}`;
+
     Linking.canOpenURL(url)
       .then((supported) => {
         if (!supported) {
@@ -64,42 +61,63 @@ export default function DriverChatScreen({ route }) {
       .catch((err) => console.error('Failed to open WhatsApp', err));
   };
 
+  const callCustomer = (phoneNumber) => {
+    if (!phoneNumber) {
+      Alert.alert('Missing Number', 'Customer phone number is not available.');
+      return;
+    }
+
+    const telURL = `tel:${phoneNumber.startsWith('+') ? phoneNumber : `+27${phoneNumber.replace(/^0/, '')}`}`;
+    Linking.canOpenURL(telURL)
+      .then((supported) => {
+        if (!supported) {
+          Alert.alert('Error', 'Phone app is not available.');
+        } else {
+          return Linking.openURL(telURL);
+        }
+      })
+      .catch((err) => console.error('Failed to make a call', err));
+  };
+
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
-      <View style={styles.container}>
-        <View style={[styles.header, { backgroundColor: colors.cardBackground, borderBottomColor: colors.borderColor }]}>
-          {customerImageUrl ? (
-            <Image
-              source={{ uri: customerImageUrl }}
-              style={[styles.avatar, { borderColor: colors.iconRed }]}
-              resizeMode="cover"
-            />
-          ) : (
-            <Ionicons
-              name="person-circle"
-              size={50}
-              color={colors.iconRed}
-              style={[styles.avatar, { borderWidth: 0 }]}
-            />
-          )}
+      <View style={styles.centerContent}>
+        <Image
+          source={
+            customerImageUrl
+              ? { uri: customerImageUrl }
+              : defaultAvatar
+          }
+          style={[styles.avatar, { borderColor: colors.iconRed }]}
+        />
+        <Text style={[styles.name, { color: colors.iconRed }]}>
+          {customerName}
+        </Text>
+        <Text style={[styles.phone, { color: colors.textSecondary }]}>
+          {customerPhone || 'N/A'}
+        </Text>
 
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.customerName, { color: colors.iconRed }]} numberOfLines={1}>
-              {customerName}
-            </Text>
-            <Text style={[styles.customerPhone, { color: colors.textSecondary }]} numberOfLines={1}>
-              {customerPhone}
-            </Text>
-          </View>
-          <TouchableOpacity onPress={() => openWhatsApp(customerPhone)} style={{ marginRight: 12 }}>
-            <Ionicons name="logo-whatsapp" size={30} color={colors.iconRed} />
+        <View style={styles.buttonRow}>
+          <TouchableOpacity
+            onPress={() => openWhatsApp(customerPhone)}
+            style={[styles.button, { backgroundColor: '#25D366' }]}
+          >
+            <Ionicons name="logo-whatsapp" size={20} color="#fff" />
+            <Text style={styles.buttonText}>WhatsApp</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => callCustomer(customerPhone)}
+            style={[styles.button, { backgroundColor: '#007AFF' }]}
+          >
+            <Ionicons name="call" size={20} color="#fff" />
+            <Text style={styles.buttonText}>Call</Text>
           </TouchableOpacity>
         </View>
-        <View style={styles.infoTextWrapper}>
-          <Text style={[styles.infoText, { color: colors.text }]}>
-            Tap the WhatsApp icon to message your customer or share your live location through WhatsApp.
-          </Text>
-        </View>
+
+        <Text style={[styles.infoText, { color: colors.text }]}>
+          For direct communication and live location sharing, please use WhatsApp.
+        </Text>
       </View>
     </SafeAreaView>
   );
@@ -109,34 +127,49 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
   },
-  container: {
+  centerContent: {
     flex: 1,
-  },
-  header: {
-    flexDirection: 'row',
+    justifyContent: 'center',
     alignItems: 'center',
-    padding: 16,
-    borderBottomWidth: 1,
+    padding: 20,
   },
   avatar: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    marginRight: 12,
+    width: 90,
+    height: 90,
+    borderRadius: 45,
     borderWidth: 2,
+    marginBottom: 12,
   },
-  customerName: {
-    fontSize: 17,
+  name: {
+    fontSize: 20,
     fontWeight: '700',
+    marginBottom: 4,
   },
-  customerPhone: {
-    fontSize: 13,
+  phone: {
+    fontSize: 14,
+    marginBottom: 16,
   },
-  infoTextWrapper: {
-    padding: 20,
+  buttonRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 20,
+  },
+  button: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+  },
+  buttonText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '600',
+    marginLeft: 8,
   },
   infoText: {
     fontSize: 15,
     textAlign: 'center',
+    paddingHorizontal: 10,
   },
 });

@@ -72,7 +72,6 @@ export default function App() {
 }
 
 function HomeScreen({ navigation }) {
-  {/*Use useContext to get the current theme colors and isDarkMode status*/}
   const { isDarkMode, colors } = useContext(ThemeContext);
 
   return (
