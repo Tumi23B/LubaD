@@ -1,22 +1,22 @@
-import React, { useContext } from 'react'; // Import useContext
-import { View, Text, ScrollView, StyleSheet } from 'react-native';
+import React, { useContext } from 'react';
+import { View, Text, ScrollView, StyleSheet, Linking, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { ThemeContext } from '../ThemeContext'; // Import ThemeContext
+import { ThemeContext } from '../ThemeContext';
 
 export default function PrivacyPolicy() {
-  const { isDarkMode, colors } = useContext(ThemeContext); // Use useContext to get theme and colors
+  const { colors } = useContext(ThemeContext);
 
   return (
     <ScrollView
-      style={[styles.container, { backgroundColor: colors.background }]} // Apply background color
+      style={[styles.container, { backgroundColor: colors.background }]}
       contentContainerStyle={styles.scrollContent}
     >
-      <Text style={[styles.title, { color: colors.iconRed }]}>Privacy Policy</Text> {/* Apply text color */}
-      <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Last updated: July 2025</Text> {/* Apply text color */}
+      <Text style={[styles.title, { color: colors.iconRed }]}>Privacy Policy</Text>
+      <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Last updated: July 2025</Text>
 
       <View style={styles.section}>
-        <Text style={[styles.sectionTitle, { color: colors.iconRed }]}>1. Introduction</Text> {/* Apply text color */}
-        <Text style={[styles.paragraph, { color: colors.text }]}> {/* Apply text color */}
+        <Text style={[styles.sectionTitle, { color: colors.iconRed }]}>1. Introduction</Text>
+        <Text style={[styles.paragraph, { color: colors.text }]}>
           At Luba Delivery, we take your privacy seriously. This policy explains how we collect,
           use, and protect your personal information when you use our services.
         </Text>
@@ -70,10 +70,18 @@ export default function PrivacyPolicy() {
         </Text>
       </View>
 
-      <View style={[styles.contact, { borderTopColor: colors.borderColor }]}> {/* Apply border color */}
-        <Ionicons name="mail-outline" size={18} color={colors.iconRed} /> {/* Apply icon color */}
-        <Text style={[styles.footer, { color: colors.borderColor }]}> {/* Apply text color */}
-          Contact us at <Text style={[styles.email, { color: colors.iconRed }]}>lubadapp@gmail.com</Text> for any privacy-related questions. {/* Apply text color */}
+      <View style={[styles.contact, { borderTopColor: colors.borderColor }]}>
+        <Ionicons name="mail-outline" size={18} color={colors.iconRed} />
+        <Text style={[styles.footer, { color: colors.text }]}>
+          Contact us at{' '}
+          <Text
+            style={[styles.email, { color: colors.iconRed, textDecorationLine: 'underline' }]}
+            onPress={() => Linking.openURL('mailto:lubadapp@gmail.com')}
+            accessibilityRole="link"
+          >
+            lubadapp@gmail.com
+          </Text>{' '}
+          for any privacy-related questions.
         </Text>
       </View>
     </ScrollView>
@@ -117,10 +125,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 10,
     borderTopWidth: 1,
+    flexDirection: 'row',
+    gap: 8,
   },
   footer: {
     fontSize: 14,
-    textAlign: 'center',
+    flex: 1,
     marginTop: 4,
     fontWeight: '500',
   },

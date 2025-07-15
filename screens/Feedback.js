@@ -1,4 +1,4 @@
-import React, { useState, useContext } from 'react'; // Import useContext
+import React, { useState, useContext } from 'react';
 import {
   View,
   Text,
@@ -8,25 +8,27 @@ import {
   TouchableOpacity,
   Alert,
   KeyboardAvoidingView,
-  Platform
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { database } from '../firebase';
 import { ref, push } from 'firebase/database';
-import { ThemeContext } from '../ThemeContext'; // Import ThemeContext
+import { ThemeContext } from '../ThemeContext';
 
 export default function Feedback() {
-  const { isDarkMode, colors } = useContext(ThemeContext); // Use useContext to get theme and colors
+  const { colors } = useContext(ThemeContext);
 
   const [message, setMessage] = useState('');
   const [contact, setContact] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = async () => {
     if (!message.trim()) {
-      Alert.alert("Feedback Required", "Please write your feedback before submitting.");
+      Alert.alert('Feedback Required', 'Please write your feedback before submitting.');
       return;
     }
 
+    setSubmitting(true);
     try {
       const feedbackRef = ref(database, 'feedbacks/');
       await push(feedbackRef, {
@@ -35,40 +37,49 @@ export default function Feedback() {
         timestamp: new Date().toISOString(),
       });
 
-      Alert.alert("Thank You!", "Your feedback has been submitted.");
+      Alert.alert('Thank You!', 'Your feedback has been submitted.');
       setMessage('');
       setContact('');
     } catch (error) {
-      Alert.alert("Error", "Something went wrong. Try again later.");
-      console.error("Firebase write error:", error);
+      Alert.alert('Error', 'Something went wrong. Try again later.');
+      console.error('Firebase write error:', error);
+    } finally {
+      setSubmitting(false);
     }
   };
 
   return (
     <KeyboardAvoidingView
-      style={{ flex: 1, backgroundColor: colors.background }} // Apply background color here
+      style={[styles.keyboardAvoidingView, { backgroundColor: colors.background }]}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 80 : 0}
     >
-      <ScrollView contentContainerStyle={[styles.container, { backgroundColor: colors.background }]} keyboardShouldPersistTaps="handled">
-        <Text style={[styles.title, { color: colors.iconRed }]}>We Value Your Feedback</Text> {/* Apply text color */}
-        <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Let us know how we can improve your experience.</Text> {/* Apply text color */}
+      <ScrollView
+        contentContainerStyle={[styles.container, { backgroundColor: colors.background }]}
+        keyboardShouldPersistTaps="handled"
+      >
+        <Text style={[styles.title, { color: colors.iconRed }]}>We Value Your Feedback</Text>
+        <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+          Let us know how we can improve your experience.
+        </Text>
 
-        <Text style={[styles.label, { color: colors.iconRed }]}>Your Feedback</Text> {/* Apply label text color */}
+        <Text style={[styles.label, { color: colors.iconRed }]}>Your Feedback</Text>
         <TextInput
           style={[
             styles.textArea,
             {
-              backgroundColor: colors.cardBackground, // Input background
-              borderColor: colors.borderColor, // Input border
-              color: colors.text, // Input text color
+              backgroundColor: colors.cardBackground,
+              borderColor: colors.borderColor,
+              color: colors.text,
             },
           ]}
           multiline
           numberOfLines={6}
           placeholder="Write your feedback here..."
-          placeholderTextColor={colors.textSecondary} // Placeholder text color
+          placeholderTextColor={colors.textSecondary}
           value={message}
           onChangeText={setMessage}
+          editable={!submitting}
         />
 
         <Text style={[styles.label, { color: colors.iconRed }]}>Your Email or Phone (optional)</Text>
@@ -76,20 +87,30 @@ export default function Feedback() {
           style={[
             styles.input,
             {
-              backgroundColor: colors.cardBackground, // Input background
-              borderColor: colors.borderColor, // Input border
-              color: colors.text, // Input text color
+              backgroundColor: colors.cardBackground,
+              borderColor: colors.borderColor,
+              color: colors.text,
             },
           ]}
           placeholder="example@gmail.com or 0723456789"
-          placeholderTextColor={colors.textSecondary} // Placeholder text color
+          placeholderTextColor={colors.textSecondary}
           value={contact}
           onChangeText={setContact}
+          editable={!submitting}
+          keyboardType="email-address"
+          autoCapitalize="none"
         />
 
-        <TouchableOpacity style={[styles.button, { backgroundColor: colors.iconRed }]} onPress={handleSubmit}>
-          <Ionicons name="send" size={20} color={colors.buttonText} /> {/* Apply icon color */}
-          <Text style={[styles.buttonText, { color: colors.buttonText }]}>Submit Feedback</Text> {/* Apply button text color */}
+        <TouchableOpacity
+          style={[styles.button, { backgroundColor: colors.iconRed }]}
+          onPress={handleSubmit}
+          disabled={submitting}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="send" size={20} color={colors.buttonText} />
+          <Text style={[styles.buttonText, { color: colors.buttonText }]}>
+            {submitting ? 'Submitting...' : 'Submit Feedback'}
+          </Text>
         </TouchableOpacity>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -97,6 +118,9 @@ export default function Feedback() {
 }
 
 const styles = StyleSheet.create({
+  keyboardAvoidingView: {
+    flex: 1,
+  },
   container: {
     padding: 20,
     flexGrow: 1,

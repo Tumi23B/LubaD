@@ -6,63 +6,91 @@ import { ThemeContext } from '../ThemeContext';
 export default function Settings({ navigation }) {
   const { isDarkMode } = useContext(ThemeContext);
 
+  // Determine styles once to avoid repeating ternaries in JSX
+  const containerStyle = [styles.container, isDarkMode ? styles.darkMode : styles.lightMode];
+  const textStyle = isDarkMode ? styles.darkText : styles.lightText;
+  const cardStyle = isDarkMode ? styles.darkCard : styles.lightCard;
+  const iconColor = isDarkMode ? '#fff' : '#b80000';
+
   return (
-    <ScrollView style={[styles.container, isDarkMode ? styles.darkMode : styles.lightMode]}>
+    <ScrollView style={containerStyle}>
       <View style={styles.section}>
-        <Text style={[styles.title, isDarkMode ? styles.darkText : styles.lightText]}>
-          Settings 
-        </Text>
-        <Text style={[styles.subtitle, isDarkMode ? styles.darkText : styles.lightText]}>
-          Manage your account and preferences.
-        </Text>
+        <Text style={[styles.title, textStyle]}>Settings</Text>
+        <Text style={[styles.subtitle, textStyle]}>Manage your account and preferences.</Text>
       </View>
 
       <View style={styles.section}>
-        <Text style={[styles.heading, isDarkMode ? styles.darkText : styles.lightText]}>Account</Text>
-        <TouchableOpacity style={[styles.settingLink, isDarkMode ? styles.darkCard : styles.lightCard]} onPress={() => navigation.navigate('Profile')}>
-          <Ionicons name="person-outline" size={20} color={isDarkMode ? "#fff" : "#b80000"} />
-          <Text style={[styles.settingText, isDarkMode ? styles.darkText : styles.lightText]}>Profile Info</Text>
-        </TouchableOpacity>
-
-        
-      </View>
-
-      <View style={styles.section}>
-        <Text style={[styles.heading, isDarkMode ? styles.darkText : styles.lightText]}>Preferences</Text>
-        <TouchableOpacity style={[styles.settingLink, isDarkMode ? styles.darkCard : styles.lightCard]} onPress={() => navigation.navigate('Notifications')}>
-          <Ionicons name="notifications-outline" size={20} color={isDarkMode ? "#fff" : "#b80000"} />
-          <Text style={[styles.settingText, isDarkMode ? styles.darkText : styles.lightText]}>Notifications</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={[styles.settingLink, isDarkMode ? styles.darkCard : styles.lightCard]} onPress={() => navigation.navigate('AppThemeScreen')}>
-          <Ionicons name="color-palette-outline" size={20} color={isDarkMode ? "#fff" : "#b80000"} />
-          <Text style={[styles.settingText, isDarkMode ? styles.darkText : styles.lightText]}>App Theme</Text>
+        <Text style={[styles.heading, textStyle]}>Account</Text>
+        <TouchableOpacity
+          style={[styles.settingLink, cardStyle]}
+          onPress={() => navigation.navigate('Profile')}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="person-outline" size={20} color={iconColor} />
+          <Text style={[styles.settingText, textStyle]}>Profile Info</Text>
         </TouchableOpacity>
       </View>
 
       <View style={styles.section}>
-        <Text style={[styles.heading, isDarkMode ? styles.darkText : styles.lightText]}>Support</Text>
-        <TouchableOpacity style={[styles.settingLink, isDarkMode ? styles.darkCard : styles.lightCard]} onPress={() => navigation.navigate('HelpCenter')}>
-          <Ionicons name="help-circle-outline" size={20} color={isDarkMode ? "#fff" : "#b80000"} />
-          <Text style={[styles.settingText, isDarkMode ? styles.darkText : styles.lightText]}>Help Center</Text>
+        <Text style={[styles.heading, textStyle]}>Preferences</Text>
+        <TouchableOpacity
+          style={[styles.settingLink, cardStyle]}
+          onPress={() => navigation.navigate('Notifications')}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="notifications-outline" size={20} color={iconColor} />
+          <Text style={[styles.settingText, textStyle]}>Notifications</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={[styles.settingLink, isDarkMode ? styles.darkCard : styles.lightCard]} onPress={() => navigation.navigate('Feedback')}>
-          <Ionicons name="chatbubbles-outline" size={20} color={isDarkMode ? "#fff" : "#b80000"} />
-          <Text style={[styles.settingText, isDarkMode ? styles.darkText : styles.lightText]}>Send Feedback</Text>
+        <TouchableOpacity
+          style={[styles.settingLink, cardStyle]}
+          onPress={() => navigation.navigate('AppThemeScreen')}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="color-palette-outline" size={20} color={iconColor} />
+          <Text style={[styles.settingText, textStyle]}>App Theme</Text>
         </TouchableOpacity>
       </View>
 
       <View style={styles.section}>
-        <Text style={[styles.heading, isDarkMode ? styles.darkText : styles.lightText]}>Legal</Text>
-        <TouchableOpacity style={[styles.settingLink, isDarkMode ? styles.darkCard : styles.lightCard]} onPress={() => navigation.navigate('PrivacyPolicy')}>
-          <Ionicons name="document-text-outline" size={20} color={isDarkMode ? "#fff" : "#b80000"} />
-          <Text style={[styles.settingText, isDarkMode ? styles.darkText : styles.lightText]}>Privacy Policy</Text>
+        <Text style={[styles.heading, textStyle]}>Support</Text>
+        <TouchableOpacity
+          style={[styles.settingLink, cardStyle]}
+          onPress={() => navigation.navigate('HelpCenter')}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="help-circle-outline" size={20} color={iconColor} />
+          <Text style={[styles.settingText, textStyle]}>Help Center</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={[styles.settingLink, isDarkMode ? styles.darkCard : styles.lightCard]} onPress={() => navigation.navigate('Terms')}>
-          <Ionicons name="shield-checkmark-outline" size={20} color={isDarkMode ? "#fff" : "#b80000"} />
-          <Text style={[styles.settingText, isDarkMode ? styles.darkText : styles.lightText]}>Terms of Service</Text>
+        <TouchableOpacity
+          style={[styles.settingLink, cardStyle]}
+          onPress={() => navigation.navigate('Feedback')}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="chatbubbles-outline" size={20} color={iconColor} />
+          <Text style={[styles.settingText, textStyle]}>Send Feedback</Text>
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.section}>
+        <Text style={[styles.heading, textStyle]}>Legal</Text>
+        <TouchableOpacity
+          style={[styles.settingLink, cardStyle]}
+          onPress={() => navigation.navigate('PrivacyPolicy')}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="document-text-outline" size={20} color={iconColor} />
+          <Text style={[styles.settingText, textStyle]}>Privacy Policy</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.settingLink, cardStyle]}
+          onPress={() => navigation.navigate('Terms')}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="shield-checkmark-outline" size={20} color={iconColor} />
+          <Text style={[styles.settingText, textStyle]}>Terms of Service</Text>
         </TouchableOpacity>
       </View>
     </ScrollView>
@@ -71,8 +99,8 @@ export default function Settings({ navigation }) {
 
 const styles = StyleSheet.create({
   container: {
-    padding: 20,
     flex: 1,
+    padding: 20,
   },
   section: {
     marginBottom: 25,
@@ -94,7 +122,7 @@ const styles = StyleSheet.create({
   settingLink: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 10,          // gap adds spacing between icon and text, better than margin
     padding: 12,
     borderRadius: 10,
     marginBottom: 12,

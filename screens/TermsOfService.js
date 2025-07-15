@@ -1,77 +1,65 @@
-import React, { useContext } from 'react'; // Import useContext
-import { View, Text, ScrollView, StyleSheet } from 'react-native';
-import { ThemeContext } from '../ThemeContext'; // Ensure this path is correct
+import React, { useContext } from 'react'; 
+import { View, Text, ScrollView, StyleSheet, Linking, TouchableOpacity } from 'react-native';
+import { ThemeContext } from '../ThemeContext'; 
 
 export default function TermsOfService() {
-  const { isDarkMode, colors } = useContext(ThemeContext); // Use useContext to get theme and colors
+  const { colors } = useContext(ThemeContext); // Only colors needed
 
   return (
     <ScrollView
-      style={[styles.container, { backgroundColor: colors.background }]} // Apply background color
+      style={[styles.container, { backgroundColor: colors.background }]}
       contentContainerStyle={styles.scrollContent}
     >
-      <Text style={[styles.title, { color: colors.iconRed }]}>Terms of Service</Text> {/* Apply text color */}
-      <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Effective Date: July 2025</Text> {/* Apply text color */}
+      <Text style={[styles.title, { color: colors.iconRed }]}>Terms of Service</Text>
+      <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Effective Date: July 2025</Text>
 
-      <View style={[styles.card, { backgroundColor: colors.cardBackground, borderLeftColor: colors.iconRed }]}> {/* Apply background and border color */}
-        <Text style={[styles.sectionTitle, { color: colors.iconRed }]}>1. Acceptance of Terms</Text> {/* Apply text color */}
-        <Text style={[styles.paragraph, { color: colors.text }]}> {/* Apply text color */}
-          By accessing or using Luba Delivery, you agree to be bound by these terms. If you do not agree, do not use our services.
-        </Text>
-      </View>
+      {[ 
+        {
+          title: '1. Acceptance of Terms',
+          content: 'By accessing or using Luba Delivery, you agree to be bound by these terms. If you do not agree, do not use our services.'
+        },
+        {
+          title: '2. Services',
+          content: 'Luba Delivery connects users with drivers to move personal items. We reserve the right to modify, suspend, or discontinue any part of the service at any time.'
+        },
+        {
+          title: '3. User Responsibilities',
+          content: 'You must provide accurate information, follow all laws, and not use the service for illegal or prohibited activities.'
+        },
+        {
+          title: '4. Payments',
+          content: 'All payments are handled securely. You agree to pay all applicable fees shown during the booking process.'
+        },
+        {
+          title: '5. Cancellations & Refunds',
+          content: 'You may cancel a ride prior to dispatch. Refunds may be limited depending on the cancellation time and driver effort.'
+        },
+        {
+          title: '6. Liability',
+          content: 'Luba Delivery is not liable for damages, loss, or delays caused during transit, except where required by law.'
+        },
+        {
+          title: '7. Account Suspension',
+          content: 'We may suspend or terminate your account for violation of these terms or misuse of the platform.'
+        },
+        {
+          title: '8. Updates',
+          content: 'We may update these terms at any time. Continued use of the app constitutes your agreement to the revised terms.'
+        }
+      ].map(({ title, content }, i) => (
+        <View key={i} style={[styles.card, { backgroundColor: colors.cardBackground, borderLeftColor: colors.iconRed }]}>
+          <Text style={[styles.sectionTitle, { color: colors.iconRed }]}>{title}</Text>
+          <Text style={[styles.paragraph, { color: colors.text }]}>{content}</Text>
+        </View>
+      ))}
 
-      <View style={[styles.card, { backgroundColor: colors.cardBackground, borderLeftColor: colors.iconRed }]}>
-        <Text style={[styles.sectionTitle, { color: colors.iconRed }]}>2. Services</Text>
-        <Text style={[styles.paragraph, { color: colors.text }]}>
-          Luba Delivery connects users with drivers to move personal items. We reserve the right to modify, suspend, or discontinue any part of the service at any time.
-        </Text>
-      </View>
-
-      <View style={[styles.card, { backgroundColor: colors.cardBackground, borderLeftColor: colors.iconRed }]}>
-        <Text style={[styles.sectionTitle, { color: colors.iconRed }]}>3. User Responsibilities</Text>
-        <Text style={[styles.paragraph, { color: colors.text }]}>
-          You must provide accurate information, follow all laws, and not use the service for illegal or prohibited activities.
-        </Text>
-      </View>
-
-      <View style={[styles.card, { backgroundColor: colors.cardBackground, borderLeftColor: colors.iconRed }]}>
-        <Text style={[styles.sectionTitle, { color: colors.iconRed }]}>4. Payments</Text>
-        <Text style={[styles.paragraph, { color: colors.text }]}>
-          All payments are handled securely. You agree to pay all applicable fees shown during the booking process.
-        </Text>
-      </View>
-
-      <View style={[styles.card, { backgroundColor: colors.cardBackground, borderLeftColor: colors.iconRed }]}>
-        <Text style={[styles.sectionTitle, { color: colors.iconRed }]}>5. Cancellations & Refunds</Text>
-        <Text style={[styles.paragraph, { color: colors.text }]}>
-          You may cancel a ride prior to dispatch. Refunds may be limited depending on the cancellation time and driver effort.
-        </Text>
-      </View>
-
-      <View style={[styles.card, { backgroundColor: colors.cardBackground, borderLeftColor: colors.iconRed }]}>
-        <Text style={[styles.sectionTitle, { color: colors.iconRed }]}>6. Liability</Text>
-        <Text style={[styles.paragraph, { color: colors.text }]}>
-          Luba Delivery is not liable for damages, loss, or delays caused during transit, except where required by law.
-        </Text>
-      </View>
-
-      <View style={[styles.card, { backgroundColor: colors.cardBackground, borderLeftColor: colors.iconRed }]}>
-        <Text style={[styles.sectionTitle, { color: colors.iconRed }]}>7. Account Suspension</Text>
-        <Text style={[styles.paragraph, { color: colors.text }]}>
-          We may suspend or terminate your account for violation of these terms or misuse of the platform.
-        </Text>
-      </View>
-
-      <View style={[styles.card, { backgroundColor: colors.cardBackground, borderLeftColor: colors.iconRed }]}>
-        <Text style={[styles.sectionTitle, { color: colors.iconRed }]}>8. Updates</Text>
-        <Text style={[styles.paragraph, { color: colors.text }]}>
-          We may update these terms at any time. Continued use of the app constitutes your agreement to the revised terms.
-        </Text>
-      </View>
-
-      <View style={[styles.footerBox, { backgroundColor: colors.cardBackground, borderColor: colors.borderColor }]}> {/* Apply background and border color */}
-        <Text style={[styles.footerLabel, { color: colors.iconRed }]}>Still have questions?</Text> {/* Apply text color */}
-        <Text style={[styles.footerText, { color: colors.borderColor }]}>📧 lubadapp@gmail.com</Text> {/* Using borderColor for the golden hue */}
+      <View style={[styles.footerBox, { backgroundColor: colors.cardBackground, borderColor: colors.borderColor }]}>
+        <Text style={[styles.footerLabel, { color: colors.iconRed }]}>Still have questions?</Text>
+        <TouchableOpacity onPress={() => Linking.openURL('mailto:lubadapp@gmail.com')}>
+          <Text style={[styles.footerText, { color: colors.borderColor, textDecorationLine: 'underline' }]}>
+            📧 lubadapp@gmail.com
+          </Text>
+        </TouchableOpacity>
       </View>
     </ScrollView>
   );
