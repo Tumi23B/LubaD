@@ -73,7 +73,7 @@ export default function PrivacyPolicy() {
       <View style={[styles.contact, { borderTopColor: colors.borderColor }]}> {/* Apply border color */}
         <Ionicons name="mail-outline" size={18} color={colors.iconRed} /> {/* Apply icon color */}
         <Text style={[styles.footer, { color: colors.borderColor }]}> {/* Apply text color */}
-          Contact us at <Text style={[styles.email, { color: colors.iconRed }]}>support@lubadelivery.com</Text> for any privacy-related questions. {/* Apply text color */}
+          Contact us at <Text style={[styles.email, { color: colors.iconRed }]}>lubadapp@gmail.com</Text> for any privacy-related questions. {/* Apply text color */}
         </Text>
       </View>
     </ScrollView>

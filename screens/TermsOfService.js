@@ -71,7 +71,7 @@ export default function TermsOfService() {
 
       <View style={[styles.footerBox, { backgroundColor: colors.cardBackground, borderColor: colors.borderColor }]}> {/* Apply background and border color */}
         <Text style={[styles.footerLabel, { color: colors.iconRed }]}>Still have questions?</Text> {/* Apply text color */}
-        <Text style={[styles.footerText, { color: colors.borderColor }]}>📧 support@lubadelivery.com</Text> {/* Using borderColor for the golden hue */}
+        <Text style={[styles.footerText, { color: colors.borderColor }]}>📧 lubadapp@gmail.com</Text> {/* Using borderColor for the golden hue */}
       </View>
     </ScrollView>
   );

@@ -351,6 +351,55 @@ export default function DriverDashboard({ navigation }) {
   }
 };
 
+const declineRide = async (ride) => {
+  if (!userId || !database) return;
+
+  setModalMessage(`Decline ride from ${ride.pickup} to ${ride.dropoff}?`);
+  setModalType('confirm');
+  setModalAction(() => async () => {
+    try {
+      const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+      const rideRef = ref(database, `artifacts/${appId}/ride_requests/${ride.id}`);
+
+      // Option 1: Mark the ride as declined
+      await update(rideRef, {
+        status: 'declined',
+        declinedBy: userId,
+        declinedAt: new Date().toISOString(),
+      });
+
+      // Optionally update the user's private booking
+      if (ride.customerId && ride.customerBookingId) {
+        const customerBookingRef = ref(
+          database,
+          `artifacts/${appId}/users/${ride.customerId}/rides/${ride.customerBookingId}`
+        );
+
+        await update(customerBookingRef, {
+          status: 'declined',
+          declinedBy: userId,
+          declinedAt: new Date().toISOString(),
+        });
+      }
+
+      // Remove from  dashboard
+      setPendingRequests((prev) => prev.filter((r) => r.id !== ride.id));
+
+      setModalMessage('Ride has been declined and removed.');
+      setModalType('success');
+      setModalAction(null);
+      setShowModal(true);
+    } catch (error) {
+      console.error('Error declining ride:', error);
+      setModalMessage(`Failed to decline ride: ${error.message}`);
+      setModalType('error');
+      setModalAction(null);
+      setShowModal(true);
+    }
+  });
+
+  setShowModal(true);
+};
 
 
 // Updated acceptRide function with deep linking by address strings
@@ -433,7 +482,7 @@ const acceptRide = (request) => {
 
 
       //  Setting modal to open Google Maps
-      setModalMessage("Ride accepted successfully! Tap OK to open Google Maps.");
+      setModalMessage("Ride accepted successfully! Use Google Maps to Navigate to Customer's Location .");
       setModalType('success');
       setModalAction(() => async () => {
         const pickup = request.pickup?.trim();
@@ -455,7 +504,7 @@ const acceptRide = (request) => {
         if (supported) {
           Linking.openURL(mapsUrl);
         } else {
-          Alert.alert('Error', 'Unable to open Google Maps.');
+          Alert.alert('Error', 'Unable to open Google Maps!.');
         }
       });
 
