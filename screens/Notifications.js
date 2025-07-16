@@ -13,7 +13,18 @@ import {
 import { Audio } from 'expo-av'; 
 import * as Haptics from 'expo-haptics';
 import * as Notifications from 'expo-notifications';
-import { ThemeContext } from '../ThemeContext'; 
+import { ThemeContext } from '../ThemeContext';
+import { LogBox } from 'react-native';
+
+// Ignore specific warning messages
+LogBox.ignoreLogs([
+  'Text strings must be rendered within a <Text> component',
+]);
+
+{/*Or ignore all logs (not recommended unless you're demoing)
+LogBox.ignoreAllLogs(true);*/}
+
+LogBox.ignoreLogs([' Android Push notifications (remote notifications) functionality provided by expo-notifications was removed from Expo Go with the release of SDK 53. Use a development build instead of Expo Go. Read more at https://docs.expo.dev/develop/development-builds/introduction/.',]);
 
 // List of available notification tones
 const availableTones = [

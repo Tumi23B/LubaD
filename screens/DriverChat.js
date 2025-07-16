@@ -13,8 +13,21 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ThemeContext } from '../ThemeContext';
 import { ref, get } from 'firebase/database';
 import { database } from '../firebase';
+import { LogBox } from 'react-native';
 
-const defaultAvatar = require('../assets/icon.jpeg');
+// Ignore specific warning messages
+LogBox.ignoreLogs([
+  'Text strings must be rendered within a <Text> component',
+]);
+
+LogBox.ignoreLogs([
+  'Firebase authentication error: Firebase: Error (auth/admin-restricted-operation).',
+]);
+
+{/*Or ignore all logs (not recommended unless you're demoing)
+LogBox.ignoreAllLogs(true);*/}
+
+const defaultAvatar = require('../assets/icon.png');
 
 export default function DriverChatScreen({ route }) {
   const { colors } = useContext(ThemeContext);
@@ -85,7 +98,7 @@ export default function DriverChatScreen({ route }) {
         <Image
           source={
             customerImageUrl
-              ? { uri: customerImageUrl }
+              ? { uri: imageUrl}
               : defaultAvatar
           }
           style={[styles.avatar, { borderColor: colors.iconRed }]}

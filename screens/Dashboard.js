@@ -21,7 +21,18 @@ import axios from 'axios';
 import { Ionicons } from '@expo/vector-icons';
 import { ThemeContext } from '../ThemeContext';
 import Constants from 'expo-constants';
+import { Image } from 'react-native';
 import { Linking } from 'react-native';
+import { LogBox } from 'react-native';
+
+
+// Ignore specific warning messages
+LogBox.ignoreLogs([
+  'Text strings must be rendered within a <Text> component',
+]);
+
+{/*Or ignore all logs (not recommended unless you're demoing)
+LogBox.ignoreAllLogs(true);*/}
 
 
 export default function Dashboard({ navigation }) {
@@ -179,41 +190,65 @@ const getCoordsFromAddress = async (address) => {
   };
 
   const vehicleOptions = [
-    { type: 'Mini Van', icon: 'car-outline' },
-    { type: 'Van', icon: 'bus-outline' },
-    { type: 'Mini Truck', icon: 'cube-outline' },
-    { type: 'Full Truck', icon: 'trail-sign-outline' },
+    { type: 'Mini Van', icon: require('../assets/minivan.png')},
+    { type: 'Van', icon: require('../assets/van.png') },
+    { type: 'Mini Truck', icon: require('../assets/minitruck.png') },
+    { type: 'Full Truck', icon: require('../assets/fulltruck.png') },
   ];
 
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
       <ScrollView style={[styles.container, { backgroundColor: colors.background }]} keyboardShouldPersistTaps="handled">
-        <View style={styles.section}>
-          <Text style={[styles.title, { color: colors.iconRed }]}>Welcome, {username} 👋</Text>
+        <View style={styles.headerRow}>
+          <Text style={[styles.title, { color: colors.iconRed }]}>Welcome, {username}!</Text>
+          <TouchableOpacity
+            onPress={() => navigation.navigate('Settings')}
+            style={styles.settingsIcon}
+          >
+            <Ionicons name="settings-outline" size={26} color={colors.iconRed} />
+          </TouchableOpacity>
         </View>
 
         <View style={styles.section}>
-          <MapView
-            style={styles.map}
-            region={
-              location
-                ? {
-                    latitude: location.latitude,
-                    longitude: location.longitude,
-                    latitudeDelta: 0.01,
-                    longitudeDelta: 0.01,
-                  }
-                : {
-                    latitude: -26.2041,
-                    longitude: 28.0473,
-                    latitudeDelta: 0.1,
-                    longitudeDelta: 0.1,
-                  }
-            }
-            customMapStyle={Platform.OS === 'ios' ? mapStyleDark : mapStyleLight}
+          <View
+            style={{
+              borderWidth: 1,
+              borderColor: colors.borderColor,
+              borderRadius: 12,
+              overflow: 'hidden',
+              marginBottom: 20,
+              backgroundColor: colors.cardBackground,
+              elevation: Platform.OS === 'android' ? 3 : 0,
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.15,
+              shadowRadius: 4,
+            }}
           >
-            {location && <Marker coordinate={location} pinColor={colors.iconRed} title="You are here" />}
-          </MapView>
+            <MapView
+              style={styles.map}
+              region={
+                location
+                  ? {
+                      latitude: location.latitude,
+                      longitude: location.longitude,
+                      latitudeDelta: 0.01,
+                      longitudeDelta: 0.01,
+                    }
+                  : {
+                      latitude: -26.2041,
+                      longitude: 28.0473,
+                      latitudeDelta: 0.1,
+                      longitudeDelta: 0.1,
+                    }
+              }
+              customMapStyle={Platform.OS === 'ios' ? mapStyleDark : mapStyleLight}
+            >
+              {location && (
+                <Marker coordinate={location} pinColor={colors.iconRed} title="You are here" />
+              )}
+            </MapView>
+          </View>
 
           <TextInput
             placeholder="📍 Pickup Location"
@@ -300,7 +335,7 @@ const getCoordsFromAddress = async (address) => {
                   },
                 ]}
               >
-                <Ionicons name={v.icon} size={30} color={colors.iconRed} />
+                <Image source={v.icon} style={{ width: 30, height: 30 }} />
                 <Text style={[styles.vehicleLabel, { color: colors.text }]}>{v.type}</Text>
               </View>
             ))}
@@ -308,39 +343,13 @@ const getCoordsFromAddress = async (address) => {
         </View>
 
         <View style={styles.section}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Text style={[styles.heading, { color: colors.iconRed }]}>Recent Activity</Text>
-            <TouchableOpacity onPress={() => navigation.navigate('BookingHistory')}>
-              <Text style={[styles.linkText, { color: colors.iconRed }]}>View All</Text>
+          <Text style={[styles.heading, { color: colors.iconRed }]}>View Requests</Text>
+            <TouchableOpacity
+              style={[styles.checkoutButton, { backgroundColor: colors.iconRed }]}
+              onPress={() => navigation.navigate('BookingHistory')}
+            >
+              <Text style={[styles.checkoutButtonText, { color: colors.buttonText }]}>Booking History</Text>
             </TouchableOpacity>
-          </View>
-
-          {recentRides.length === 0 ? (
-            <Text style={{ color: colors.textSecondary }}>View recent rides</Text>
-          ) : (
-            recentRides.map((ride, index) => (
-              <View key={index} style={[styles.suggestionCard, { backgroundColor: colors.cardBackground }]}>
-                <Ionicons name="time-outline" size={22} color={colors.iconRed} />
-                <Text style={[styles.bold, { color: colors.text }]}>
-                  {ride.pickup} ➡️ {ride.dropoff}
-                </Text>
-                <Text style={[styles.suggestionDesc, { color: colors.textSecondary }]}>
-                  {new Date(ride.date).toLocaleString()}
-                </Text>
-              </View>
-            ))
-          )}
-        </View>
-
-        <View style={styles.section}>
-          <Text style={[styles.heading, { color: colors.iconRed }]}>Account Settings ⚙️</Text>
-          <TouchableOpacity
-            style={[styles.settingLink, { backgroundColor: colors.cardBackground }]}
-            onPress={() => navigation.navigate('Settings')}
-          >
-            <Ionicons name="settings-outline" size={20} color={colors.iconRed} />
-            <Text style={[styles.settingText, { color: colors.text }]}>Settings</Text>
-          </TouchableOpacity>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -537,7 +546,7 @@ const styles = StyleSheet.create({
   checkoutButton: {
     padding: 12,
     borderRadius: 8,
-    marginTop: 10,
+    marginTop: 6,
   },
   checkoutButtonText: {
     fontWeight: 'bold',
@@ -559,7 +568,7 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 10,
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 2,
     borderWidth: 1,
   },
   vehicleLabel: {
@@ -600,4 +609,17 @@ const styles = StyleSheet.create({
   suggestionItem: {
     padding: 10,
   },
+  headerRow: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  marginTop: 10,
+  marginBottom: 20,
+},
+
+settingsIcon: {
+  padding: 6,
+  marginTop: 14,
+},
+
 });

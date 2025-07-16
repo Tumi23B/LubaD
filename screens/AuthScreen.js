@@ -23,6 +23,20 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { ThemeContext } from '../ThemeContext';
 import { Ionicons } from '@expo/vector-icons';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
+import { LogBox } from 'react-native';
+
+// Ignore specific warning messages
+LogBox.ignoreLogs([
+  'Text strings must be rendered within a <Text> component',
+]);
+
+LogBox.ignoreLogs([
+  'Firebase authentication error: Firebase: Error (auth/admin-restricted-operation).',
+]);
+
+{/*Or ignore all logs (not recommended unless you're demoing)
+LogBox.ignoreAllLogs(true);*/}
+
 
 const lightModeLogo = require('../assets/logotransparent.png');
 const darkModeLogo = require('../assets/logo-dark-mode.png');
@@ -265,9 +279,7 @@ export default function AuthScreen() {
         </View>
 
         {isLogin && (
-          <Text style={[styles.infoMsg, { color: colors.text }]}>
-            First time here? Sign Up to Login
-          </Text>
+          <Text style={[styles.infoMsg, { color: colors.text }]}> First time here? Sign Up to Login </Text>
         )}
 
         {!isLogin && (
@@ -491,8 +503,6 @@ const styles = StyleSheet.create({
     marginBottom: 15,
     fontSize: 12,
   },
-
-  // Added style for role selection buttons
   roleOption: {
     flex: 1,
     alignItems: 'center',

@@ -14,6 +14,15 @@ import { Ionicons } from '@expo/vector-icons';
 import { database } from '../firebase';
 import { ref, push } from 'firebase/database';
 import { ThemeContext } from '../ThemeContext';
+import { LogBox } from 'react-native';
+
+// Ignore specific warning messages
+LogBox.ignoreLogs([
+  'Text strings must be rendered within a <Text> component',
+]);
+
+{/*Or ignore all logs (not recommended unless you're demoing)
+LogBox.ignoreAllLogs(true);*/}
 
 export default function Feedback() {
   const { colors } = useContext(ThemeContext);

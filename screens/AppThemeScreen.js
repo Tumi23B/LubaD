@@ -1,6 +1,15 @@
 import React, { useContext, useState, useRef, useEffect } from 'react';
 import { View, Text, Switch, StyleSheet, TouchableOpacity, Animated } from 'react-native';
 import { ThemeContext } from '../ThemeContext';
+import { LogBox } from 'react-native';
+
+// Ignore specific warning messages
+LogBox.ignoreLogs([
+  'Text strings must be rendered within a <Text> component',
+]);
+
+{/*Or ignore all logs (not recommended unless you're demoing)
+LogBox.ignoreAllLogs(true);*/}
 
 export default function AppThemeScreen() {
   const { isDarkMode, toggleTheme, colors } = useContext(ThemeContext);
@@ -11,13 +20,13 @@ export default function AppThemeScreen() {
 
   const handleSave = () => {
     setSaveConfirmation("Theme saved!");
-    // Fade in
+    
     Animated.timing(fadeAnim, {
       toValue: 1,
       duration: 300,
       useNativeDriver: true,
     }).start(() => {
-      // After 2 seconds fade out and clear message
+     
       setTimeout(() => {
         Animated.timing(fadeAnim, {
           toValue: 0,

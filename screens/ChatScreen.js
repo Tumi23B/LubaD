@@ -13,8 +13,17 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ThemeContext } from '../ThemeContext';
 import { ref, get } from 'firebase/database';
 import { database } from '../firebase';
+import { LogBox } from 'react-native';
 
-const driverAvatar = require('../assets/icon.jpeg');
+// Ignore specific warning messages
+LogBox.ignoreLogs([
+  'Text strings must be rendered within a <Text> component',
+]);
+
+{/*Or ignore all logs (not recommended unless you're demoing)
+LogBox.ignoreAllLogs(true);*/}
+
+const driverAvatar = require('../assets/icon.png');
 
 export default function ChatScreen({ route }) {
   const { colors } = useContext(ThemeContext);

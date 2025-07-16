@@ -16,6 +16,15 @@ import {
   signInAnonymously,
   signInWithCustomToken,
 } from 'firebase/auth';
+import { LogBox } from 'react-native';
+
+// Ignore specific warning messages
+LogBox.ignoreLogs([
+  'Text strings must be rendered within a <Text> component',
+]);
+
+{/*Or ignore all logs (not recommended unless you're demoing)
+LogBox.ignoreAllLogs(true);*/}
 
 export default function Checkout({ route, navigation }) {
   const { isDarkMode, colors } = useContext(ThemeContext);

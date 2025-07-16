@@ -11,6 +11,19 @@ import { ref, get, update, remove } from 'firebase/database';
 import { useNavigation } from '@react-navigation/native';
 import { ThemeContext } from '../ThemeContext';
 import { LinearGradient } from 'expo-linear-gradient';
+import { LogBox } from 'react-native';
+
+// Ignore specific warning messages
+LogBox.ignoreLogs([
+  'Text strings must be rendered within a <Text> component',
+]);
+
+LogBox.ignoreLogs([
+  'Firebase authentication error: Firebase: Error (auth/admin-restricted-operation).',
+]);
+
+{/*Or ignore all logs (not recommended unless you're demoing)
+LogBox.ignoreAllLogs(true);*/}
 
 const { width } = Dimensions.get('window');
 
@@ -327,7 +340,7 @@ export default function DriverProfile() {
             <Image
               source={profile.profileImage ? 
                 { uri: profile.profileImage } : 
-                require('../assets/icon.jpeg')}
+                require('../assets/icon.png')}
               style={[styles.avatar, { borderColor: '#C41E3A' }]}
             />
             <View style={[styles.cameraIcon, { backgroundColor: '#C41E3A' }]}>

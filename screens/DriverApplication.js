@@ -18,6 +18,19 @@ import { ref, set } from 'firebase/database';
 import { uploadToCloudinary } from '../utils/cloudinary';
 import { ThemeContext } from '../ThemeContext';
 import { Picker } from '@react-native-picker/picker';
+import { LogBox } from 'react-native';
+
+// Ignore specific warning messages
+LogBox.ignoreLogs([
+  'Text strings must be rendered within a <Text> component',
+]);
+
+LogBox.ignoreLogs([
+  'Firebase authentication error: Firebase: Error (auth/admin-restricted-operation).',
+]);
+
+{/*Or ignore all logs (not recommended unless you're demoing)
+LogBox.ignoreAllLogs(true);*/}
 
 export default function DriverApplication({ navigation }) {
   const { isDarkMode, colors } = useContext(ThemeContext);

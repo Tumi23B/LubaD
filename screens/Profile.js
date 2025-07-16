@@ -27,6 +27,19 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { ThemeContext } from '../ThemeContext';
 import { LinearGradient } from 'expo-linear-gradient';
 import { saveImageUrlToFirebase } from '../utils/firebaseHelpers'; 
+import { LogBox } from 'react-native';
+
+// Ignore specific warning messages
+LogBox.ignoreLogs([
+  'Text strings must be rendered within a <Text> component',
+]);
+
+LogBox.ignoreLogs([
+  'Firebase authentication error: Firebase: Error (auth/admin-restricted-operation).',
+]);
+
+{/*Or ignore all logs (not recommended unless you're demoing)
+LogBox.ignoreAllLogs(true);*/}
 
 
 const lightModeLogo = require('../assets/logotransparent.png');

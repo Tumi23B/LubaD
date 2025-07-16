@@ -74,24 +74,27 @@ export default function App() {
 function HomeScreen({ navigation }) {
   const { isDarkMode, colors } = useContext(ThemeContext);
 
-  return (
-    <View style={[styles.container, { backgroundColor: colors.iconRed }]}> {/* Apply background color */}
-      <Text style={[styles.title, { color: colors.tagline }]}>Welcome To Luba Delivery!</Text> {/* Apply text color */}
-      <Text style={styles.tagline}>Your Logistics Partner</Text> {/* Apply secondary text color */}
+  console.log('HomeScreen is rendering. Theme mode:', isDarkMode ? 'Dark' : 'Light');
 
-      {/* Conditional Logo Image based on theme */}
+  return (
+    <View style={[styles.container, { backgroundColor: colors.iconRed }]}>
+      <Text style={[styles.title, { color: colors.tagline }]}>Welcome To Luba Delivery!</Text>
+      <Text style={[styles.tagline, { color: colors.tagline }]}>Your Logistics Partner</Text>
       <Image
         source={isDarkMode ? darkModeHomeLogo : lightModeHomeLogo}
         style={styles.logoImg}
         resizeMode="contain"
       />
-
-      <TouchableOpacity style={[styles.button, { backgroundColor: colors.tagline}]} onPress={() => navigation.navigate('Auth')}>
-        <Text style={[styles.buttonText]}>GET STARTED</Text> {/* Apply button text color */}
+      <TouchableOpacity
+        style={[styles.button, { backgroundColor: colors.tagline }]}
+        onPress={() => navigation.navigate('Auth')}
+      >
+        <Text style={styles.buttonText}>GET STARTED</Text>
       </TouchableOpacity>
     </View>
   );
 }
+
 
 {/* Styles*/}
 export const styles = StyleSheet.create({

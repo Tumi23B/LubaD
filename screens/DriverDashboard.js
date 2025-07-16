@@ -16,6 +16,19 @@ import { generatePDFReport } from '../utils/pdfHelper';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { Constants } from 'expo-constants';
 import fetchUserDetails from '../utils/firebaseHelpers';
+import { LogBox, Platform } from 'react-native';
+
+// Ignore specific warning messages
+LogBox.ignoreLogs([
+  'Text strings must be rendered within a <Text> component',
+]);
+
+LogBox.ignoreLogs([
+  'Firebase authentication error: FirebaseError: Firebase: Error (auth/admin-restricted-operation).',
+]);
+
+{/*Or ignore all logs (not recommended unless you're demoing)
+LogBox.ignoreAllLogs(true);*/}
 
 
 
@@ -707,21 +720,35 @@ const navigateToPickup = (pickupAddress) => {
             </View>
 
             {driverLocation && (
-              <View style={styles.mapContainer}>
+              <View style={{ marginBottom: 20 }}>
                 <Text style={[styles.sectionTitle, { color: colors.iconRed }]}>Your Location</Text>
-                <MapView
-                  style={styles.map}
-                  initialRegion={{
-                    latitude: driverLocation.latitude,
-                    longitude: driverLocation.longitude,
-                    latitudeDelta: 0.05,
-                    longitudeDelta: 0.05,
+                <View
+                  style={{
+                    borderWidth: 1,
+                    borderColor: colors.borderColor,
+                    borderRadius: 12,
+                    overflow: 'hidden',
+                    backgroundColor: colors.cardBackground,
+                    elevation: Platform.OS === 'android' ? 3 : 0,
+                    shadowColor: '#000',
+                    shadowOffset: { width: 0, height: 2 },
+                    shadowOpacity: 0.15,
+                    shadowRadius: 4,
                   }}
-                  customMapStyle={isDarkMode ? mapStyleDark : mapStyleLight}
                 >
-                  <Marker coordinate={driverLocation} title="You" pinColor={colors.iconRed} />
-                </MapView>
-
+                  <MapView
+                    style={styles.map}
+                    region={{
+                      latitude: driverLocation.latitude,
+                      longitude: driverLocation.longitude,
+                      latitudeDelta: 0.01,
+                      longitudeDelta: 0.01,
+                    }}
+                    customMapStyle={isDarkMode ? mapStyleDark : mapStyleLight}
+                  >
+                    <Marker coordinate={driverLocation} pinColor={colors.iconRed} title="You are here" />
+                  </MapView>
+                </View>
               </View>
             )}
     

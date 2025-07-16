@@ -2,6 +2,15 @@ import React, { useContext } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { ThemeContext } from '../ThemeContext';
+import { LogBox } from 'react-native';
+
+// Ignore specific warning messages
+LogBox.ignoreLogs([
+  'Text strings must be rendered within a <Text> component',
+]);
+
+{/*Or ignore all logs (not recommended unless you're demoing)
+LogBox.ignoreAllLogs(true);*/}
 
 export default function Settings({ navigation }) {
   const { isDarkMode } = useContext(ThemeContext);
@@ -33,15 +42,7 @@ export default function Settings({ navigation }) {
 
       <View style={styles.section}>
         <Text style={[styles.heading, textStyle]}>Preferences</Text>
-        <TouchableOpacity
-          style={[styles.settingLink, cardStyle]}
-          onPress={() => navigation.navigate('Notifications')}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="notifications-outline" size={20} color={iconColor} />
-          <Text style={[styles.settingText, textStyle]}>Notifications</Text>
-        </TouchableOpacity>
-
+        
         <TouchableOpacity
           style={[styles.settingLink, cardStyle]}
           onPress={() => navigation.navigate('AppThemeScreen')}
