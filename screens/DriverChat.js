@@ -7,6 +7,8 @@ import {
   Image,
   Alert,
   Linking,
+  Modal,
+  Pressable,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -15,17 +17,10 @@ import { ref, get } from 'firebase/database';
 import { database } from '../firebase';
 import { LogBox } from 'react-native';
 
-// Ignore specific warning messages
 LogBox.ignoreLogs([
   'Text strings must be rendered within a <Text> component',
-]);
-
-LogBox.ignoreLogs([
   'Firebase authentication error: Firebase: Error (auth/admin-restricted-operation).',
 ]);
-
-{/*Or ignore all logs (not recommended unless you're demoing)
-LogBox.ignoreAllLogs(true);*/}
 
 const defaultAvatar = require('../assets/icon.png');
 
@@ -37,6 +32,7 @@ export default function DriverChatScreen({ route }) {
   const customerId = route.params?.customerId;
 
   const [customerImageUrl, setCustomerImageUrl] = useState(customerImage || null);
+  const [modalVisible, setModalVisible] = useState(false);
 
   useEffect(() => {
     const fetchImage = async () => {
@@ -54,15 +50,19 @@ export default function DriverChatScreen({ route }) {
     fetchImage();
   }, [customerId]);
 
+  const formatPhone = (phoneNumber) => {
+    return phoneNumber.startsWith('+')
+      ? phoneNumber
+      : `+27${phoneNumber.replace(/^0/, '')}`;
+  };
+
   const openWhatsApp = (phoneNumber) => {
     if (!phoneNumber) {
       Alert.alert('Missing Number', 'Customer phone number is not available.');
       return;
     }
 
-    const cleaned = phoneNumber.startsWith('+') ? phoneNumber : `+27${phoneNumber.replace(/^0/, '')}`;
-    const url = `https://wa.me/${cleaned}`;
-
+    const url = `https://wa.me/${formatPhone(phoneNumber)}`;
     Linking.canOpenURL(url)
       .then((supported) => {
         if (!supported) {
@@ -80,7 +80,7 @@ export default function DriverChatScreen({ route }) {
       return;
     }
 
-    const telURL = `tel:${phoneNumber.startsWith('+') ? phoneNumber : `+27${phoneNumber.replace(/^0/, '')}`}`;
+    const telURL = `tel:${formatPhone(phoneNumber)}`;
     Linking.canOpenURL(telURL)
       .then((supported) => {
         if (!supported) {
@@ -92,13 +92,32 @@ export default function DriverChatScreen({ route }) {
       .catch((err) => console.error('Failed to make a call', err));
   };
 
+  // This just opens the modal
+  const showLiveLocationModal = () => {
+    if (!customerPhone) {
+      Alert.alert('Missing Number', 'Customer phone number is not available.');
+      return;
+    }
+    setModalVisible(true);
+  };
+
+  // When user confirms in modal, open WhatsApp with message
+  const confirmSendLiveLocation = () => {
+    const message = ``;
+    const waURL = `https://wa.me/${formatPhone(customerPhone)}?text=${encodeURIComponent(message)}`;
+    setModalVisible(false);
+    Linking.openURL(waURL).catch((err) =>
+      console.error('Failed to open WhatsApp with live location instructions:', err)
+    );
+  };
+
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
       <View style={styles.centerContent}>
         <Image
           source={
             customerImageUrl
-              ? { uri: imageUrl}
+              ? { uri: customerImageUrl }
               : defaultAvatar
           }
           style={[styles.avatar, { borderColor: colors.iconRed }]}
@@ -128,9 +147,54 @@ export default function DriverChatScreen({ route }) {
           </TouchableOpacity>
         </View>
 
+        <TouchableOpacity
+          onPress={showLiveLocationModal}
+          style={[styles.button, { backgroundColor: '#34B7F1', marginTop: 10 }]}
+        >
+          <Ionicons name="location-outline" size={20} color="#fff" />
+          <Text style={styles.buttonText}>Share Live Location on WhatsApp</Text>
+        </TouchableOpacity>
+
         <Text style={[styles.infoText, { color: colors.text }]}>
-          For direct communication and live location sharing, please use WhatsApp.
+          For real-time location updates, please share your live location inside WhatsApp using the attachment icon.
         </Text>
+
+        {/* Modal for live location instructions */}
+        <Modal
+          animationType="slide"
+          transparent={true}
+          visible={modalVisible}
+          onRequestClose={() => setModalVisible(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalView, { backgroundColor: colors.background }]}>
+              <Text style={[styles.modalTitle, { color: colors.iconRed }]}>
+                How to Share Live Location
+              </Text>
+              <Text style={[styles.modalText, { color: colors.text }]}>
+                1. Tap the 📎 (attachment) icon in WhatsApp.{'\n'}
+                2. Select "Share live location".{'\n'}
+                3. Choose the duration to share your location.{'\n'}
+                4. The customer will be able to track you live in real-time!
+              </Text>
+
+              <View style={styles.modalButtonsRow}>
+                <Pressable
+                  style={[styles.modalButton, styles.cancelButton]}
+                  onPress={() => setModalVisible(false)}
+                >
+                  <Text style={styles.cancelButtonText}>Cancel</Text>
+                </Pressable>
+                <Pressable
+                  style={[styles.modalButton, styles.confirmButton]}
+                  onPress={confirmSendLiveLocation}
+                >
+                  <Text style={styles.confirmButtonText}>Got it! Open WhatsApp</Text>
+                </Pressable>
+              </View>
+            </View>
+          </View>
+        </Modal>
       </View>
     </SafeAreaView>
   );
@@ -184,5 +248,60 @@ const styles = StyleSheet.create({
     fontSize: 15,
     textAlign: 'center',
     paddingHorizontal: 10,
+    marginTop: 20,
+  },
+
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  modalView: {
+    margin: 20,
+    borderRadius: 15,
+    padding: 25,
+    width: '85%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  modalTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    marginBottom: 15,
+    textAlign: 'center',
+  },
+  modalText: {
+    fontSize: 17,
+    lineHeight: 24,
+  },
+  modalButtonsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 25,
+  },
+  modalButton: {
+    flex: 1,
+    marginHorizontal: 5,
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  cancelButton: {
+    backgroundColor: '#aaa',
+  },
+  confirmButton: {
+    backgroundColor: '#25D366',
+  },
+  cancelButtonText: {
+    color: '#fff',
+    fontWeight: '600',
+  },
+  confirmButtonText: {
+    color: '#fff',
+    fontWeight: '700',
   },
 });
