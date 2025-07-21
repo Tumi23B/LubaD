@@ -116,12 +116,12 @@ export default function DriverApplication({ navigation }) {
         address: formData.address,
         vehicleType: formData.vehicleType,
         idNumber: formData.idNumber,
-        status: 'approved',
+        status: 'Pending', // Changed from 'approved' to 'Pending'
         images: {
           driver: driverImageUrl,
           license: licensePhotoUrl,
           car: carImageUrl,
-          id: idPhotoUrl, // Stored but not displayed in profile
+          id: idPhotoUrl,
         },
         createdAt: new Date().toISOString(),
       };
@@ -132,26 +132,26 @@ export default function DriverApplication({ navigation }) {
         set(ref(database, `drivers/${user.uid}`), {
           fullName: formData.fullName,
           vehicleType: formData.vehicleType,
-          status: 'active',
+          status: 'Pending', // Changed from 'active' to 'Pending'
           rating: 0,
           tripsCompleted: 0,
-          // Only include displayable images
           profileImage: driverImageUrl,
           licenseImage: licensePhotoUrl,
           vehicleImage: carImageUrl,
           createdAt: new Date().toISOString(),
+          uid: user.uid // Add UID for easier reference in admin panel
         })
       ]);
 
       Alert.alert(
-        'Application Approved!',
-        'You are now a verified driver and can start accepting deliveries.',
+        'Application Submitted!', // Changed message
+        'Your application has been submitted and is awaiting review by the admin.', // Changed message
         [
           {
             text: 'OK',
             onPress: () => navigation.reset({
               index: 0,
-              routes: [{ name: 'DriverDashboard' }],
+              routes: [{ name: 'Auth' }], // Navigate to a more appropriate screen after submission
             }),
           },
         ]
