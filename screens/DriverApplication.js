@@ -39,6 +39,7 @@ export default function DriverApplication({ navigation }) {
     fullName: '',
     address: '',
     vehicleType: 'mini van',
+    registration: '', // vehicle registration number
     idNumber: '',
     driverImage: null,
     licensePhoto: null,
@@ -115,6 +116,7 @@ export default function DriverApplication({ navigation }) {
         fullName: formData.fullName,
         address: formData.address,
         vehicleType: formData.vehicleType,
+        registration: formData.registration,
         idNumber: formData.idNumber,
         status: 'Pending', // Changed from 'approved' to 'Pending'
         images: {
@@ -132,6 +134,7 @@ export default function DriverApplication({ navigation }) {
         set(ref(database, `drivers/${user.uid}`), {
           fullName: formData.fullName,
           vehicleType: formData.vehicleType,
+          registration: formData.registration,
           status: 'Pending', // Changed from 'active' to 'Pending'
           rating: 0,
           tripsCompleted: 0,
@@ -276,6 +279,27 @@ export default function DriverApplication({ navigation }) {
             </Picker>
           </View>
         </View>
+        
+        <View style={styles.field}>
+          <Text style={[styles.label, { color: colors.text }]}>
+            Vehicle Registration Number <Text style={{ color: colors.iconRed }}>*</Text>
+          </Text>
+          <TextInput
+            style={[
+              styles.input,
+              {
+                backgroundColor: colors.cardBackground,
+                color: colors.text,
+                borderColor: colors.borderColor,
+              },
+            ]}
+            placeholder="Enter vehicle number plate"
+            placeholderTextColor={colors.textSecondary}
+            value={formData.registration}
+            onChangeText={(text) => setFormData({ ...formData, registration: text })}
+          />
+        </View>
+
 
         <View style={styles.field}>
           <Text style={[styles.label, { color: colors.text }]}>
