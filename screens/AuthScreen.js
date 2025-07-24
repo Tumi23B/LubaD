@@ -154,75 +154,86 @@ export default function AuthScreen() {
   };
 
   const handleAuth = async () => {
-    setFirebaseError('');
-    setSuccessMsg('');
-    if (!validate()) return;
+  setFirebaseError('');
+  setSuccessMsg('');
+  if (!validate()) return;
 
-    const trimmedEmail = email.trim().toLowerCase();
-    const cleanedPhone = phoneNumber.replace(/\D/g, '');
+  const trimmedEmail = email.trim().toLowerCase();
+  const cleanedPhone = phoneNumber.replace(/\D/g, '');
 
-    try {
-      if (isLogin) {
-        const userCredential = await signInWithEmailAndPassword(auth, trimmedEmail, password);
-        const snapshot = await get(ref(database, 'users/' + userCredential.user.uid));
-        const userData = snapshot.val();
+  try {
+    if (isLogin) {
+      const userCredential = await signInWithEmailAndPassword(auth, trimmedEmail, password);
+      const snapshot = await get(ref(database, 'users/' + userCredential.user.uid));
+      const userData = snapshot.val();
 
-        // Redirect based on user role
-        if (userData?.role === 'driver') {
-          navigation.navigate('DriverDashboard', {
-            userId: userCredential.user.uid,
-            username: userData.username || 'Driver',
-            email: trimmedEmail,
-            phoneNumber: userData.phoneNumber || '',
-          });
-        } else {
-          navigation.navigate('Dashboard', {
-            userId: userCredential.user.uid,
-            username: userData?.username || 'User',
-            email: trimmedEmail,
-            phoneNumber: userData?.phoneNumber || '',
-            formattedPhoneNumber: formatPhoneNumberForDisplay(userData?.phoneNumber || ''),
-          });
-        }
+      // Redirect based on user role
+      if (userData?.role === 'driver') {
+        navigation.navigate('DriverDashboard', {
+          userId: userCredential.user.uid,
+          username: userData.username || 'Driver',
+          email: trimmedEmail,
+          phoneNumber: userData.phoneNumber || '',
+        });
       } else {
-        const userCredential = await createUserWithEmailAndPassword(auth, trimmedEmail, password);
-        const userId = userCredential.user.uid;
+        navigation.navigate('Dashboard', {
+          userId: userCredential.user.uid,
+          username: userData?.username || 'User',
+          email: trimmedEmail,
+          phoneNumber: userData?.phoneNumber || '',
+          formattedPhoneNumber: formatPhoneNumberForDisplay(userData?.phoneNumber || ''),
+        });
+      }
+    } else {
+      const userCredential = await createUserWithEmailAndPassword(auth, trimmedEmail, password);
+      const userId = userCredential.user.uid;
 
-        await set(ref(database, 'users/' + userId), {
+      // Store general user info
+      await set(ref(database, 'users/' + userId), {
+        username,
+        email: trimmedEmail,
+        phoneNumber: cleanedPhone,
+        role,
+        driverApplication: { status: 'not_applied' },
+      });
+
+      // ✅ Create driverApplications node with core details
+      if (role === 'driver') {
+        await set(ref(database, 'driverApplications/' + userId), {
+          fullName: username,
+          email: trimmedEmail,
+          phoneNumber: cleanedPhone,
+          status: 'Pending',
+          createdAt: Date.now()
+        });
+
+        navigation.navigate('DriverApplication', {
+          userId,
           username,
           email: trimmedEmail,
           phoneNumber: cleanedPhone,
-          role, // Save selected role here
-          driverApplication: { status: 'not_applied' },
         });
-
-        setSuccessMsg('Successfully Signed Up!');
-        // Redirect after signup based on selected role
-        if (role === 'driver') {
-          navigation.navigate('DriverApplication', {
-            userId,
-            username,
-            email: trimmedEmail,
-            phoneNumber: cleanedPhone,
-          });
-        } else {
-          navigation.navigate('Dashboard', {
-            userId,
-            username,
-            email: trimmedEmail,
-            phoneNumber: cleanedPhone,
-            formattedPhoneNumber: formatPhoneNumberForDisplay(cleanedPhone),
-          });
-        }
-      }
-    } catch (error) {
-      if (error.code === 'user-not-found' || error.code === 'invalid-credential') {
-        setFirebaseError('No account found for this email or password. Please sign up first.');
       } else {
-        setFirebaseError(error.message);
+        navigation.navigate('Dashboard', {
+          userId,
+          username,
+          email: trimmedEmail,
+          phoneNumber: cleanedPhone,
+          formattedPhoneNumber: formatPhoneNumberForDisplay(cleanedPhone),
+        });
       }
+
+      setSuccessMsg('Successfully Signed Up!');
     }
-  };
+  } catch (error) {
+    if (error.code === 'user-not-found' || error.code === 'invalid-credential') {
+      setFirebaseError('No account found for this email or password. Please sign up first.');
+    } else {
+      setFirebaseError(error.message);
+    }
+  }
+};
+
 
   // Listen for keyboard hide event to force layout update
   useEffect(() => {
