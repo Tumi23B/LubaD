@@ -48,6 +48,8 @@ export default function Dashboard({ navigation }) {
   const [timeNow, setTimeNow] = useState(true);
   const [rideId, setRideId] = useState(null);
 
+  
+
   useEffect(() => {
     const fetchUserData = async () => {
       const user = auth.currentUser;
@@ -153,6 +155,8 @@ const getCoordsFromAddress = async (address) => {
   const rideId = await sendRideRequest(pickup, dropoff, pickupCoords, dropoffCoords, customerId);
 
   navigation.navigate('Checkout', {
+    
+    username: username,
     pickup,
     dropoff,
     date: date.toISOString(),
@@ -190,10 +194,11 @@ const getCoordsFromAddress = async (address) => {
   };
 
   const vehicleOptions = [
-    { type: 'Mini Van', icon: require('../assets/minivan.png')},
-    { type: 'Van', icon: require('../assets/van.png') },
-    { type: 'Mini Truck', icon: require('../assets/minitruck.png') },
-    { type: 'Full Truck', icon: require('../assets/fulltruck.png') },
+    { type: 'Vans', icon: require('../assets/minivan.png')},
+    { type: 'Bakkies', icon: require('../assets/van.png') },
+    { type: 'Passanger Vans', icon: require('../assets/van.png') },
+   
+    { type: 'Full & Mini Trucks', icon: require('../assets/fulltruck.png') },
   ];
 
   return (

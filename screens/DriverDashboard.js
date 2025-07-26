@@ -52,6 +52,7 @@ export default function DriverDashboard({ navigation }) {
   const [currentShiftId, setCurrentShiftId] = useState(null);
   const [pastShifts, setPastShifts] = useState([]);
   
+  
 
   const route = useRoute();
   const driverEmail = route.params?.email || '';
@@ -95,7 +96,7 @@ export default function DriverDashboard({ navigation }) {
         if (driverAppSnap.exists()) {
           const data = driverAppSnap.val();
           setDriverName(data.fullName || 'Driver');
-          setIsApproved(data.status === 'approved');
+          setIsApproved(data.status === 'Approved');
         }
       } catch (error) {
         console.warn('Error fetching driver data:', error);
@@ -720,37 +721,44 @@ const navigateToPickup = (pickupAddress) => {
             </View>
 
             {driverLocation && (
-              <View style={{ marginBottom: 20 }}>
-                <Text style={[styles.sectionTitle, { color: colors.iconRed }]}>Your Location</Text>
-                <View
-                  style={{
-                    borderWidth: 1,
-                    borderColor: colors.borderColor,
-                    borderRadius: 12,
-                    overflow: 'hidden',
-                    backgroundColor: colors.cardBackground,
-                    elevation: Platform.OS === 'android' ? 3 : 0,
-                    shadowColor: '#000',
-                    shadowOffset: { width: 0, height: 2 },
-                    shadowOpacity: 0.15,
-                    shadowRadius: 4,
-                  }}
-                >
-                  <MapView
-                    style={styles.map}
-                    region={{
-                      latitude: driverLocation.latitude,
-                      longitude: driverLocation.longitude,
-                      latitudeDelta: 0.01,
-                      longitudeDelta: 0.01,
-                    }}
-                    customMapStyle={isDarkMode ? mapStyleDark : mapStyleLight}
-                  >
-                    <Marker coordinate={driverLocation} pinColor={colors.iconRed} title="You are here" />
-                  </MapView>
-                </View>
-              </View>
-            )}
+  <View style={{ marginBottom: 20 }}>
+    <Text style={[styles.sectionTitle, { color: colors.iconRed }]}>Your Location</Text>
+    <View
+      style={{
+        borderWidth: 1,
+        borderColor: colors.borderColor,
+        borderRadius: 12,
+        overflow: 'hidden',
+        backgroundColor: colors.cardBackground,
+        elevation: Platform.OS === 'android' ? 3 : 0,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.15,
+        shadowRadius: 4,
+      }}
+    >
+      <MapView
+        style={{ width: '100%', height: 200 }} // Make sure it has visible dimensions
+        region={{
+          latitude: driverLocation.latitude,
+          longitude: driverLocation.longitude,
+          latitudeDelta: 0.01,
+          longitudeDelta: 0.01,
+        }}
+        customMapStyle={isDarkMode ? mapStyleDark : mapStyleLight}
+        showsUserLocation={true}
+        showsMyLocationButton={true}
+      >
+        <Marker
+          coordinate={driverLocation}
+          pinColor={colors.iconRed}
+          title="You are here"
+        />
+      </MapView>
+    </View>
+  </View>
+)}
+
     
             <View style={[styles.earningsContainer, { backgroundColor: colors.cardBackground, borderColor: colors.borderColor }]}>
               <Text style={[styles.earningsTitle, { color: colors.text }]}>Earning Summary</Text>

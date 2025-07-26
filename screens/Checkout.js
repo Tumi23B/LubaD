@@ -26,7 +26,13 @@ export default function Checkout({ route, navigation }) {
   const { isDarkMode, colors } = useContext(ThemeContext);
   const THEME_BUTTON_COLOR = isDarkMode ? '#FFD700' : '#333333';
 
+
+
+  
   const { pickup, dropoff, date } = route.params;
+
+  const userIdFromParams = route.params?.userId ?? null;
+  const username = route.params?.username ?? 'Unknown'
   const [selectedVehicle, setSelectedVehicle] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
   const [showModal, setShowModal] = useState(false);
@@ -34,15 +40,16 @@ export default function Checkout({ route, navigation }) {
   const [modalType, setModalType] = useState('success');
   const [userId, setUserId] = useState(null);
   const [isAuthReady, setIsAuthReady] = useState(false);
+//////////////////
+
 
   // Enhanced vehicle types with more options
   const vehicleOptions = [
-    { type: 'Mini Van', price: 100, description: 'Refridgerators,Freezers,Boxes and small Appliances.' },
-    { type: 'Van', price: 250, description: 'Furniture,Appliances,Boxes,tools and Car detailing supplies.' },
+    { type: 'Van', price: 100, description: 'Refridgerators,Freezers,Boxes and small Appliances.' },
+    { type: 'Bakkie', price: 250, description: 'Furniture,Appliances,Boxes,tools and Car detailing supplies.' },
     { type: 'Mini Truck', price: 300, description: 'Gardening supplies,bicycles,hunting gear ,Furniture.' },
     { type: 'Full Truck', price: 450, description: 'Furniture, Bulk Goods,Industrial Equipment,Palletized Freight.' },
-
- { type: 'Passanger Van', price: 350, description: 'Family,Friends with luggage and groceries.' },
+    { type: 'Passanger Van', price: 350, description: 'Family,Friends with luggage and groceries.' },
   ];
 
   // Improved distance price calculation with higher rates
@@ -130,6 +137,7 @@ export default function Checkout({ route, navigation }) {
         bookingTime: new Date().toISOString(),
         status: 'pending',
         customerId: userId,
+        customerName: username,
         customerBookingId,
         price: totalPrice,
       };

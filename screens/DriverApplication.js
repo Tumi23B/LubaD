@@ -29,9 +29,6 @@ LogBox.ignoreLogs([
   'Firebase authentication error: Firebase: Error (auth/admin-restricted-operation).',
 ]);
 
-{/*Or ignore all logs (not recommended unless you're demoing)
-LogBox.ignoreAllLogs(true);*/}
-
 export default function DriverApplication({ navigation }) {
   const { isDarkMode, colors } = useContext(ThemeContext);
 
@@ -39,12 +36,13 @@ export default function DriverApplication({ navigation }) {
     fullName: '',
     address: '',
     vehicleType: 'mini van',
-    registration: '', // vehicle registration number
+    registration: '',
     idNumber: '',
     driverImage: null,
     licensePhoto: null,
     carImage: null,
-    idPhoto: null
+    idPhoto: null,
+    helperCount: '0' // Changed to string to handle input properly
   });
 
   const [uploading, setUploading] = useState(false);
@@ -82,6 +80,13 @@ export default function DriverApplication({ navigation }) {
 
   const validateIDNumber = (id) => /^\d{13}$/.test(id);
 
+  const handleHelperCountChange = (text) => {
+    // Allow empty string or numeric values between 0-3
+    if (text === '' || (/^[0-3]$/.test(text))) {
+      setFormData(prev => ({ ...prev, helperCount: text }));
+    }
+  };
+
   const handleSubmit = async () => {
     if (!formData.fullName || !formData.address || !formData.idNumber || 
         !formData.driverImage || !formData.licensePhoto || !formData.carImage || !formData.idPhoto) {
@@ -118,7 +123,8 @@ export default function DriverApplication({ navigation }) {
         vehicleType: formData.vehicleType,
         registration: formData.registration,
         idNumber: formData.idNumber,
-        status: 'Pending', // Changed from 'approved' to 'Pending'
+        helperCount: parseInt(formData.helperCount) || 0, // Convert to number
+        status: 'Pending',
         images: {
           driver: driverImageUrl,
           license: licensePhotoUrl,
@@ -135,26 +141,27 @@ export default function DriverApplication({ navigation }) {
           fullName: formData.fullName,
           vehicleType: formData.vehicleType,
           registration: formData.registration,
-          status: 'Pending', // Changed from 'active' to 'Pending'
+          helperCount: parseInt(formData.helperCount) || 0,
+          status: 'Pending',
           rating: 0,
           tripsCompleted: 0,
           profileImage: driverImageUrl,
           licenseImage: licensePhotoUrl,
           vehicleImage: carImageUrl,
           createdAt: new Date().toISOString(),
-          uid: user.uid // Add UID for easier reference in admin panel
+          uid: user.uid
         })
       ]);
 
       Alert.alert(
-        'Application Submitted!', // Changed message
-        'Your application has been submitted and is awaiting review by the admin.', // Changed message
+        'Application Submitted!',
+        'Your application has been submitted and is awaiting review by the admin, check your emails within 12 hrs or log-in after 12 hrs.',
         [
           {
             text: 'OK',
             onPress: () => navigation.reset({
               index: 0,
-              routes: [{ name: 'Auth' }], // Navigate to a more appropriate screen after submission
+              routes: [{ name: 'Auth' }],
             }),
           },
         ]
@@ -300,7 +307,6 @@ export default function DriverApplication({ navigation }) {
           />
         </View>
 
-
         <View style={styles.field}>
           <Text style={[styles.label, { color: colors.text }]}>
             South African ID Number <Text style={{ color: colors.iconRed }}>*</Text>
@@ -320,6 +326,33 @@ export default function DriverApplication({ navigation }) {
             value={formData.idNumber}
             onChangeText={(text) => setFormData({ ...formData, idNumber: text })}
             maxLength={13}
+          />
+        </View>
+
+        {/* Helper Count Input */}
+        <View style={styles.field}>
+          <Text style={[styles.helperInfoText, { color: colors.text }]}>
+            Helpers are people who will assist with loading and unloading goods.
+            Please indicate how many helpers you will have (maximum 3).
+          </Text>
+          <Text style={[styles.label, { color: colors.text, marginTop: 10 }]}>
+            Number of Helpers
+          </Text>
+          <TextInput
+            style={[
+              styles.input,
+              {
+                backgroundColor: colors.cardBackground,
+                color: colors.text,
+                borderColor: colors.borderColor,
+              },
+            ]}
+            placeholder="Enter 0-3"
+            placeholderTextColor={colors.textSecondary}
+            keyboardType="numeric"
+            value={formData.helperCount}
+            onChangeText={handleHelperCountChange}
+            maxLength={1}
           />
         </View>
 
@@ -359,23 +392,34 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     fontWeight: 'bold',
+    marginTop: 45,
     marginBottom: 20,
-    marginTop: 20,
     textAlign: 'center',
+  },
+  logoImg: {
+    width: 200,
+    height: 180,
+    alignSelf: 'center',
+    marginBottom: 10,
   },
   field: {
     marginBottom: 20,
   },
   label: {
-    fontWeight: '600',
-    marginBottom: 8,
     fontSize: 16,
+    marginBottom: 8,
+    fontWeight: '500',
+  },
+  helperInfoText: {
+    fontSize: 14,
+    marginBottom: 8,
+    fontStyle: 'italic',
+    color: '#666',
   },
   input: {
-    height: 50,
     borderWidth: 1,
     borderRadius: 8,
-    paddingHorizontal: 15,
+    padding: 12,
     fontSize: 16,
   },
   pickerContainer: {
@@ -385,52 +429,41 @@ const styles = StyleSheet.create({
   },
   picker: {
     height: 50,
-    width: '100%',
-  },
-  uploadButton: {
-    padding: 14,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginTop: 10,
-  },
-  uploadButtonText: {
-    fontWeight: '600',
-    fontSize: 16,
   },
   previewImage: {
     width: '100%',
     height: 200,
-    borderRadius: 10,
-    marginBottom: 5,
+    borderRadius: 8,
+    marginBottom: 10,
   },
   placeholder: {
+    width: '100%',
     height: 200,
-    borderRadius: 10,
+    borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 1,
-    borderStyle: 'dashed',
-    marginBottom: 5,
+    marginBottom: 10,
   },
   placeholderText: {
-    fontStyle: 'italic',
     fontSize: 16,
   },
+  uploadButton: {
+    padding: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  uploadButtonText: {
+    fontSize: 16,
+    fontWeight: '500',
+  },
   submitButton: {
-    paddingVertical: 16,
+    padding: 15,
     borderRadius: 8,
     alignItems: 'center',
     marginTop: 20,
-    marginBottom: 30,
   },
   submitButtonText: {
-    fontWeight: 'bold',
     fontSize: 18,
-  },
-  logoImg: {
-    width: 200,
-    height: 100,
-    alignSelf: 'center',
-    marginVertical: 10,
+    fontWeight: 'bold',
   },
 });
