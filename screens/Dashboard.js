@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useContext, useCallback } from 'react';
+import React, { useEffect, useState, useContext } from 'react';
 import {
   View,
   Text,
@@ -10,7 +10,10 @@ import {
   Alert,
   ActivityIndicator,
   KeyboardAvoidingView,
-  ScrollView as RNScrollView,
+  FlatList,
+  Image,
+  Linking,
+  LogBox
 } from 'react-native';
 import { auth, database } from '../firebase';
 import { ref, get, onValue, push, set } from 'firebase/database';
@@ -20,35 +23,33 @@ import * as Location from 'expo-location';
 import axios from 'axios';
 import { Ionicons } from '@expo/vector-icons';
 import { ThemeContext } from '../ThemeContext';
-import Constants from 'expo-constants';
-import { Image } from 'react-native';
-import { Linking } from 'react-native';
-import { LogBox } from 'react-native';
-
 
 // Ignore specific warning messages
 LogBox.ignoreLogs([
   'Text strings must be rendered within a <Text> component',
+  'VirtualizedLists should never be nested'
 ]);
-
-{/*Or ignore all logs (not recommended unless you're demoing)
-LogBox.ignoreAllLogs(true);*/}
-
 
 export default function Dashboard({ navigation }) {
   const { isDarkMode, colors } = useContext(ThemeContext);
 
- const [username, setUsername] = useState('');
+  const [username, setUsername] = useState('');
   const [pickup, setPickup] = useState('');
   const [dropoff, setDropoff] = useState('');
   const [location, setLocation] = useState(null);
-  const [recentRides, setRecentRides] = useState([]);
   const [date, setDate] = useState(new Date());
   const [isDatePickerVisible, setDatePickerVisibility] = useState(false);
   const [timeNow, setTimeNow] = useState(true);
-  const [rideId, setRideId] = useState(null);
-
-  
+  const [pickupSuggestions, setPickupSuggestions] = useState([]);
+  const [dropoffSuggestions, setDropoffSuggestions] = useState([]);
+  const [showPickupSuggestions, setShowPickupSuggestions] = useState(false);
+  const [showDropoffSuggestions, setShowDropoffSuggestions] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [pickupCoords, setPickupCoords] = useState(null);
+  const [dropoffCoords, setDropoffCoords] = useState(null);
+  const [routeCoordinates, setRouteCoordinates] = useState([]);
+  const [distance, setDistance] = useState(null);
+  const [duration, setDuration] = useState(null);
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -58,19 +59,11 @@ export default function Dashboard({ navigation }) {
         if (snapshot.exists()) {
           setUsername(snapshot.val().username);
         }
-        const ridesRef = ref(database, `rides/${user.uid}`);
-        onValue(ridesRef, (snapshot) => {
-          if (snapshot.exists()) {
-            const data = snapshot.val();
-            const rideList = Object.values(data).reverse().slice(0, 5);
-            setRecentRides(rideList);
-          }
-        });
       }
 
       let { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
-        alert('Location permission denied.');
+        Alert.alert('Permission Denied', 'Location permission is required for this app to work properly');
         return;
       }
 
@@ -84,6 +77,26 @@ export default function Dashboard({ navigation }) {
     fetchUserData();
   }, []);
 
+  const calculateDistanceAndDuration = (start, end) => {
+    // Haversine formula to calculate distance between two coordinates
+    const R = 6371; // Earth radius in km
+    const dLat = (end.latitude - start.latitude) * Math.PI / 180;
+    const dLon = (end.longitude - start.longitude) * Math.PI / 180;
+    const a = 
+      Math.sin(dLat/2) * Math.sin(dLat/2) +
+      Math.cos(start.latitude * Math.PI / 180) * 
+      Math.cos(end.latitude * Math.PI / 180) * 
+      Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    const distance = R * c; // Distance in km
+    
+    // Simple estimation: 1km ≈ 2 minutes in urban areas
+    const durationMinutes = Math.round(distance * 2);
+    
+    setDistance(distance.toFixed(1));
+    setDuration(durationMinutes);
+  };
+
   const showDatePicker = () => setDatePickerVisibility(true);
   const hideDatePicker = () => setDatePickerVisibility(false);
   const handleConfirm = (selectedDate) => {
@@ -91,90 +104,172 @@ export default function Dashboard({ navigation }) {
     hideDatePicker();
   };
 
-   const sendRideRequest = async (pickup, dropoff, pickupCoords, dropoffCoords, customerId) => {
-  const rideRef = push(ref(database, 'rides'));
-  await set(rideRef, {
-    customerId,
-    driverId: null,
-    pickup,
-    dropoff,
-    pickupCoords,
-    dropoffCoords,
-    status: 'requested',
-    timestamp: Date.now(),
-    driverLocation: null,
-  });
-  return rideRef.key;
-};
-
-const getCoordsFromAddress = async (address) => {
-  const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`;
-
-  const response = await fetch(url, {
-    headers: {
-      'User-Agent': 'YourAppName/1.0 (LubaD)', 
-      'Accept': 'application/json'
+  const fetchLocationSuggestions = async (query) => {
+    if (query.length < 3) return [];
+    
+    try {
+      const response = await axios.get(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&addressdetails=1&limit=5`,
+        {
+          headers: {
+            'User-Agent': 'YourAppName/1.0 (contact@youremail.com)',
+            'Accept': 'application/json'
+          }
+        }
+      );
+      
+      if (response.data && Array.isArray(response.data)) {
+        return response.data.map(item => ({
+          id: item.place_id,
+          displayName: item.display_name,
+          coords: {
+            latitude: parseFloat(item.lat),
+            longitude: parseFloat(item.lon),
+          }
+        }));
+      }
+      return [];
+    } catch (error) {
+      console.error('Nominatim API Error:', error);
+      return [];
     }
-  });
-
-  if (!response.ok) {
-    throw new Error('Geocoding failed: ' + response.statusText);
-  }
-
-  const data = await response.json();
-
-  if (data.length === 0) {
-    throw new Error('Please Enter Valid Addresses!');
-  }
-
-  return {
-    latitude: parseFloat(data[0].lat),
-    longitude: parseFloat(data[0].lon),
   };
-};
 
+  const handlePickupChange = async (text) => {
+    setPickup(text);
+    if (text.length > 2) {
+      try {
+        const suggestions = await fetchLocationSuggestions(text);
+        setPickupSuggestions(suggestions);
+        setShowPickupSuggestions(true);
+      } catch (error) {
+        console.error('Error in pickup suggestions:', error);
+      }
+    } else {
+      setShowPickupSuggestions(false);
+    }
+  };
 
+  const handleDropoffChange = async (text) => {
+    setDropoff(text);
+    if (text.length > 2) {
+      try {
+        const suggestions = await fetchLocationSuggestions(text);
+        setDropoffSuggestions(suggestions);
+        setShowDropoffSuggestions(true);
+      } catch (error) {
+        console.error('Error in dropoff suggestions:', error);
+      }
+    } else {
+      setShowDropoffSuggestions(false);
+    }
+  };
 
+  const selectPickupSuggestion = (suggestion) => {
+    setPickup(suggestion.displayName);
+    setPickupCoords(suggestion.coords);
+    setShowPickupSuggestions(false);
+    if (dropoffCoords) {
+      calculateDistanceAndDuration(suggestion.coords, dropoffCoords);
+      setRouteCoordinates([suggestion.coords, dropoffCoords]);
+    }
+  };
+
+  const selectDropoffSuggestion = (suggestion) => {
+    setDropoff(suggestion.displayName);
+    setDropoffCoords(suggestion.coords);
+    setShowDropoffSuggestions(false);
+    if (pickupCoords) {
+      calculateDistanceAndDuration(pickupCoords, suggestion.coords);
+      setRouteCoordinates([pickupCoords, suggestion.coords]);
+    }
+  };
+
+  const sendRideRequest = async (pickup, dropoff, pickupCoords, dropoffCoords, customerId) => {
+    const rideRef = push(ref(database, 'rides'));
+    await set(rideRef, {
+      customerId,
+      driverId: null,
+      pickup,
+      dropoff,
+      pickupCoords,
+      dropoffCoords,
+      status: 'requested',
+      timestamp: Date.now(),
+      driverLocation: null,
+    });
+    return rideRef.key;
+  };
+
+  const getCoordsFromAddress = async (address) => {
+    try {
+      const response = await axios.get(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`,
+        {
+          headers: {
+            'User-Agent': 'YourAppName/1.0 (contact@youremail.com)',
+            'Accept': 'application/json'
+          }
+        }
+      );
+
+      if (!response.data || response.data.length === 0) {
+        throw new Error('Address not found');
+      }
+
+      return {
+        latitude: parseFloat(response.data[0].lat),
+        longitude: parseFloat(response.data[0].lon),
+      };
+    } catch (error) {
+      console.error('Geocoding Error:', {
+        address,
+        message: error.message,
+        response: error.response?.data
+      });
+      throw new Error('Failed to get coordinates for address');
+    }
+  };
 
   const handleCheckout = async () => {
-  if (!pickup || !dropoff) {
-    Alert.alert('Missing Information', 'Please enter both pickup and dropoff locations');
-    return;
-  }
+    if (!pickup || !dropoff) {
+      Alert.alert('Missing Information', 'Please enter both pickup and dropoff locations');
+      return;
+    }
 
-  const customerId = auth.currentUser?.uid;
-  if (!customerId) {
-    Alert.alert('Error', 'User not logged in');
-    return;
-  }
+    const customerId = auth.currentUser?.uid;
+    if (!customerId) {
+      Alert.alert('Error', 'User not logged in');
+      return;
+    }
 
-  try {
-  const pickupCoords = await getCoordsFromAddress(pickup);
-  const dropoffCoords = await getCoordsFromAddress(dropoff);
+    try {
+      setLoading(true);
+      const pickupCoords = await getCoordsFromAddress(pickup);
+      const dropoffCoords = await getCoordsFromAddress(dropoff);
 
-  const rideId = await sendRideRequest(pickup, dropoff, pickupCoords, dropoffCoords, customerId);
+      const rideId = await sendRideRequest(pickup, dropoff, pickupCoords, dropoffCoords, customerId);
 
-  navigation.navigate('Checkout', {
-    
-    username: username,
-    pickup,
-    dropoff,
-    date: date.toISOString(),
-    rideId,
-  });
-} catch (error) {
-  //console.error('Error in handleCheckout:', error);
-  Alert.alert('Error', error.message || 'Failed to send ride request');
-}
-
-};
-
-{
-
-
+      navigation.navigate('Checkout', {
+        username: username,
+        pickup,
+        dropoff,
+        date: date.toISOString(),
+        rideId,
+        pickupCoords,
+        dropoffCoords,
+        distance,
+        duration
+      });
+    } catch (error) {
+      console.error('Checkout Error:', error);
+      Alert.alert('Error', error.message || 'Failed to send ride request');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const openGoogleMapsNavigation = () => {
+  const openMapsNavigation = () => {
     if (!pickup || !dropoff) {
       Alert.alert('Missing Information', 'Please enter both pickup and dropoff locations.');
       return;
@@ -182,22 +277,73 @@ const getCoordsFromAddress = async (address) => {
 
     const origin = encodeURIComponent(pickup);
     const destination = encodeURIComponent(dropoff);
-    const url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}`;
+    
+    const url = Platform.OS === 'ios' 
+      ? `http://maps.apple.com/?daddr=${destination}&saddr=${origin}&dirflg=d`
+      : `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&travelmode=driving`;
 
-    Linking.openURL(url).catch(() =>
-      Alert.alert('Error', 'Could not open Google Maps.')
-    );
+    Linking.openURL(url).catch((error) => {
+      console.error('Failed to open maps:', error);
+      Alert.alert('Error', `Could not open ${Platform.OS === 'ios' ? 'Apple Maps' : 'Google Maps'}.`);
+    });
   };
 
-  const onDropoffChange = (text) => {
-    setDropoff(text);
+  const renderSuggestionItem = ({ item, isPickup }) => (
+    <TouchableOpacity 
+      style={[styles.suggestionItem, { backgroundColor: colors.cardBackground }]}
+      onPress={() => isPickup ? selectPickupSuggestion(item) : selectDropoffSuggestion(item)}
+    >
+      <Text style={{ color: colors.text }} numberOfLines={1}>
+        {item.displayName}
+      </Text>
+    </TouchableOpacity>
+  );
+
+  const renderLocationInput = (isPickup) => {
+    const suggestions = isPickup ? pickupSuggestions : dropoffSuggestions;
+    const showSuggestions = isPickup ? showPickupSuggestions : showDropoffSuggestions;
+    const value = isPickup ? pickup : dropoff;
+    const onChangeText = isPickup ? handlePickupChange : handleDropoffChange;
+    const placeholder = isPickup ? '📍 Pickup Location' : '📦 Dropoff Location';
+
+    return (
+      <View>
+        <TextInput
+          placeholder={placeholder}
+          placeholderTextColor={colors.textSecondary}
+          value={value}
+          onChangeText={onChangeText}
+          onFocus={() => (isPickup ? setShowPickupSuggestions(true) : setShowDropoffSuggestions(true))}
+          onBlur={() => setTimeout(() => isPickup ? setShowPickupSuggestions(false) : setShowDropoffSuggestions(false), 200)}
+          style={[
+            styles.input,
+            {
+              backgroundColor: colors.cardBackground,
+              color: colors.text,
+              borderColor: colors.borderColor,
+            },
+          ]}
+        />
+        {showSuggestions && (
+          <FlatList
+            data={suggestions}
+            renderItem={({ item }) => renderSuggestionItem({ item, isPickup })}
+            keyExtractor={(item) => item.id}
+            keyboardShouldPersistTaps="always"
+            style={[styles.suggestionsContainer, { 
+              borderColor: colors.borderColor,
+              maxHeight: suggestions.length > 2 ? 150 : suggestions.length * 50 
+            }]}
+          />
+        )}
+      </View>
+    );
   };
 
   const vehicleOptions = [
     { type: 'Vans', icon: require('../assets/minivan.png')},
     { type: 'Bakkies', icon: require('../assets/van.png') },
     { type: 'Passanger Vans', icon: require('../assets/van.png') },
-   
     { type: 'Full & Mini Trucks', icon: require('../assets/fulltruck.png') },
   ];
 
@@ -247,43 +393,47 @@ const getCoordsFromAddress = async (address) => {
                       longitudeDelta: 0.1,
                     }
               }
-              customMapStyle={Platform.OS === 'ios' ? mapStyleDark : mapStyleLight}
+              customMapStyle={isDarkMode ? mapStyleDark : mapStyleLight}
             >
               {location && (
                 <Marker coordinate={location} pinColor={colors.iconRed} title="You are here" />
               )}
+              {pickupCoords && (
+                <Marker
+                  coordinate={pickupCoords}
+                  pinColor="#4285F4"
+                  title="Pickup Location"
+                />
+              )}
+              {dropoffCoords && (
+                <Marker
+                  coordinate={dropoffCoords}
+                  pinColor={colors.iconRed}
+                  title="Dropoff Location"
+                />
+              )}
+              {routeCoordinates.length > 1 && (
+                <Polyline
+                  coordinates={routeCoordinates}
+                  strokeColor={colors.iconRed}
+                  strokeWidth={3}
+                />
+              )}
             </MapView>
+            {(distance && duration) && (
+              <View style={styles.routeInfoContainer}>
+                <Text style={[styles.routeInfoText, { color: colors.text }]}>
+                  Distance: {distance} km
+                </Text>
+                <Text style={[styles.routeInfoText, { color: colors.text }]}>
+                  Est. time: {duration} min
+                </Text>
+              </View>
+            )}
           </View>
 
-          <TextInput
-            placeholder="📍 Pickup Location"
-            placeholderTextColor={colors.textSecondary}
-            value={pickup}
-            onChangeText={setPickup}
-            style={[
-              styles.input,
-              {
-                backgroundColor: colors.cardBackground,
-                color: colors.text,
-                borderColor: colors.borderColor,
-              },
-            ]}
-          />
-
-          <TextInput
-            placeholder="📦 Dropoff Location"
-            placeholderTextColor={colors.textSecondary}
-            value={dropoff}
-            onChangeText={onDropoffChange}
-            style={[
-              styles.input,
-              {
-                backgroundColor: colors.cardBackground,
-                color: colors.text,
-                borderColor: colors.borderColor,
-              },
-            ]}
-          />
+          {renderLocationInput(true)}
+          {renderLocationInput(false)}
 
           <TouchableOpacity style={styles.timeToggle} onPress={() => setTimeNow(!timeNow)}>
             <Text style={[styles.linkText, { color: colors.iconRed }]}>
@@ -307,23 +457,27 @@ const getCoordsFromAddress = async (address) => {
             onCancel={hideDatePicker}
           />
 
-            <TouchableOpacity
+          <TouchableOpacity
             style={[styles.checkoutButton, { backgroundColor: '#4285F4' }]}
-            onPress={openGoogleMapsNavigation}
+            onPress={openMapsNavigation}
+            disabled={!pickup || !dropoff}
           >
             <Text style={[styles.checkoutButtonText, { color: 'white' }]}>
-              Open Route in Google Maps
+              Open Route in {Platform.OS === 'ios' ? 'Apple Maps' : 'Google Maps'}
             </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={[styles.checkoutButton, { backgroundColor: colors.iconRed }]}
             onPress={handleCheckout}
+            disabled={loading || !pickup || !dropoff}
           >
-            <Text style={[styles.checkoutButtonText, { color: colors.buttonText }]}>Checkout</Text>
+            {loading ? (
+              <ActivityIndicator color={colors.buttonText} />
+            ) : (
+              <Text style={[styles.checkoutButtonText, { color: colors.buttonText }]}>Checkout</Text>
+            )}
           </TouchableOpacity>
-
-         
         </View>
 
         <View style={styles.section}>
@@ -361,11 +515,8 @@ const getCoordsFromAddress = async (address) => {
   );
 }
 
-
 const mapStyleLight = [
   {
-   
-
     "featureType": "poi",
     "stylers": [
       {
@@ -384,7 +535,7 @@ const mapStyleLight = [
 ];
 
 const mapStyleDark = [
-    {
+  {
     "elementType": "geometry",
     "stylers": [
       {
@@ -580,31 +731,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginTop: 8,
   },
-  suggestionCard: {
-    padding: 16,
-    borderRadius: 10,
-    marginBottom: 12,
-    alignItems: 'flex-start',
-  },
-  bold: {
-    fontWeight: 'bold',
-    marginTop: 8,
-  },
-  suggestionDesc: {
-    marginTop: 4,
-    fontSize: 14,
-  },
-  settingLink: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    padding: 12,
-    borderRadius: 10,
-  },
-  settingText: {
-    fontSize: 16,
-    fontWeight: '500',
-  },
   suggestionsContainer: {
     maxHeight: 150,
     borderWidth: 1,
@@ -615,16 +741,29 @@ const styles = StyleSheet.create({
     padding: 10,
   },
   headerRow: {
-  flexDirection: 'row',
-  alignItems: 'center',
-  justifyContent: 'space-between',
-  marginTop: 10,
-  marginBottom: 20,
-},
-
-settingsIcon: {
-  padding: 6,
-  marginTop: 14,
-},
-
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 10,
+    marginBottom: 20,
+  },
+  settingsIcon: {
+    padding: 6,
+    marginTop: 14,
+  },
+  routeInfoContainer: {
+    position: 'absolute',
+    bottom: 10,
+    left: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    padding: 8,
+    borderRadius: 8,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '60%',
+  },
+  routeInfoText: {
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
 });
