@@ -51,6 +51,8 @@ export default function Dashboard({ navigation }) {
   const [distance, setDistance] = useState(null);
   const [duration, setDuration] = useState(null);
 
+
+  
   useEffect(() => {
     const fetchUserData = async () => {
       const user = auth.currentUser;
@@ -77,25 +79,37 @@ export default function Dashboard({ navigation }) {
     fetchUserData();
   }, []);
 
-  const calculateDistanceAndDuration = (start, end) => {
-    // Haversine formula to calculate distance between two coordinates
-    const R = 6371; // Earth radius in km
-    const dLat = (end.latitude - start.latitude) * Math.PI / 180;
-    const dLon = (end.longitude - start.longitude) * Math.PI / 180;
-    const a = 
-      Math.sin(dLat/2) * Math.sin(dLat/2) +
-      Math.cos(start.latitude * Math.PI / 180) * 
-      Math.cos(end.latitude * Math.PI / 180) * 
-      Math.sin(dLon/2) * Math.sin(dLon/2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-    const distance = R * c; // Distance in km
-    
-    // Simple estimation: 1km ≈ 2 minutes in urban areas
-    const durationMinutes = Math.round(distance * 2);
-    
-    setDistance(distance.toFixed(1));
-    setDuration(durationMinutes);
-  };
+const calculateDistanceAndDuration = (start, end) => {
+  // 1. Calculate straight-line distance (Haversine formula)
+  const R = 6371; // Earth radius in km
+  const dLat = (end.latitude - start.latitude) * Math.PI / 180;
+  const dLon = (end.longitude - start.longitude) * Math.PI / 180;
+  const a = 
+    Math.sin(dLat/2) * Math.sin(dLat/2) +
+    Math.cos(start.latitude * Math.PI / 180) * 
+    Math.cos(end.latitude * Math.PI / 180) * 
+    Math.sin(dLon/2) * Math.sin(dLon/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  const straightLineDistance = R * c;
+
+  //Apply South Africa-specific adjustments
+  const distanceMultiplier = 1.55; // +55% for SA road curves/highways
+  const roadDistance = straightLineDistance * distanceMultiplier;
+
+  //  Smart duration estimation (urban/rural adjusted)
+  const baseSpeed = 0.9; // km/min (20-90 km/h avg in urban areas)
+  let durationMinutes = Math.round(roadDistance / baseSpeed);
+  
+  // Ensuring minimum 5 minutes for short trips
+  durationMinutes = Math.max(5, durationMinutes);
+
+  // Set values with precision
+  setDistance(roadDistance.toFixed(1));
+  setDuration(durationMinutes);
+
+  // For debugging/transparency:
+  console.log(`Straight-line: ${straightLineDistance.toFixed(1)}km | Road: ${roadDistance.toFixed(1)}km`);
+};
 
   const showDatePicker = () => setDatePickerVisibility(true);
   const hideDatePicker = () => setDatePickerVisibility(false);
@@ -112,7 +126,7 @@ export default function Dashboard({ navigation }) {
         `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&addressdetails=1&limit=5`,
         {
           headers: {
-            'User-Agent': 'YourAppName/1.0 (contact@youremail.com)',
+            'User-Agent': 'YourAppName/1.0 (lubadapp@gmail.com)',
             'Accept': 'application/json'
           }
         }
@@ -207,7 +221,7 @@ export default function Dashboard({ navigation }) {
         `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`,
         {
           headers: {
-            'User-Agent': 'YourAppName/1.0 (contact@youremail.com)',
+            'User-Agent': 'YourAppName/1.0 (lubadapp@gmail.com',
             'Accept': 'application/json'
           }
         }
@@ -258,8 +272,8 @@ export default function Dashboard({ navigation }) {
         rideId,
         pickupCoords,
         dropoffCoords,
-        distance,
-        duration
+        distance: parseFloat(distance),
+        duration: duration
       });
     } catch (error) {
       console.error('Checkout Error:', error);
