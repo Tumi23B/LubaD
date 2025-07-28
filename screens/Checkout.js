@@ -196,7 +196,7 @@ export default function Checkout({ route, navigation }) {
         <Text style={[styles.value, { color: colors.textSecondary }]}>R{calculateDistancePrice(pickup, dropoff)}</Text>
       </View>
 
-      <Text style={[styles.heading, { color: colors.iconRed }]}>Choose a Vehicle *</Text>
+      <Text style={[styles.heading, { color: colors.iconRed }]}>Choose a Vehicle and Base Price*</Text>
       
       <View style={styles.vehicleContainer}>
         {vehicleOptions.map((v, index) => (

@@ -14,6 +14,8 @@ import {
 import { ThemeContext } from '../ThemeContext';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { WebView } from 'react-native-webview';
+import { useNavigation } from '@react-navigation/native';
+
 
 export default function Payment({ route }) {
   const { isDarkMode, colors } = useContext(ThemeContext);
@@ -28,6 +30,7 @@ export default function Payment({ route }) {
   const [snapscanUrl, setSnapscanUrl] = useState('');
   const [showSnapscan, setShowSnapscan] = useState(false);
 
+  const navigation = useNavigation();
 
 
 
@@ -124,7 +127,12 @@ export default function Payment({ route }) {
 }
 
     // For cash payments
-    setPaymentDone(true);
+    setPaymentDone(true); // Triggers the confirmation UI
+
+    setTimeout(() => {
+      navigation.navigate('BookingHistory');
+    }, 5000); // Waits 5 seconds before redirecting
+
   };
 
   return (
@@ -460,16 +468,41 @@ export default function Payment({ route }) {
         onRequestClose={() => setShowSnapscan(false)}
       >
         <View style={{ flex: 1 }}>
-          <View style={styles.modalHeader}>
-            <TouchableOpacity 
-              onPress={() => setShowSnapscan(false)}
-              style={styles.closeButton}
+          
+          {/* ✅ Smart Banner */}
+          <View style={{
+            backgroundColor: '#FFF8E1',
+            padding: 12,
+            borderBottomWidth: 1,
+            borderColor: '#FFD54F',
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between'
+          }}>
+            <Text style={{ flex: 1, fontSize: 14, color: '#444' }}>
+              After payment, view your request.
+            </Text>
+
+            <TouchableOpacity
+              onPress={() => {
+                setShowSnapscan(false); // close modal
+                navigation.navigate('BookingHistory'); // redirect immediately
+              }}
+              style={{
+                marginLeft: 10,
+                backgroundColor: '#FFD54F',
+                paddingVertical: 6,
+                paddingHorizontal: 10,
+                borderRadius: 6
+              }}
             >
-              <Ionicons name="close" size={24} color="black" />
+              <Text style={{ fontSize: 14, color: '#000', fontWeight: '600' }}>
+                View Request
+              </Text>
             </TouchableOpacity>
-            <Text style={styles.modalTitle}>SnapScan Payment</Text>
           </View>
 
+          {/* 🔽 SnapScan WebView */}
           <WebView
             source={{ uri: snapscanUrl }}
             style={{ flex: 1 }}
@@ -477,11 +510,11 @@ export default function Payment({ route }) {
             domStorageEnabled={true}
             startInLoadingState={true}
             onNavigationStateChange={(navState) => {
-              console.log('SnapScan nav change:', navState.url);
               if (navState.url.includes('success')) {
                 setPaymentDone(true);
                 setShowSnapscan(false);
                 Alert.alert('Payment Successful', 'SnapScan payment completed');
+                navigation.navigate('BookingHistory');
               }
             }}
             renderLoading={() => (
@@ -493,7 +526,6 @@ export default function Payment({ route }) {
           />
         </View>
       </Modal>
-
     </View>
   );
 }

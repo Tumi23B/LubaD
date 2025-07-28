@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { auth, database } from '../firebase';
 
-import { ref, onValue, remove, get } from 'firebase/database'; // Ensure 'get' is imported
+import { ref, onValue, remove, get, getDatabase, child } from 'firebase/database';
 import { Ionicons } from '@expo/vector-icons';
 import { ThemeContext } from '../ThemeContext';
 import { LogBox } from 'react-native';
@@ -20,9 +20,6 @@ import { LogBox } from 'react-native';
 LogBox.ignoreLogs([
   'Text strings must be rendered within a <Text> component',
 ]);
-
-{/*Or ignore all logs (not recommended unless you're demoing)
-LogBox.ignoreAllLogs(true);*/}
 
 export default function BookingHistory({ navigation }) {
   const { isDarkMode, colors } = useContext(ThemeContext);
@@ -70,59 +67,73 @@ export default function BookingHistory({ navigation }) {
 
   // Fetch rides once auth and database are ready
   useEffect(() => {
-    console.log("BookingHistory: database instance:", database);
+  console.log("BookingHistory: database instance:", database);
 
-    if (!isAuthReady || !database || !userId) {
-      console.log("BookingHistory: Not ready to fetch rides. isAuthReady:", isAuthReady, "database:", !!database, "userId:", !!userId);
-      setLoading(true);
-      return;
-    }
+  if (!isAuthReady || !database || !userId) {
+    console.log("BookingHistory: Not ready to fetch rides. isAuthReady:", isAuthReady, "database:", !!database, "userId:", !!userId);
+    setLoading(true);
+    return;
+  }
 
-    const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-    const ridesRef = ref(database, `artifacts/${appId}/users/${userId}/rides`);
+  const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+  const ridesRef = ref(database, `artifacts/${appId}/users/${userId}/rides`);
+  const driverApplicationsRef = ref(database, 'driverApplications'); // Reference to driver applications
 
-    const unsubscribeOnValue = onValue(ridesRef, (snapshot) => {
-      const data = snapshot.val();
-      const allRides = [];
-      if (data) {
-        Object.entries(data).forEach(([key, value]) => {
-           // 💬 Debug: Log each ride’s driver data
-            console.log(`Ride ID: ${key}`);
-            console.log('Driver Name:', value.driverName);
-            console.log('Driver Phone:', value.driverPhone);
-            console.log('Driver Image:', value.driverImage);
+  const unsubscribeOnValue = onValue(ridesRef, async (snapshot) => {
+    const data = snapshot.val();
+    const allRides = [];
 
-          if (value.status !== 'driver_declined') {
-            allRides.push({ id: key, ...value });
+    if (data) {
+      const ridePromises = Object.entries(data).map(async ([key, value]) => {
+        if (value.status !== 'driver_declined') {
+          let driverRegistration = 'N/A';
+          if (value.driverId) {
+            // Fetch driver registration if driverId exists for this ride
+            const driverSnap = await get(child(driverApplicationsRef, value.driverId));
+            if (driverSnap.exists()) {
+              driverRegistration = driverSnap.val().registration || 'N/A';
+            }
           }
-        });
-      }
-      setRides(allRides.reverse());
-      setFilteredRides(allRides.reverse());
-      setLoading(false);
-    }, (error) => {
-      console.error("Error fetching rides in BookingHistory:", error);
-      setModalMessage(`Failed to load rides: ${error.message}`);
-      setModalType('error');
-      setShowModal(true);
-      setLoading(false);
-    });
+          return { id: key, ...value, driverRegistration }; // Add driverRegistration to the ride object
+        }
+        return null; // Return null for driver_declined status
+      });
 
-    return () => unsubscribeOnValue();
-  }, [isAuthReady, userId]);
+      const resolvedRides = await Promise.all(ridePromises);
+      const filteredAndCleanedRides = resolvedRides.filter(ride => ride !== null);
 
+      setRides(filteredAndCleanedRides.reverse());
+      setFilteredRides(filteredAndCleanedRides.reverse());
+      setLoading(false);
+    } else {
+      setRides([]);
+      setFilteredRides([]);
+      setLoading(false);
+    }
+  }, (error) => {
+    console.error("Error fetching rides in BookingHistory:", error);
+    setModalMessage(`Failed to load rides: ${error.message}`);
+    setModalType('error');
+    setShowModal(true);
+    setLoading(false);
+  });
+
+  return () => unsubscribeOnValue();
+}, [isAuthReady, userId, database]);
+
+// 
   useEffect(() => {
     let updated = [...rides];
 
     if (searchQuery) {
-      updated = updated.filter((ride) => // Changed from [key, ride] to ride directly
+      updated = updated.filter((ride) =>
         ride.pickup?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         ride.dropoff?.toLowerCase().includes(searchQuery.toLowerCase())
       );
     }
 
     if (selectedVehicle && selectedVehicle !== 'All') {
-      updated = updated.filter((ride) => ride.vehicle === selectedVehicle); // Changed from [key, ride] to ride directly
+      updated = updated.filter((ride) => ride.vehicle === selectedVehicle);
     }
 
     setFilteredRides(updated);
@@ -151,26 +162,23 @@ export default function BookingHistory({ navigation }) {
     setModalAction(() => async () => {
       try {
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const userId = auth.currentUser.uid; // Ensure userId is available
+        const userId = auth.currentUser.uid;
 
         // 1. Remove from user's personal history
         await remove(ref(database, `artifacts/${appId}/users/${userId}/rides/${rideKey}`));
 
         // 2. Check and remove from public ride_requests if it's still pending or driver_declined
-        // Use a try-catch around the get operation to isolate potential errors
         try {
             const publicRequestRef = ref(database, `artifacts/${appId}/ride_requests/${rideKey}`);
-            const rideSnapshot = await get(publicRequestRef); // This is where the 'get' is used
+            const rideSnapshot = await get(publicRequestRef);
             if (rideSnapshot.exists()) {
                 const rideData = rideSnapshot.val();
-                // Only remove from public queue if it's still pending or was declined by a driver
                 if (rideData.status === 'pending' || rideData.status === 'driver_declined') {
                     await remove(publicRequestRef);
                 }
             }
         } catch (get_error) {
             console.warn("Could not check/remove from public requests (might not exist or already processed):", get_error);
-            // Log the error but don't block the main deletion, as the primary goal is to remove from user's history
         }
 
         setModalMessage('Ride deleted successfully!');
@@ -199,7 +207,7 @@ export default function BookingHistory({ navigation }) {
     setModalAction(() => async () => {
       try {
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const userId = auth.currentUser.uid; // Ensure userId is available
+        const userId = auth.currentUser.uid;
 
         await remove(ref(database, `artifacts/${appId}/users/${userId}/rides`));
 
@@ -336,7 +344,12 @@ export default function BookingHistory({ navigation }) {
                   <Text style={[styles.label, { color: colors.textSecondary }]}>Assigned Driver:</Text>
                   <View style={[styles.driverBox, { backgroundColor: colors.background, borderColor: colors.borderColor }]}>
                     <Text style={[styles.driverName, { color: colors.iconRed }]}>{ride.driverName}</Text>
-                    <Text style={[styles.driverPhone, { color: colors.textSecondary }]}>{ride.driverPhone || 'N/A'}</Text>
+                    <Text style={[styles.driverPhone, { color: colors.textSecondary }]}>
+                      {ride.driverPhone || <Text style={{ fontStyle: 'italic', color: '#888' }}>Phone number not available!</Text>}
+                    </Text>
+                    {/* Display the dynamically fetched driverRegistration */}
+                    <Text style={[styles.driverName, { color: colors.iconRed }]}>Vehicle Registration Number:</Text>
+                    <Text style={[styles.driverPhone, { color: colors.textSecondary }]}>{ride.driverRegistration}</Text>
                   </View>
                 </>
               )}
@@ -355,6 +368,7 @@ export default function BookingHistory({ navigation }) {
                     console.log('Ride object:', ride)
                     console.log('Driver Phone:', ride.driverPhone)
                     console.log('Driver Image:', ride.driverImage)
+                    console.log('Driver Registration:', ride.driverRegistration);
 
                     navigation.navigate('ChatScreen', {
                       customerId: auth.currentUser.uid,
@@ -372,7 +386,6 @@ export default function BookingHistory({ navigation }) {
             </View>
           </View>
         ))
-        
       )}
 
       {/* Custom Modal for alerts and confirmations */}
