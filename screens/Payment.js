@@ -15,7 +15,7 @@ import { ThemeContext } from '../ThemeContext';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { WebView } from 'react-native-webview';
 
-export default function Payment({ route, navigation }) {
+export default function Payment({ route }) {
   const { isDarkMode, colors } = useContext(ThemeContext);
   const { vehicle, pickup, dropoff, date, price } = route.params;
 
@@ -23,10 +23,13 @@ export default function Payment({ route, navigation }) {
   const [paymentDone, setPaymentDone] = useState(false);
   const [showHelpers, setShowHelpers] = useState(false);
   const [helpersCount, setHelpersCount] = useState(0);
-  const [showOzow, setShowOzow] = useState(false);
-  const [ozowPaymentUrl, setOzowPaymentUrl] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [webViewKey, setWebViewKey] = useState(0);
+
+  const [snapscanUrl, setSnapscanUrl] = useState('');
+  const [showSnapscan, setShowSnapscan] = useState(false);
+
+
+
 
   const methods = [
     { 
@@ -86,6 +89,19 @@ export default function Payment({ route, navigation }) {
     if (!increment && helpersCount > 0) setHelpersCount(helpersCount - 1);
   };
 
+  // Snapscan link generation logic
+  const generateSnapscanLink = async () => {
+  try {
+    const amountCents = Math.round(totalCost * 100); // SnapScan uses cents
+    const simulatedLink = `https://pos.snapscan.io/qr/SNAPCODE123?amount=${amountCents}&id=LUGGAGE123&strict=true`;
+    setSnapscanUrl(simulatedLink);
+    setShowSnapscan(true);
+  } catch (error) {
+    console.error('SnapScan link generation failed:', error);
+    Alert.alert('Error', 'Unable to initiate SnapScan payment.');
+  }
+};
+
   const handlePayPress = async () => {
     if (!selectedMethod) {
       Alert.alert('Select Payment Method', 'Please choose how you want to pay.');
@@ -93,80 +109,22 @@ export default function Payment({ route, navigation }) {
     }
 
     if (selectedMethod === 'Card') {
-      setIsLoading(true);
-      
-      try {
-        const paymentUrl = await generateOzowPaymentUrl();
-        if (!paymentUrl) {
-          throw new Error('Could not generate payment URL');
-        }
-        
-        console.log('Opening Ozow URL:', paymentUrl);
-        setOzowPaymentUrl(paymentUrl);
-        setWebViewKey(prev => prev + 1);
-        setShowOzow(true);
-      } catch (error) {
-        console.error('Payment initiation error:', error);
-        Alert.alert('Error', 'Could not initiate payment. Please try again.');
-      } finally {
-        setIsLoading(false);
-      }
-      return;
-    }
+  setIsLoading(true);
+
+  try {
+    // Use SnapScan flow instead of Ozow
+    await generateSnapscanLink();
+  } catch (error) {
+    Alert.alert('Error', 'Could not initiate SnapScan payment.');
+  } finally {
+    setIsLoading(false);
+  }
+
+  return;
+}
 
     // For cash payments
     setPaymentDone(true);
-  };
-
-  const generateOzowPaymentUrl = async () => {
-    const baseUrl = 'https://pay.ozow.com/';
-    const transactionRef = `LUGGAGE-${Date.now()}`;
-    
-    // Don't encode these - Ozow will handle encoding
-    const successUrl = 'yourcustomscheme://paymentcallback/success';
-    const cancelUrl = 'yourcustomscheme://paymentcallback/cancel';
-    const errorUrl = 'yourcustomscheme://paymentcallback/error';
-
-    const params = {
-      SiteCode: 'DEMO', // Use 'DEMO' for testing
-      CountryCode: 'ZA',
-      CurrencyCode: 'ZAR',
-      Amount: totalCost.toFixed(2),
-      TransactionReference: transactionRef,
-      BankReference: 'LUGGAGE-DELIVERY',
-      Customer: 'customer@example.com',
-      CancelUrl: cancelUrl,
-      ErrorUrl: errorUrl,
-      SuccessUrl: successUrl,
-      IsTest: 'true', // Remove in production
-      Hash: 'TESTHASH123', // Remove in production
-      CustomerFirstName: 'Test',
-      CustomerLastName: 'User',
-      CustomerEmail: 'test@example.com',
-      CustomerMobileNumber: '0821234567'
-    };
-
-    const queryString = Object.entries(params)
-      .map(([key, value]) => `${key}=${encodeURIComponent(value)}`)
-      .join('&');
-
-    return `${baseUrl}?${queryString}`;
-  };
-
-  const handleWebViewNavigation = (navState) => {
-    console.log('Navigation state changed:', navState.url);
-    
-    if (navState.url.includes('paymentcallback/success')) {
-      setPaymentDone(true);
-      setShowOzow(false);
-      Alert.alert('Payment Successful', 'Your payment was processed successfully');
-    } else if (navState.url.includes('paymentcallback/cancel')) {
-      setShowOzow(false);
-      Alert.alert('Payment Cancelled', 'Your payment was cancelled');
-    } else if (navState.url.includes('paymentcallback/error')) {
-      setShowOzow(false);
-      Alert.alert('Payment Error', 'There was an error processing your payment');
-    }
   };
 
   return (
@@ -494,67 +452,48 @@ export default function Payment({ route, navigation }) {
         )}
       </ScrollView>
 
-      {/* Ozow Payment Modal */}
+      {/* SnapScan Modal */}
       <Modal
-        visible={showOzow}
+        visible={showSnapscan}
         animationType="slide"
         transparent={false}
-        onRequestClose={() => setShowOzow(false)}
+        onRequestClose={() => setShowSnapscan(false)}
       >
         <View style={{ flex: 1 }}>
           <View style={styles.modalHeader}>
             <TouchableOpacity 
-              onPress={() => setShowOzow(false)}
+              onPress={() => setShowSnapscan(false)}
               style={styles.closeButton}
             >
               <Ionicons name="close" size={24} color="black" />
             </TouchableOpacity>
-            <Text style={styles.modalTitle}>Secure Payment</Text>
+            <Text style={styles.modalTitle}>SnapScan Payment</Text>
           </View>
-          
+
           <WebView
-            key={webViewKey}
-            source={{ 
-              uri: ozowPaymentUrl,
-              headers: {
-                'User-Agent': 'Mozilla/5.0 (Linux; Android 10; Mobile)',
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
-              }
-            }}
+            source={{ uri: snapscanUrl }}
             style={{ flex: 1 }}
             javaScriptEnabled={true}
             domStorageEnabled={true}
             startInLoadingState={true}
-            mixedContentMode="always"
-            onNavigationStateChange={handleWebViewNavigation}
-            onLoadStart={(e) => console.log('Loading:', e.nativeEvent.url)}
-            onLoadEnd={() => console.log('Load complete')}
-            onError={(e) => {
-              console.log('WebView error:', e.nativeEvent);
-              Alert.alert('Error', 'Failed to load payment page');
-              setShowOzow(false);
+            onNavigationStateChange={(navState) => {
+              console.log('SnapScan nav change:', navState.url);
+              if (navState.url.includes('success')) {
+                setPaymentDone(true);
+                setShowSnapscan(false);
+                Alert.alert('Payment Successful', 'SnapScan payment completed');
+              }
             }}
             renderLoading={() => (
               <View style={styles.loadingContainer}>
                 <ActivityIndicator size="large" color={colors.iconRed} />
-                <Text style={{ marginTop: 10 }}>Loading payment gateway...</Text>
-              </View>
-            )}
-            renderError={(errorDomain, errorCode, errorDesc) => (
-              <View style={styles.errorContainer}>
-                <Text style={styles.errorText}>Payment Error:</Text>
-                <Text style={styles.errorText}>{errorDesc}</Text>
-                <TouchableOpacity
-                  style={styles.retryButton}
-                  onPress={() => setWebViewKey(prev => prev + 1)}
-                >
-                  <Text style={styles.retryButtonText}>Retry</Text>
-                </TouchableOpacity>
+                <Text style={{ marginTop: 10 }}>Loading SnapScan...</Text>
               </View>
             )}
           />
         </View>
       </Modal>
+
     </View>
   );
 }
