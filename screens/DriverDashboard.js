@@ -51,6 +51,8 @@ export default function DriverDashboard({ navigation }) {
   const [modalAction, setModalAction] = useState(null);
   const [currentShiftId, setCurrentShiftId] = useState(null);
   const [pastShifts, setPastShifts] = useState([]);
+  // New state to manage visibility of new ride requests
+  const [hasAcceptedRide, setHasAcceptedRide] = useState(false); 
   
   
 
@@ -172,13 +174,18 @@ export default function DriverDashboard({ navigation }) {
 
       if (data) {
         Object.entries(data).forEach(([key, value]) => {
-          if (value.status === 'pending' && isOnline) {
+          // Only add to pending if driver is online and no ride has been accepted yet
+          if (value.status === 'pending' && isOnline && !hasAcceptedRide) {
             pendingList.push({ id: key, ...value });
           }
 
           if (value.driverId === userId) {
             if (value.status !== 'completed' && value.status !== 'declined') {
               assignedList.push({ id: key, ...value });
+              // If there's an assigned ride, set hasAcceptedRide to true
+              if (value.status === 'accepted') {
+                setHasAcceptedRide(true);
+              }
             }
           }
         });
@@ -192,8 +199,9 @@ export default function DriverDashboard({ navigation }) {
       setShowModal(true);
     });
 
+    // Clean up the listener when the component unmounts or dependencies change
     return () => unsubscribe();
-  }, [isAuthReady, database, userId, isApproved, isOnline]);
+  }, [isAuthReady, database, userId, isApproved, isOnline, hasAcceptedRide]); // Add hasAcceptedRide to dependencies
 
   // Fetch past shifts history
   useEffect(() => {
@@ -316,6 +324,8 @@ export default function DriverDashboard({ navigation }) {
           totalEarnings: 0,
           completedRides: 0,
         });
+        // When driver starts driving, ensure new requests are visible
+        setHasAcceptedRide(false); 
       } else {
         const savedShiftId = await AsyncStorage.getItem('currentShiftId');
         if (savedShiftId) {
@@ -331,6 +341,7 @@ export default function DriverDashboard({ navigation }) {
         setPendingRequests([]);
         setAssignedRides([]);
         setTotalEarnings(0);
+        setHasAcceptedRide(false); // Reset when going offline
       }
     } catch (error) {
       console.warn('Failed to update driver status:', error);
@@ -494,6 +505,9 @@ const acceptRide = (request) => {
         acceptedAt: new Date().toISOString(),
       });
 
+      // Set hasAcceptedRide to true to hide other pending requests
+      setHasAcceptedRide(true);
+
 
       //  Setting modal to open Google Maps
       setModalMessage("Ride accepted successfully! Use Google Maps to Navigate to Customer's Location .");
@@ -613,6 +627,9 @@ const navigateToPickup = (pickupAddress) => {
         tripsCompleted: increment(1),
       });
 
+      // Set hasAcceptedRide to false to show other pending requests again
+      setHasAcceptedRide(false);
+
       setModalMessage("Ride completed successfully! Trip count updated.");
       setModalType('success');
       setShowModal(true);
@@ -677,7 +694,7 @@ const navigateToPickup = (pickupAddress) => {
   return (
     <ScrollView contentContainerStyle={styles.scrollContainer}>
       <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <Text style={[styles.title, { color: colors.iconRed }]}>Welcome, {driverName} 👋</Text>
+        <Text style={[styles.title, { color: colors.iconRed }]}>Welcome, {driverName} 🧑‍✈️</Text>
 
         <View style={styles.statusContainer}>
           <Text style={[styles.statusLabel, { color: colors.textSecondary }]}>Approval Status:</Text>
@@ -698,7 +715,7 @@ const navigateToPickup = (pickupAddress) => {
             </View>
 
             <View style={styles.ridesContainer}>
-              <Text style={[styles.sectionTitle, { color: colors.iconRed }]}>📊 Past Shifts</Text>
+              <Text style={[styles.sectionTitle, { color: colors.iconRed }]}>📅 Past Shifts</Text>
               {pastShifts.length === 0 ? (
                 <Text style={[styles.noRidesText, { color: colors.textSecondary }]}>
                   No recorded shifts yet.
@@ -765,50 +782,53 @@ const navigateToPickup = (pickupAddress) => {
               <Text style={[styles.earningsAmount, { color: colors.iconRed }]}>R {totalEarnings.toFixed(2)}</Text>
             </View>
 
-            <View style={styles.ridesContainer}>
-              <Text style={[styles.sectionTitle, { color: colors.iconRed }]}>New Ride Requests</Text>
-              {!isOnline ? (
-                <Text style={[styles.noRidesText, { color: colors.textSecondary }]}>Go online to see new requests.</Text>
-              ) : pendingRequests.length === 0 ? (
-                <Text style={[styles.noRidesText, { color: colors.textSecondary }]}>No new ride requests at the moment.</Text>
-              ) : (
-                <FlatList
-                  scrollEnabled={false}
-                  data={pendingRequests}
-                  keyExtractor={(item) => item.id}
-                  renderItem={({ item }) => (
-                    <View style={[styles.rideCard, { backgroundColor: colors.cardBackground, borderColor: colors.borderColor }]}>
-                      <Text style={[styles.rideCustomer, { color: colors.text }]}>
-                        Request for {item.vehicle || 'Vehicle'}
-                      </Text>
-                      <Text style={{ color: colors.text }}>Pickup: {item.pickup}</Text>
-                      <Text style={{ color: colors.text }}>Dropoff: {item.dropoff}</Text>
-                      <Text style={{ color: colors.text }}>Scheduled: {new Date(item.date).toLocaleString()}</Text>
-                      <Text style={{ color: colors.text }}>Status: {item.status}</Text>
+            {/* Conditional rendering for New Ride Requests */}
+            {!hasAcceptedRide && (
+              <View style={styles.ridesContainer}>
+                <Text style={[styles.sectionTitle, { color: colors.iconRed }]}>New Delivery Requests</Text>
+                {!isOnline ? (
+                  <Text style={[styles.noRidesText, { color: colors.textSecondary }]}>Go online to see new requests.</Text>
+                ) : pendingRequests.length === 0 ? (
+                  <Text style={[styles.noRidesText, { color: colors.textSecondary }]}>No new ride requests at the moment.</Text>
+                ) : (
+                  <FlatList
+                    scrollEnabled={false}
+                    data={pendingRequests}
+                    keyExtractor={(item) => item.id}
+                    renderItem={({ item }) => (
+                      <View style={[styles.rideCard, { backgroundColor: colors.cardBackground, borderColor: colors.borderColor }]}>
+                        <Text style={[styles.rideCustomer, { color: colors.text }]}>
+                          Request for {item.vehicle || 'Vehicle'}
+                        </Text>
+                        <Text style={{ color: colors.text }}>Pickup: {item.pickup}</Text>
+                        <Text style={{ color: colors.text }}>Dropoff: {item.dropoff}</Text>
+                        <Text style={{ color: colors.text }}>Scheduled: {new Date(item.date).toLocaleString()}</Text>
+                        <Text style={{ color: colors.text }}>Status: {item.status}</Text>
 
-                      <View style={styles.actionRow}>
-                        <TouchableOpacity
-                          style={[styles.actionButton, { backgroundColor: colors.iconRed }]}
-                          onPress={() => acceptRide(item)}
-                        >
-                          <Text style={[styles.buttonText, { color: colors.buttonText }]}>Accept</Text>
-                        </TouchableOpacity>
+                        <View style={styles.actionRow}>
+                          <TouchableOpacity
+                            style={[styles.actionButton, { backgroundColor: colors.iconRed }]}
+                            onPress={() => acceptRide(item)}
+                          >
+                            <Text style={[styles.buttonText, { color: colors.buttonText }]}>Accept</Text>
+                          </TouchableOpacity>
 
-                        <TouchableOpacity
-                          style={[styles.actionButton, { backgroundColor: colors.iconRed }]}
-                          onPress={() => declineRide(item)}
-                        >
-                          <Text style={[styles.buttonText, { color: colors.buttonText }]}>Decline</Text>
-                        </TouchableOpacity>
+                          <TouchableOpacity
+                            style={[styles.actionButton, { backgroundColor: colors.iconRed }]}
+                            onPress={() => declineRide(item)}
+                          >
+                            <Text style={[styles.buttonText, { color: colors.buttonText }]}>Decline</Text>
+                          </TouchableOpacity>
+                        </View>
                       </View>
-                    </View>
-                  )}
-                />
-              )}
-            </View>
+                    )}
+                  />
+                )}
+              </View>
+            )}
 
             <View style={styles.ridesContainer}>
-              <Text style={[styles.sectionTitle, { color: colors.iconRed }]}>Your Assigned Rides</Text>
+              <Text style={[styles.sectionTitle, { color: colors.iconRed }]}>Your Assigned Requests</Text>
               {assignedRides.length === 0 ? (
                 <Text style={[styles.noRidesText, { color: colors.textSecondary }]}>No rides currently assigned to you.</Text>
               ) :
@@ -831,28 +851,28 @@ const navigateToPickup = (pickupAddress) => {
                       <TouchableOpacity
                         style={[styles.actionButton, { backgroundColor: colors.iconRed, marginTop: 10 }]}
                         onPress={async () => {
-  try {
-    if (!item.customerId) {
-      Alert.alert('Missing Info', 'Customer ID not found for this ride.');
-      return;
-    }
+                          try {
+                            if (!item.customerId) {
+                              Alert.alert('Missing Info', 'Customer ID not found for this ride.');
+                              return;
+                            }
 
-    const { username, phoneNumber } = await fetchUserDetails(database, item.customerId);
+                            const { username, phoneNumber } = await fetchUserDetails(database, item.customerId);
 
-    if (!username || !phoneNumber) {
-      Alert.alert('Missing Info', 'Could not fetch customer info.');
-      return;
-    }
+                            if (!username || !phoneNumber) {
+                              Alert.alert('Missing Info', 'Could not fetch customer info.');
+                              return;
+                            }
 
-    navigation.navigate('DriverChat', {
-      customerName: username,
-      customerPhone: phoneNumber,
-    });
-  } catch (error) {
-    console.error('Error fetching customer info:', error);
-    Alert.alert('Error', 'Failed to fetch customer details.');
-  }
-}}
+                            navigation.navigate('DriverChat', {
+                              customerName: username,
+                              customerPhone: phoneNumber,
+                            });
+                          } catch (error) {
+                            console.error('Error fetching customer info:', error);
+                            Alert.alert('Error', 'Failed to fetch customer details.');
+                          }
+                        }}
 
                       >
                        <Text style={[styles.buttonText, { color: colors.buttonText }]}>Chat with Customer</Text>

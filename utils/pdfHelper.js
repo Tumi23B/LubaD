@@ -15,7 +15,7 @@ export const generatePDFReport = async (shifts, driverEmail, nameDriver) => {
         <table border="1" cellpadding="8" cellspacing="0" style="border-collapse: collapse; width: 100%; font-size: 14px;">
           <thead style="background: #f5f5f5;">
             <tr>
-              <th>Date</th>
+              <th>Report Exported Date</th>
               <th>Completed Rides</th>
               <th>Total Earnings (R)</th>
             </tr>
