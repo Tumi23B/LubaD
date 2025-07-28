@@ -875,7 +875,7 @@ const navigateToPickup = (pickupAddress) => {
                         }}
 
                       >
-                       <Text style={[styles.buttonText, { color: colors.buttonText }]}>Chat with Customer</Text>
+                       <Text style={[styles.buttonText, { color: colors.buttonText }]}>Contact & Share Location</Text>
                       </TouchableOpacity>
 
                         {item.status === 'accepted' && (
