@@ -32,6 +32,7 @@ LogBox.ignoreLogs([
 export default function DriverApplication({ navigation }) {
   const { isDarkMode, colors } = useContext(ThemeContext);
 
+  //form state contatining all application fields
   const [formData, setFormData] = useState({
     fullName: '',
     address: '',
@@ -44,9 +45,9 @@ export default function DriverApplication({ navigation }) {
     idPhoto: null,
     helperCount: '0' // Changed to string to handle input properly
   });
-
+// Loading state for form submission
   const [uploading, setUploading] = useState(false);
-
+// Available vehicle types for selection
   const vehicleTypes = [
     { label: 'Mini Van', value: 'mini van' },
     { label: 'Van', value: 'van' },
@@ -54,7 +55,7 @@ export default function DriverApplication({ navigation }) {
     { label: 'Bakkie', value: 'bakkie' },
     { label: 'Mini Truck', value: 'mini truck' },
   ];
-
+//Opens image picker for the specified field
   const pickImage = async (field) => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
@@ -63,13 +64,14 @@ export default function DriverApplication({ navigation }) {
     }
 
     try {
+      // Launch image picker
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
         aspect: [4, 3],
         quality: 0.8,
       });
-
+// Update form data if image was selected
       if (!result.canceled) {
         setFormData(prev => ({ ...prev, [field]: result.assets[0].uri }));
       }
@@ -78,33 +80,35 @@ export default function DriverApplication({ navigation }) {
     }
   };
 
+  // Validates South African ID number (must be 13 digits)
   const validateIDNumber = (id) => /^\d{13}$/.test(id);
 
+  //Handles helper count input changes with validation
   const handleHelperCountChange = (text) => {
     // Allow empty string or numeric values between 0-3
     if (text === '' || (/^[0-3]$/.test(text))) {
       setFormData(prev => ({ ...prev, helperCount: text }));
     }
   };
-
+// Handles form submission with validation and data processing
   const handleSubmit = async () => {
     if (!formData.fullName || !formData.address || !formData.idNumber || 
         !formData.driverImage || !formData.licensePhoto || !formData.carImage || !formData.idPhoto) {
       Alert.alert('Error', 'Please fill all fields and upload all required photos');
       return;
     }
-
+//validate ID number
     if (!validateIDNumber(formData.idNumber)) {
       Alert.alert('Error', 'Please enter a valid South African ID number (13 digits)');
       return;
     }
-
+// Ensure user is authenticated
     const user = auth.currentUser;
     if (!user) {
       Alert.alert('Error', 'You must be logged in');
       return;
     }
-
+// Start loading state
     setUploading(true);
 
     try {
@@ -152,7 +156,7 @@ export default function DriverApplication({ navigation }) {
           uid: user.uid
         })
       ]);
-
+// Show success message and reset navigation stack
       Alert.alert(
         'Application Submitted!',
         'Your application has been submitted and is awaiting review by the admin, check your emails within 12 hrs or log-in after 12 hrs.',
@@ -174,7 +178,7 @@ export default function DriverApplication({ navigation }) {
       setUploading(false);
     }
   };
-
+// Reusable photo input component
   const PhotoInput = ({ label, field, required = true }) => (
     <View style={styles.field}>
       <Text style={[styles.label, { color: colors.text }]}>

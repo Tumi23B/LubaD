@@ -9,13 +9,13 @@ LogBox.ignoreLogs([
   'Text strings must be rendered within a <Text> component',
 ]);
 
-{/*Or ignore all logs (not recommended unless you're demoing)
-LogBox.ignoreAllLogs(true);*/}
+
 
 export default function PrivacyPolicy() {
   const { colors } = useContext(ThemeContext);
 
   return (
+    //Privay policy 
     <ScrollView
       style={[styles.container, { backgroundColor: colors.background }]}
       contentContainerStyle={styles.scrollContent}

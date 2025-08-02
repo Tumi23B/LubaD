@@ -20,19 +20,19 @@ LogBox.ignoreLogs([
   'Text strings must be rendered within a <Text> component',
 ]);
 
-{/*Or ignore all logs (not recommended unless you're demoing)
-LogBox.ignoreAllLogs(true);*/}
-
+//default driver avatar image (fallback when no profile image is available)
 const driverAvatar = require('../assets/icon.png');
 
 export default function ChatScreen({ route }) {
+  // Access theme context for colors
   const { colors } = useContext(ThemeContext);
   const { driverId } = route.params;
   const [driverProfile, setDriverProfile] = useState(null);
 
+    // Fetch driver profile when component mounts or driverId changes
   useEffect(() => {
     if (!driverId || !database) return;
-
+ // Reference to the driver's data in Firebase
     const driverRef = ref(database, `drivers/${driverId}`);
     get(driverRef)
       .then((snapshot) => {
@@ -48,15 +48,18 @@ export default function ChatScreen({ route }) {
       });
   }, [driverId]);
 
+  //Open WhatsApp with the driver's phone number
   const openWhatsApp = (phoneNumber) => {
     if (!phoneNumber) {
       Alert.alert('Missing Number', 'Driver phone number is not available.');
       return;
     }
 
+    // Clean the phone number (remove non-numeric characters)
     const cleanedNumber = phoneNumber.replace(/[^0-9]/g, '');
     const url = `https://wa.me/${cleanedNumber}`;
 
+    // Check if WhatsApp can be opened, then open it
     Linking.canOpenURL(url)
       .then((supported) => {
         if (!supported) {
@@ -67,7 +70,7 @@ export default function ChatScreen({ route }) {
       })
       .catch((err) => console.error('Failed to open WhatsApp', err));
   };
-
+//Initiates a phone call to the driver
   const callDriver = (phoneNumber) => {
     if (!phoneNumber) {
       Alert.alert('Missing Number', 'Driver phone number is not available.');
@@ -75,6 +78,7 @@ export default function ChatScreen({ route }) {
     }
 
     const telURL = `tel:${phoneNumber}`;
+     // Check if phone app can be opened, then initiate call
     Linking.canOpenURL(telURL)
       .then((supported) => {
         if (!supported) {
@@ -88,7 +92,9 @@ export default function ChatScreen({ route }) {
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
+      {/* Main content container */}
       <View style={styles.centerContent}>
+        {/* Driver profile image with fallback to default avatar */}
         <Image
           source={
             driverProfile?.profileImage
@@ -97,9 +103,11 @@ export default function ChatScreen({ route }) {
           }
           style={[styles.driverImage, { borderColor: colors.iconRed }]}
         />
+        {/* Driver name */}
         <Text style={[styles.driverName, { color: colors.iconRed }]}>
           {driverProfile?.fullName || 'Driver'}
         </Text>
+        {/* Driver phone number */}
         <Text style={[styles.driverPhone, { color: colors.textSecondary }]}>
           {driverProfile?.phoneNumber || 'N/A'}
         </Text>

@@ -138,20 +138,60 @@ export default function AuthScreen() {
   };
 
   const handleForgotPassword = async () => {
-    const trimmedEmail = email.trim().toLowerCase();
+  const trimmedEmail = email.trim().toLowerCase();
 
-    if (!trimmedEmail) {
-      setErrors({ ...errors, email: 'Email is required to reset password.' });
-      return;
-    }
+  // Validate email
+  if (!trimmedEmail) {
+    setErrors({ ...errors, email: 'Email is required to reset password.' });
+    return;
+  }
 
-    try {
-      await sendPasswordResetEmail(auth, trimmedEmail);
-      Alert.alert('Password Reset Email Sent', 'Please check your email to reset your password.');
-    } catch (error) {
-      setFirebaseError(error.message);
+  // Basic email format validation
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(trimmedEmail)) {
+    setErrors({ ...errors, email: 'Please enter a valid email address.' });
+    return;
+  }
+
+  try {
+    await sendPasswordResetEmail(auth, trimmedEmail);
+    
+    // Show success message
+    Alert.alert(
+      'Password Reset Email Sent',
+      'Please check your email inbox (and spam folder) for instructions to reset your password.',
+      [
+        {
+          text: 'OK',
+          onPress: () => {
+            // Clear the email field after successful submission
+            setEmail('');
+            setErrors({ ...errors, email: '' });
+          }
+        }
+      ]
+    );
+  } catch (error) {
+    console.error('Password reset error:', error);
+    
+    // Handle specific Firebase errors
+    let errorMessage = 'Failed to send password reset email. Please try again.';
+    
+    switch (error.code) {
+      case 'auth/user-not-found':
+        errorMessage = 'No account found with this email address.';
+        break;
+      case 'auth/invalid-email':
+        errorMessage = 'The email address is invalid.';
+        break;
+      case 'auth/too-many-requests':
+        errorMessage = 'Too many requests. Please try again later.';
+        break;
     }
-  };
+    
+    setFirebaseError(errorMessage);
+  }
+};
 
   const handleAuth = async () => {
   setFirebaseError('');
@@ -337,6 +377,8 @@ export default function AuthScreen() {
               </TouchableOpacity>
             </View>
 
+{/**input field for username */}
+
             <View style={styles.field}>
               <TextInput
                 placeholder="👤 Username"
@@ -351,6 +393,8 @@ export default function AuthScreen() {
           </>
         )}
 
+{/**input field for email */}
+
         <View style={styles.field}>
           <TextInput
             placeholder="📧 Email"
@@ -363,6 +407,8 @@ export default function AuthScreen() {
           />
           {errors.email && <Text style={[styles.error, { color: colors.iconRed }]}>{errors.email}</Text>}
         </View>
+
+{/**input field for phone number */}
 
         {!isLogin && (
           <View style={styles.field}>
@@ -378,6 +424,8 @@ export default function AuthScreen() {
           </View>
         )}
 
+{/**input field for password */}
+
         <View style={styles.field}>
           <TextInput
             placeholder="🔒 Password"
@@ -389,6 +437,8 @@ export default function AuthScreen() {
           />
           {errors.password && <Text style={[styles.error, { color: colors.iconRed }]}>{errors.password}</Text>}
         </View>
+
+{/**input field for confirm password */}
 
         {!isLogin && (
           <View style={styles.field}>
@@ -405,10 +455,15 @@ export default function AuthScreen() {
         )}
 
         {isLogin && (
-          <TouchableOpacity onPress={handleForgotPassword}>
-            <Text style={[styles.forgotPassword, { color: colors.iconRed }]}>Forgot Password?</Text>
-          </TouchableOpacity>
-        )}
+  <TouchableOpacity 
+    onPress={handleForgotPassword}
+    style={styles.forgotPasswordButton}
+  >
+    <Text style={[styles.forgotPassword, { color: colors.iconRed }]}>
+      Forgot Password?
+    </Text>
+  </TouchableOpacity>
+)}
 
         {firebaseError ? <Text style={[styles.error, { color: colors.iconRed }]}>{firebaseError}</Text> : null}
         {successMsg ? <Text style={[styles.successMsg, { color: 'green' }]}>{successMsg}</Text> : null}
@@ -509,11 +564,14 @@ const styles = StyleSheet.create({
     fontSize: 16,
     letterSpacing: 1,
   },
-  forgotPassword: {
-    textAlign: 'right',
-    marginBottom: 15,
-    fontSize: 12,
-  },
+  forgotPasswordButton: {
+  alignSelf: 'flex-end',
+  marginBottom: 15,
+},
+forgotPassword: {
+  fontSize: 14,
+  fontWeight: '500',
+},
   roleOption: {
     flex: 1,
     alignItems: 'center',

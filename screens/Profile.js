@@ -32,14 +32,8 @@ import { LogBox } from 'react-native';
 // Ignore specific warning messages
 LogBox.ignoreLogs([
   'Text strings must be rendered within a <Text> component',
+   'Firebase authentication error: Firebase: Error (auth/admin-restricted-operation).',
 ]);
-
-LogBox.ignoreLogs([
-  'Firebase authentication error: Firebase: Error (auth/admin-restricted-operation).',
-]);
-
-{/*Or ignore all logs (not recommended unless you're demoing)
-LogBox.ignoreAllLogs(true);*/}
 
 
 const lightModeLogo = require('../assets/logotransparent.png');
@@ -59,9 +53,13 @@ export default function Profile() {
   const [editingPhone, setEditingPhone] = useState(false);
   const [tempPhoneNumber, setTempPhoneNumber] = useState('');
   const [errors, setErrors] = useState({});
+
+    // Navigation hooks
   const navigation = useNavigation();
   const route = useRoute();
 
+
+  //Fetches user profile data from Firebase on component mount
   useEffect(() => {
     const fetchProfile = async () => {
       const user = auth.currentUser;
@@ -85,7 +83,7 @@ export default function Profile() {
 
     fetchProfile();
   }, []);
-
+//Opens image picker and uploads selected image to Cloudinary
     const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -106,12 +104,12 @@ export default function Profile() {
     }
   };
 
-
+//Validates South African phone numbers
   const validateSAPhoneNumber = (phone) => {
     const cleaned = phone.replace(/\D/g, '');
     return /^(\+?27|0)\d{9}$/.test(cleaned);
   };
-
+// Updates the user's phone number in Firebase
   const handleUpdatePhoneNumber = async () => {
     if (!validateSAPhoneNumber(tempPhoneNumber)) {
       setErrors({ phoneNumber: 'Enter a valid South African phone number' });
@@ -123,7 +121,11 @@ export default function Profile() {
       const userRef = ref(database, 'users/' + user.uid);
       const cleanedPhone = tempPhoneNumber.replace(/\D/g, '');
       
+      // Update phone in database
       await update(userRef, { phoneNumber: cleanedPhone });
+      
+      // Update local state
+
       setProfile({ ...profile, phoneNumber: cleanedPhone });
       setEditingPhone(false);
       Alert.alert('Success', 'Phone number updated successfully');
@@ -131,7 +133,7 @@ export default function Profile() {
       Alert.alert('Error', error.message);
     }
   };
-
+//Changes the user's password after validation
   const handleChangePassword = async () => {
     if (!currentPassword || !newPassword || !confirmPassword) {
       return Alert.alert('Error', 'Please fill in all password fields');
@@ -158,7 +160,7 @@ export default function Profile() {
       Alert.alert('Error', error.message);
     }
   };
-
+//Handles user logout with confirmation
   const handleLogout = async () => {
     Alert.alert(
       'Logout',
@@ -183,7 +185,8 @@ export default function Profile() {
       ]
     );
   };
-
+//Deletes user account with confirmation
+   
   const handleDeleteAccount = () => {
     const user = auth.currentUser;
     if (!user) return;
@@ -213,7 +216,7 @@ export default function Profile() {
       ]
     );
   };
-
+//Uploads image to Cloudinary
   const uploadToCloudinary = async (uri) => {
     const formData = new FormData();
     formData.append('file', {
@@ -232,7 +235,7 @@ export default function Profile() {
     const data = await response.json();
     return data.secure_url;
   };
-
+//Formats phone numbers for display
   const formatPhoneNumber = (phone) => {
     if (!phone) return 'Not provided';
     const cleaned = phone.replace(/\D/g, '');

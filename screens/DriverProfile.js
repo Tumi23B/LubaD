@@ -16,19 +16,18 @@ import { LogBox } from 'react-native';
 // Ignore specific warning messages
 LogBox.ignoreLogs([
   'Text strings must be rendered within a <Text> component',
+   'Firebase authentication error: Firebase: Error (auth/admin-restricted-operation).',
+
 ]);
 
-LogBox.ignoreLogs([
-  'Firebase authentication error: Firebase: Error (auth/admin-restricted-operation).',
-]);
-
-{/*Or ignore all logs (not recommended unless you're demoing)
-LogBox.ignoreAllLogs(true);*/}
-
+//get screen responsive design 
 const { width } = Dimensions.get('window');
 
 export default function DriverProfile() {
+  //theme context for dark/light
+
   const { isDarkMode, colors, toggleTheme } = useContext(ThemeContext);
+  //profile state with all driver information 
   const [profile, setProfile] = useState({
     fullName: '',
     email: '',
@@ -42,6 +41,7 @@ export default function DriverProfile() {
     licenseImage: null,
     vehicleImage: null
   });
+  //component state
   const [loading, setLoading] = useState(true);
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -58,7 +58,7 @@ export default function DriverProfile() {
     if (!phone || phone === '') return 'Not provided';
     
     const cleaned = String(phone).replace(/\D/g, '');
-    
+    //handle different SA phone number formats
     if (cleaned.length === 11 && cleaned.startsWith('27')) {
       return `+${cleaned.substring(0, 2)} ${cleaned.substring(2, 4)} ${cleaned.substring(4, 7)} ${cleaned.substring(7)}`;
     }
@@ -81,6 +81,7 @@ export default function DriverProfile() {
       }
 
       try {
+        // Fetch data from both profile and application collections in parallel
         const [profileSnapshot, applicationSnapshot] = await Promise.all([
           get(ref(database, `drivers/${user.uid}`)),
           get(ref(database, `driverApplications/${user.uid}`))
@@ -129,7 +130,7 @@ export default function DriverProfile() {
   return /^(\+?27|0)\d{9}$/.test(cleaned);
 };
 
-
+//validates all profile fields before saving
   const validateFields = () => {
     const newErrors = {};
     if (!profile.fullName.trim()) newErrors.fullName = 'Full name is required';
@@ -159,7 +160,7 @@ export default function DriverProfile() {
     console.error('Phone update error:', error);
   }
 };
-
+//save the entire profile in firebase
   const handleSaveProfile = async () => {
     if (!validateFields()) return;
 
@@ -182,6 +183,8 @@ export default function DriverProfile() {
     }
   };
 
+  //Opens image picker for profile/license/vehicle images
+
   const pickImage = async (type) => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
@@ -201,6 +204,7 @@ export default function DriverProfile() {
         const updatedProfile = { ...profile, [type]: result.assets[0].uri };
         setProfile(updatedProfile);
         
+        // Save image URI to database
         const user = auth.currentUser;
         await update(ref(database, `drivers/${user.uid}`), { [type]: result.assets[0].uri });
       }
@@ -209,6 +213,8 @@ export default function DriverProfile() {
       console.error('Image selection error:', error);
     }
   };
+
+  //Changes the user's password after validation
 
   const handleChangePassword = async () => {
     if (!currentPassword || !newPassword || !confirmPassword) {
@@ -223,6 +229,7 @@ export default function DriverProfile() {
 
     try {
       const user = auth.currentUser;
+      // Reauthenticate user before password change
       const credential = EmailAuthProvider.credential(user.email, currentPassword);
       await reauthenticateWithCredential(user, credential);
       await updatePassword(user, newPassword);
@@ -235,7 +242,9 @@ export default function DriverProfile() {
       console.error('Password update error:', error);
     }
   };
-
+  
+   // Handles user logout with confirmation
+   
   const handleLogout = async () => {
     Alert.alert(
       'Logout',
@@ -248,6 +257,7 @@ export default function DriverProfile() {
           onPress: async () => {
             try {
               await signOut(auth);
+              // Reset navigation stack to auth screen
               navigation.reset({
                 index: 0,
                 routes: [{ name: 'Auth' }]
@@ -261,7 +271,7 @@ export default function DriverProfile() {
       ]
     );
   };
-
+//Deletes user account with confirmation
   const handleDeleteAccount = async () => {
     Alert.alert(
       'Delete Account',
@@ -290,7 +300,7 @@ export default function DriverProfile() {
       ]
     );
   };
-
+//Toggles driver's online/offline status
   const toggleOnlineStatus = async () => {
     try {
       const user = auth.currentUser;
@@ -302,7 +312,7 @@ export default function DriverProfile() {
       console.error('Status update error:', error);
     }
   };
-
+// Show loading indicator while profile data is being fetched
   if (loading) {
     return (
       <View style={[styles.loadingContainer, { backgroundColor: colors.background }]}>

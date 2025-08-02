@@ -755,7 +755,7 @@ const navigateToPickup = (pickupAddress) => {
       }}
     >
       <MapView
-        style={{ width: '100%', height: 200 }} // Make sure it has visible dimensions
+        style={{ width: '100%', height: 200 }} // Makes sure it has visible dimensions
         region={{
           latitude: driverLocation.latitude,
           longitude: driverLocation.longitude,

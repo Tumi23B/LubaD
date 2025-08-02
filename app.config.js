@@ -11,6 +11,7 @@ export default {
     },
     android: {
       package: "com.anonymous.lubad",
-    },
+    }
+
   },
 };

@@ -18,6 +18,8 @@ signInWithCustomToken,
 } from 'firebase/auth'; 
 import { LogBox } from 'react-native'; 
  
+
+// Ignore specific warning messages about text rendering
 LogBox.ignoreLogs([ 
 'Text strings must be rendered within a <Text> component', 
 ]); 
@@ -27,11 +29,12 @@ const { isDarkMode, colors } = useContext(ThemeContext);
 const THEME_BUTTON_COLOR = isDarkMode ? '#FFD700' : '#333333'; 
  
  
- 
+ //extract parameters from navigation route
 const { pickup, dropoff, date, distance } = route.params; 
  
 const userIdFromParams = route.params?.userId ?? null; 
 const username = route.params?.username ?? 'Unknown' 
+//component state
 const [selectedVehicle, setSelectedVehicle] = useState(null); 
 const [isSaving, setIsSaving] = useState(false); 
 const [showModal, setShowModal] = useState(false); 
@@ -39,10 +42,15 @@ const [modalMessage, setModalMessage] = useState('');
 const [modalType, setModalType] = useState('success'); 
 const [userId, setUserId] = useState(null); 
 const [isAuthReady, setIsAuthReady] = useState(false); 
-////////////////// 
- 
- 
-// Enhanced vehicle types with more options 
+
+ /**
+   * Vehicle options with pricing and descriptions
+   * Each vehicle has:
+   * - type: The name of the vehicle
+   * - price: Base price for the vehicle
+   * - description: What the vehicle is suitable for
+   */
+
 const vehicleOptions = [ 
 { type: 'Van', price: 100, description: 'Refridgerators,Freezers,Boxes and small Appliances.' }, 
 { type: 'Bakkie', price: 250, description: 'Furniture,Appliances,Boxes,tools and Car detailing supplies.' }, 
@@ -57,13 +65,15 @@ const pricePerKm = 25; // R25 per km
 return distance ? Math.round(distance * pricePerKm) : 0; 
 }; 
  
- 
+ // Authentication state observer
 useEffect(() => { 
 const unsubscribe = onAuthStateChanged(auth, async (user) => { 
 if (user) { 
+  // User is signed in
 setUserId(user.uid); 
 setIsAuthReady(true); 
 } else { 
+  // No user, try to sign in
 try { 
 if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) { 
 await signInWithCustomToken(auth, __initial_auth_token); 
@@ -79,10 +89,15 @@ setIsAuthReady(true);
 } 
 } 
 }); 
- 
+ // Cleanup function
 return () => unsubscribe(); 
 }, []); 
  
+
+ /**
+   * Calculates the final price including vehicle base price and distance
+   * returns The total price
+   */
 const getFinalPrice = () => { 
 const vehicle = vehicleOptions.find((v) => v.type === selectedVehicle); 
 if (!vehicle) return 0; 
@@ -90,7 +105,16 @@ const distance = calculateDistancePrice(pickup, dropoff);
 return vehicle.price + distance; 
 }; 
  
+/**
+   * Handles the booking confirmation process
+   * - Validates inputs
+   * - Saves booking to user's history
+   * - Creates a ride request
+   * - Navigates to payment screen
+   */
+
 const handleConfirmBooking = async () => { 
+  // Validation
 if (!selectedVehicle) { 
 setModalMessage('Please select a vehicle type to continue.'); 
 setModalType('error'); 
@@ -108,15 +132,17 @@ return;
 setIsSaving(true); 
 try { 
 const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id'; 
+// Save to user's ride history
 const userRidesRef = ref(database, `artifacts/${appId}/users/${userId}/rides`); 
 const newCustomerBookingRef = push(userRidesRef); 
 const customerBookingId = newCustomerBookingRef.key; 
- 
+  // Calculate prices
 const vehicle = vehicleOptions.find(v => v.type === selectedVehicle); 
 const vehiclePrice = vehicle ? vehicle.price : 0; 
 const distancePrice = calculateDistancePrice(pickup, dropoff); 
 const totalPrice = vehiclePrice + distancePrice; 
  
+//booking data structure
 const bookingData = { 
 pickup, 
 dropoff, 
@@ -130,15 +156,19 @@ customerBookingId,
 price: totalPrice, 
 }; 
  
-await set(newCustomerBookingRef, bookingData); 
+// Save to user's history
+      await set(newCustomerBookingRef, bookingData);
+
+      // Create ride request for drivers
  
 const rideRequestsRef = ref(database, `artifacts/${appId}/ride_requests`); 
 const newRideRequestRef = push(rideRequestsRef); 
 const requestId = newRideRequestRef.key; 
- 
+ // Save ride request and update user's booking with requestId
 await set(newRideRequestRef, { ...bookingData, requestId }); 
 await update(newCustomerBookingRef, { requestId }); 
  
+// Show success and navigate to payment
 setModalMessage('Booking confirmed successfully!'); 
 setModalType('success'); 
 setShowModal(true); 
@@ -168,8 +198,9 @@ return (
 style={[styles.container, { backgroundColor: colors.background }]} 
 contentContainerStyle={styles.scrollContainer} 
 > 
+ {/* Page title */}
 <Text style={[styles.title, { color: colors.iconRed }]}>Confirm Your Trip</Text> 
- 
+ {/* Trip summary box */}
 <View style={[styles.summaryBox, { backgroundColor: colors.cardBackground, borderColor: colors.borderColor }]}> 
 <Text style={[styles.label, { color: colors.text }]}>Pickup:</Text> 
 <Text style={[styles.value, { color: colors.textSecondary }]}>{pickup}</Text> 
@@ -184,6 +215,7 @@ contentContainerStyle={styles.scrollContainer}
 <Text style={[styles.value, { color: colors.textSecondary }]}>R{calculateDistancePrice(pickup, dropoff)}</Text> 
 </View> 
  
+ {/* Vehicle selection section */}
 <Text style={[styles.heading, { color: colors.iconRed }]}>Choose a Vehicle *</Text> 
 <View style={styles.vehicleContainer}> 
 {vehicleOptions.map((v, index) => ( 
@@ -211,19 +243,20 @@ onPress={() => setSelectedVehicle(v.type)}
 ))} 
 </View> 
  
+ {/* Total price display (shown when vehicle is selected) */}
 {selectedVehicle && ( 
 <View style={styles.totalContainer}> 
 <Text style={[styles.totalLabel, { color: colors.text }]}>Total Estimated Cost:</Text> 
 <Text style={[styles.totalPrice, { color: colors.iconRed }]}>R{getFinalPrice()}</Text> 
 </View> 
 )} 
- 
+ {/* Error message when no vehicle is selected */}
 {!selectedVehicle && ( 
 <Text style={[styles.errorText, { color: THEME_BUTTON_COLOR }]}> 
 Please select a vehicle to continue 
 </Text> 
 )} 
- 
+ {/* Confirm booking button */}
 <TouchableOpacity 
 style={[ 
 styles.confirmButton, 
@@ -243,7 +276,8 @@ Confirm Booking
 </Text> 
 )} 
 </TouchableOpacity> 
- 
+ {/* Modal for showing messages/alerts */}
+
 <Modal transparent animationType="fade" visible={showModal} onRequestClose={() => setShowModal(false)}> 
 <View style={styles.modalOverlay}> 
 <View style={[styles.modalContainer, { backgroundColor: colors.cardBackground }]}> 

@@ -26,14 +26,19 @@ const defaultAvatar = require('../assets/icon.png');
 
 export default function DriverChatScreen({ route }) {
   const { colors } = useContext(ThemeContext);
+   // Extract customer details from navigation params with fallbacks
   const customerName = route.params?.customerName || 'Customer';
   const customerPhone = route.params?.customerPhone || '';
   const customerImage = route.params?.customerImage;
   const customerId = route.params?.customerId;
 
+  // Component state
   const [customerImageUrl, setCustomerImageUrl] = useState(customerImage || null);
   const [modalVisible, setModalVisible] = useState(false);
 
+   /**
+   * Fetches customer image from database if not provided in params
+   */
   useEffect(() => {
     const fetchImage = async () => {
       if (!customerImageUrl && customerId) {
@@ -49,6 +54,8 @@ export default function DriverChatScreen({ route }) {
     };
     fetchImage();
   }, [customerId]);
+// Formats phone number to international standard
+  
 
   const formatPhone = (phoneNumber) => {
     return phoneNumber.startsWith('+')
@@ -56,6 +63,8 @@ export default function DriverChatScreen({ route }) {
       : `+27${phoneNumber.replace(/^0/, '')}`;
   };
 
+  //Opens WhatsApp chat with the customer
+   
   const openWhatsApp = (phoneNumber) => {
     if (!phoneNumber) {
       Alert.alert('Missing Number', 'Customer phone number is not available.');
@@ -73,7 +82,7 @@ export default function DriverChatScreen({ route }) {
       })
       .catch((err) => console.error('Failed to open WhatsApp', err));
   };
-
+// Initiates phone call to customer
   const callCustomer = (phoneNumber) => {
     if (!phoneNumber) {
       Alert.alert('Missing Number', 'Customer phone number is not available.');
@@ -92,7 +101,7 @@ export default function DriverChatScreen({ route }) {
       .catch((err) => console.error('Failed to make a call', err));
   };
 
-  // This just opens the modal
+  // This just opens the modal forlive location
   const showLiveLocationModal = () => {
     if (!customerPhone) {
       Alert.alert('Missing Number', 'Customer phone number is not available.');

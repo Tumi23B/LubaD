@@ -6,6 +6,8 @@ import { LogBox } from 'react-native';
 // Ignore specific warning messages
 LogBox.ignoreLogs([
   'Text strings must be rendered within a <Text> component',
+  'expo-notifications: Android Push notifications',
+  'expo-av: Expo AV has been deprecated',
 ]);
 
 {/*Or ignore all logs (not recommended unless you're demoing)

@@ -22,8 +22,10 @@ LogBox.ignoreLogs([
 ]);
 
 export default function BookingHistory({ navigation }) {
+  //acces theme dark/light
   const { isDarkMode, colors } = useContext(ThemeContext);
 
+  //state management 
   const [rides, setRides] = useState([]);
   const [filteredRides, setFilteredRides] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -33,6 +35,7 @@ export default function BookingHistory({ navigation }) {
   const [userId, setUserId] = useState(null);
   const [isAuthReady, setIsAuthReady] = useState(false);
 
+  //modal state management 
   const [showModal, setShowModal] = useState(false);
   const [modalMessage, setModalMessage] = useState('');
   const [modalType, setModalType] = useState('info');
@@ -42,9 +45,11 @@ export default function BookingHistory({ navigation }) {
   useEffect(() => {
     const unsubscribeAuth = auth.onAuthStateChanged(async (user) => {
       if (user) {
+        //user is authenticated
         setUserId(user.uid);
         setIsAuthReady(true);
       } else {
+        //no user ,try to authenticate annonymously or with custom token
         try {
           if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
             await auth.signInWithCustomToken(__initial_auth_token);
@@ -61,7 +66,7 @@ export default function BookingHistory({ navigation }) {
         }
       }
     });
-
+//clean up function to unsubscribe from auth state changes
     return () => unsubscribeAuth();
   }, []);
 
@@ -79,11 +84,13 @@ export default function BookingHistory({ navigation }) {
   const ridesRef = ref(database, `artifacts/${appId}/users/${userId}/rides`);
   const driverApplicationsRef = ref(database, 'driverApplications'); // Reference to driver applications
 
+  //subscribe to rides data changes
   const unsubscribeOnValue = onValue(ridesRef, async (snapshot) => {
     const data = snapshot.val();
     const allRides = [];
 
     if (data) {
+      //process each ride to include driver registration info
       const ridePromises = Object.entries(data).map(async ([key, value]) => {
         if (value.status !== 'driver_declined') {
           let driverRegistration = 'N/A';
@@ -102,10 +109,12 @@ export default function BookingHistory({ navigation }) {
       const resolvedRides = await Promise.all(ridePromises);
       const filteredAndCleanedRides = resolvedRides.filter(ride => ride !== null);
 
+      // Update state with rides (newest first)
       setRides(filteredAndCleanedRides.reverse());
       setFilteredRides(filteredAndCleanedRides.reverse());
       setLoading(false);
     } else {
+      // No rides found
       setRides([]);
       setFilteredRides([]);
       setLoading(false);
@@ -117,30 +126,34 @@ export default function BookingHistory({ navigation }) {
     setShowModal(true);
     setLoading(false);
   });
-
+ // Cleanup function to unsubscribe from database changes
   return () => unsubscribeOnValue();
 }, [isAuthReady, userId, database]);
 
-// 
+ // Apply filters whenever search query, vehicle type, or rides change
   useEffect(() => {
     let updated = [...rides];
-
+  
+    // Filter by search query (pickup or dropoff)
     if (searchQuery) {
       updated = updated.filter((ride) =>
         ride.pickup?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         ride.dropoff?.toLowerCase().includes(searchQuery.toLowerCase())
       );
     }
-
+// Filter by vehicle type
     if (selectedVehicle && selectedVehicle !== 'All') {
       updated = updated.filter((ride) => ride.vehicle === selectedVehicle);
     }
 
+    // Update filtered rides
     setFilteredRides(updated);
   }, [searchQuery, selectedVehicle, rides]);
 
+  // Available vehicle types for filtering
   const vehicleTypes = ['All', 'Mini Van', 'Van', 'Mini Truck', 'Full Truck', 'Passenger Van'];
 
+   // Rebook a ride - navigates to Checkout with ride details
   const rebookRide = (ride) => {
     navigation.navigate('Checkout', {
       pickup: ride.pickup,
@@ -149,6 +162,7 @@ export default function BookingHistory({ navigation }) {
     });
   };
 
+  // Delete a single ride from history
   const deleteRide = (rideKey) => {
     if (!auth.currentUser || !database) {
       setModalMessage("Authentication or database not ready. Cannot delete ride.");
@@ -156,7 +170,7 @@ export default function BookingHistory({ navigation }) {
       setShowModal(true);
       return;
     }
-
+// Show confirmation modal
     setModalMessage('Are you sure you want to delete this ride from your history?');
     setModalType('confirm');
     setModalAction(() => async () => {
@@ -164,10 +178,10 @@ export default function BookingHistory({ navigation }) {
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
         const userId = auth.currentUser.uid;
 
-        // 1. Remove from user's personal history
+        //  Remove from user's personal history
         await remove(ref(database, `artifacts/${appId}/users/${userId}/rides/${rideKey}`));
 
-        // 2. Check and remove from public ride_requests if it's still pending or driver_declined
+        //  Check and remove from public ride_requests if it's still pending or driver_declined
         try {
             const publicRequestRef = ref(database, `artifacts/${appId}/ride_requests/${rideKey}`);
             const rideSnapshot = await get(publicRequestRef);
@@ -194,6 +208,7 @@ export default function BookingHistory({ navigation }) {
     setShowModal(true);
   };
 
+    // Clear all ride history
   const clearAllHistory = () => {
     if (!auth.currentUser || !database) {
       setModalMessage("Authentication or database not ready. Cannot clear history.");
@@ -202,6 +217,7 @@ export default function BookingHistory({ navigation }) {
       return;
     }
 
+    // Show confirmation modal
     setModalMessage('This will remove all your ride history. Are you sure?');
     setModalType('confirm');
     setModalAction(() => async () => {
@@ -209,6 +225,7 @@ export default function BookingHistory({ navigation }) {
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
         const userId = auth.currentUser.uid;
 
+        // Remove all rides from user's history
         await remove(ref(database, `artifacts/${appId}/users/${userId}/rides`));
 
         setModalMessage('All history cleared successfully!');
@@ -224,6 +241,7 @@ export default function BookingHistory({ navigation }) {
     setShowModal(true);
   };
 
+  // Handle modal confirm button press
   const handleModalConfirm = () => {
     if (modalAction) {
       modalAction();
@@ -231,12 +249,12 @@ export default function BookingHistory({ navigation }) {
     setShowModal(false);
     setModalAction(null);
   };
-
+// Handle modal cancel button press
   const handleModalCancel = () => {
     setShowModal(false);
     setModalAction(null);
   };
-
+// Show loading indicator while data is being fetched
   if (loading) {
     return (
       <View style={[styles.loadingContainer, { backgroundColor: colors.background }]}>
@@ -245,12 +263,12 @@ export default function BookingHistory({ navigation }) {
       </View>
     );
   }
-
+// Main component render
   return (
     <ScrollView style={[styles.container, { backgroundColor: colors.background }]}>
       <Text style={[styles.title, { color: colors.iconRed }]}>Booking History</Text>
       <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Track, manage and rebook your past deliveries</Text>
-
+ {/* Search input */}
       <TextInput
         style={[
           styles.searchInput,
@@ -265,7 +283,7 @@ export default function BookingHistory({ navigation }) {
         value={searchQuery}
         onChangeText={setSearchQuery}
       />
-
+{/* Vehicle type filter buttons */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterRow}>
         {vehicleTypes.map((type) => (
           <TouchableOpacity
@@ -290,14 +308,14 @@ export default function BookingHistory({ navigation }) {
           </TouchableOpacity>
         ))}
       </ScrollView>
-
+{/* Clear all history button */}
       {filteredRides.length > 0 && (
         <TouchableOpacity style={[styles.clearButton, { backgroundColor: colors.iconRed }]} onPress={clearAllHistory}>
           <Ionicons name="trash-outline" size={18} color={colors.buttonText} />
           <Text style={[styles.clearText, { color: colors.buttonText }]}>Clear All</Text>
         </TouchableOpacity>
       )}
-
+ {/* Ride list or empty state */}
       {filteredRides.length === 0 ? (
         <Text style={[styles.noRides, { color: colors.textSecondary }]}>No rides found for current filter.</Text>
       ) : (
@@ -313,6 +331,7 @@ export default function BookingHistory({ navigation }) {
               </TouchableOpacity>
             </View>
 
+         {/* Ride details */}
             <View style={styles.cardContent}>
               <Text style={[styles.label, { color: colors.textSecondary }]}>Pickup:</Text>
               <Text style={[styles.value, { color: colors.text }]}>{ride.pickup}</Text>
@@ -338,7 +357,7 @@ export default function BookingHistory({ navigation }) {
                   <Text style={[styles.value, { color: colors.text }]}>{ride.status}</Text>
                 </>
               )}
-
+{/* Driver information section */}
               {ride.driverName && ride.driverPhone && (
                 <>
                   <Text style={[styles.label, { color: colors.textSecondary }]}>Assigned Driver:</Text>

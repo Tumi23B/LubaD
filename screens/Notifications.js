@@ -10,9 +10,9 @@ import {
   FlatList,
   Animated,
 } from 'react-native';
-import { Audio } from 'expo-av'; 
+//import { Audio } from 'expo-av'; 
 import * as Haptics from 'expo-haptics';
-import * as Notifications from 'expo-notifications';
+//import * as Notifications from 'expo-notifications';
 import { ThemeContext } from '../ThemeContext';
 import { LogBox } from 'react-native';
 

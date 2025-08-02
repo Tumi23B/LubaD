@@ -33,8 +33,11 @@ LogBox.ignoreLogs([
 ]); 
  
 export default function Dashboard({ navigation }) { 
+
+  // Theme context for dark/light
 const { isDarkMode, colors } = useContext(ThemeContext); 
  
+//state management for all component data
 const [username, setUsername] = useState(''); 
 const [pickup, setPickup] = useState(''); 
 const [dropoff, setDropoff] = useState(''); 
@@ -53,7 +56,23 @@ const [routeCoordinates, setRouteCoordinates] = useState([]);
 const [distance, setDistance] = useState(null); 
 const [duration, setDuration] = useState(null); 
  
+//duration formatting 
+const formatDuration = (minutes) => {
+  if (minutes < 60) {
+    return `${minutes} min`;
+  } else {
+    const hours = Math.floor(minutes / 60);
+    const remainingMinutes = minutes % 60;
+    if (remainingMinutes === 0) {
+      return `${hours} hr`;
+    } else {
+      return `${hours} hr ${remainingMinutes} min`;
+    }
+  }
+};
  
+// fetch user data and location on component mount 
+
 useEffect(() => { 
 const fetchUserData = async () => { 
 const user = auth.currentUser; 
@@ -64,6 +83,7 @@ setUsername(snapshot.val().username);
 } 
 } 
  
+//request location permissions and get current position
 let { status } = await Location.requestForegroundPermissionsAsync(); 
 if (status !== 'granted') { 
 Alert.alert('Permission Denied', 'Location permission is required for this app to work properly'); 
@@ -80,37 +100,82 @@ longitude: currentLocation.coords.longitude,
 fetchUserData(); 
 }, []); 
  
-const calculateDistanceAndDuration = (start, end) => { 
-// 1. Calculate straight-line distance (Haversine formula) 
-const R = 6371; // Earth radius in km 
-const dLat = (end.latitude - start.latitude) * Math.PI / 180; 
-const dLon = (end.longitude - start.longitude) * Math.PI / 180; 
-const a =  
-Math.sin(dLat/2) * Math.sin(dLat/2) + 
-Math.cos(start.latitude * Math.PI / 180) *  
-Math.cos(end.latitude * Math.PI / 180) *  
-Math.sin(dLon/2) * Math.sin(dLon/2); 
-const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); 
-const straightLineDistance = R * c; 
+//calculate the distance and the estimated time between the two coordinates using the HAVERSINE FORMULA
+const calculateDistanceAndDuration = (start, end) => {
+  // Calculate precise straight-line distance (Haversine formula)
+  const R = 6371; // Earth radius in km
+  const dLat = (end.latitude - start.latitude) * Math.PI / 180;
+  const dLon = (end.longitude - start.longitude) * Math.PI / 180;
+  const a = 
+    Math.sin(dLat/2) * Math.sin(dLat/2) +
+    Math.cos(start.latitude * Math.PI / 180) * 
+    Math.cos(end.latitude * Math.PI / 180) * 
+    Math.sin(dLon/2) * Math.sin(dLon/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  const straightLineDistance = R * c;
+
+  // Dynamic distance multiplier based on SA road network data
+  const getRoadDistanceMultiplier = (distance) => {
+    // Urban centers (JHB, CPT) - very circuitous
+    if (distance < 2) return 1.8;   
+    // Suburban areas
+    if (distance < 5) return 1.65;  
+    // Regional routes
+    if (distance < 20) return 1.5; 
+    // National roads 
+    if (distance < 100) return 1.35; 
+    // Long-distance highways
+    return 1.2;                     
+  };
+
+  const roadDistance = straightLineDistance * getRoadDistanceMultiplier(straightLineDistance);
+
+  // Precise speed estimation for different route types SA ROADS ONLY!
+  const getAverageSpeed = (distance) => {
+    // Based on SA traffic flow studies
+    // Dense urban traffic
+    if (distance < 2) return 25; 
+    // Urban/suburban  
+    if (distance < 5) return 35;  
+    // Regional roads 
+    if (distance < 20) return 60;  
+    // National routes
+    if (distance < 100) return 80; 
+    // Free-flow highways
+    return 95;                     
+  };
+
+  const avgSpeed = getAverageSpeed(roadDistance);
+
+  //Calculate duration with traffic factors
+  let durationMinutes = Math.round((roadDistance / avgSpeed) * 60);
+  
+  //Apply SA-specific minimum times based on road conditions
+  const getMinimumMinutes = (distance) => {
+    // Very short urban trips
+    if (distance < 1) return 7; 
+    // Short urban   
+    if (distance < 3) return 12;   
+    // Suburban
+    if (distance < 10) return 20;  
+    // Regional
+    if (distance < 30) return 35;  
+    // Long distance
+    return Math.max(45, Math.round(distance * 0.7)); 
+  };
+
+  durationMinutes = Math.max(getMinimumMinutes(roadDistance), durationMinutes);
+
+  // Update state with calculated values
+  setDistance(roadDistance.toFixed(1));
+  setDuration(durationMinutes);
+
+  console.log(`Calculated: ${straightLineDistance.toFixed(1)}km straight → ${roadDistance.toFixed(1)}km road | Speed: ${avgSpeed}km/h | Time: ${formatDuration(durationMinutes)}`);
+};
  
-//Apply South Africa-specific adjustments 
-const distanceMultiplier = 1.55; // +55% for SA road curves/highways 
-const roadDistance = straightLineDistance * distanceMultiplier; 
- 
-// Smart duration estimation (urban/rural adjusted) 
-const baseSpeed = 0.9; // km/min (20-90 km/h avg in urban areas) 
-let durationMinutes = Math.round(roadDistance / baseSpeed); 
-// Ensuring minimum 5 minutes for short trips 
-durationMinutes = Math.max(5, durationMinutes); 
- 
-// Set values with precision 
-setDistance(roadDistance.toFixed(1)); 
-setDuration(durationMinutes); 
- 
-// For debugging/transparency: 
-console.log(`Straight-line: ${straightLineDistance.toFixed(1)}km | Road: ${roadDistance.toFixed(1)}km`); 
-}; 
- 
+
+// Date picker handlers
+
 const showDatePicker = () => setDatePickerVisibility(true); 
 const hideDatePicker = () => setDatePickerVisibility(false); 
 const handleConfirm = (selectedDate) => { 
@@ -118,6 +183,9 @@ setDate(selectedDate);
 hideDatePicker(); 
 }; 
  
+
+//Fetching location suggestions from OpenStreenMap Nominatim API
+
 const fetchLocationSuggestions = async (query) => { 
 if (query.length < 3) return []; 
 try { 
@@ -146,7 +214,10 @@ console.error('Nominatim API Error:', error);
 return []; 
 } 
 }; 
- 
+
+
+ // Handlers for pickup/dropoff location changes 
+
 const handlePickupChange = async (text) => { 
 setPickup(text); 
 if (text.length > 2) { 
@@ -177,6 +248,8 @@ setShowDropoffSuggestions(false);
 } 
 }; 
  
+// Handlers for selecting suggestions
+
 const selectPickupSuggestion = (suggestion) => { 
 setPickup(suggestion.displayName); 
 setPickupCoords(suggestion.coords); 
@@ -197,6 +270,8 @@ setRouteCoordinates([pickupCoords, suggestion.coords]);
 } 
 }; 
  
+//send ride requests to firebase
+
 const sendRideRequest = async (pickup, dropoff, pickupCoords, dropoffCoords, customerId) => { 
 const rideRef = push(ref(database, 'rides')); 
 await set(rideRef, { 
@@ -213,6 +288,8 @@ driverLocation: null,
 return rideRef.key; 
 }; 
  
+// Geocodes an address to coordinates using Nominatim
+
 const getCoordsFromAddress = async (address) => { 
 try { 
 const response = await axios.get( 
@@ -243,6 +320,8 @@ throw new Error('Failed to get coordinates for address, try a different address.
 } 
 }; 
  
+// Handle checkout process
+
 const handleCheckout = async () => { 
 if (!pickup || !dropoff) { 
 Alert.alert('Missing Information', 'Please enter both pickup and dropoff locations'); 
@@ -281,6 +360,8 @@ setLoading(false);
 } 
 }; 
  
+// Open maps app with route
+
 const openMapsNavigation = () => { 
 if (!pickup || !dropoff) { 
 Alert.alert('Missing Information', 'Please enter both pickup and dropoff locations.'); 
@@ -299,57 +380,84 @@ Alert.alert('Error', `Could not open ${Platform.OS === 'ios' ? 'Apple Maps' : 'G
 }); 
 }; 
  
-const renderSuggestionItem = ({ item, isPickup }) => ( 
-<TouchableOpacity  
-style={[styles.suggestionItem, { backgroundColor: colors.cardBackground }]} 
-onPress={() => isPickup ? selectPickupSuggestion(item) : selectDropoffSuggestion(item)} 
-> 
-<Text style={{ color: colors.text }} numberOfLines={1}> 
-{item.displayName} 
-</Text> 
-</TouchableOpacity> 
-); 
- 
-const renderLocationInput = (isPickup) => { 
-const suggestions = isPickup ? pickupSuggestions : dropoffSuggestions; 
-const showSuggestions = isPickup ? showPickupSuggestions : showDropoffSuggestions; 
-const value = isPickup ? pickup : dropoff; 
-const onChangeText = isPickup ? handlePickupChange : handleDropoffChange; 
-const placeholder = isPickup ? '📍 Pickup Location' : '📦 Dropoff Location'; 
- 
-return ( 
-<View> 
-<TextInput 
-placeholder={placeholder} 
-placeholderTextColor={colors.textSecondary} 
-value={value} 
-onChangeText={onChangeText} 
-onFocus={() => (isPickup ? setShowPickupSuggestions(true) : setShowDropoffSuggestions(true))} 
-onBlur={() => setTimeout(() => isPickup ? setShowPickupSuggestions(false) : setShowDropoffSuggestions(false), 200)} 
-style={[ 
-styles.input, 
-{ 
-backgroundColor: colors.cardBackground, 
-color: colors.text, 
-borderColor: colors.borderColor, 
-}, 
-]} 
-/> 
-{showSuggestions && ( 
-<FlatList 
-data={suggestions} 
-renderItem={({ item }) => renderSuggestionItem({ item, isPickup })} 
-keyExtractor={(item) => item.id} 
-keyboardShouldPersistTaps="always" 
-style={[styles.suggestionsContainer, {  
-borderColor: colors.borderColor, 
-maxHeight: suggestions.length > 2 ? 150 : suggestions.length * 50  
-}]} 
-/> 
-)} 
-</View> 
-); 
-}; 
+
+//Renders a suggestion item in the location suggestions list
+
+
+const renderSuggestionItem = ({ item, isPickup }) => (
+  <TouchableOpacity  
+    style={[styles.suggestionItem, { backgroundColor: colors.cardBackground }]}
+    onPress={() => isPickup ? selectPickupSuggestion(item) : selectDropoffSuggestion(item)}
+  >
+    <Text style={{ color: colors.text }} numberOfLines={1}>
+      {item.displayName}
+    </Text>
+  </TouchableOpacity>
+);
+
+ //SuggestionsList component to avoid the VirtualizedLists warning. 
+const SuggestionsList = React.memo(({ data, renderItem, keyExtractor }) => {
+  return (
+    <FlatList
+      data={data}
+      renderItem={renderItem}
+      keyExtractor={keyExtractor}
+      keyboardShouldPersistTaps="always"
+      style={{ maxHeight: 150 }}
+      initialNumToRender={5}
+      maxToRenderPerBatch={5}
+      windowSize={5}
+      // This is key to fixing the warning
+      nestedScrollEnabled={true} 
+      // Disables internal scrolling
+      scrollEnabled={false}
+    />
+  );
+});
+
+
+
+//Renders a location input field with suggestions dropdown
+
+  const renderLocationInput = (isPickup) => {
+  const suggestions = isPickup ? pickupSuggestions : dropoffSuggestions;
+  const showSuggestions = isPickup ? showPickupSuggestions : showDropoffSuggestions;
+  const value = isPickup ? pickup : dropoff;
+  const onChangeText = isPickup ? handlePickupChange : handleDropoffChange;
+  const placeholder = isPickup ? '📍 Pickup Location' : '📦 Dropoff Location';
+  
+  return (
+    <View style={styles.locationInputContainer}>
+      <TextInput
+        placeholder={placeholder}
+        placeholderTextColor={colors.textSecondary}
+        value={value}
+        onChangeText={onChangeText}
+        onFocus={() => (isPickup ? setShowPickupSuggestions(true) : setShowDropoffSuggestions(true))}
+        onBlur={() => setTimeout(() => isPickup ? setShowPickupSuggestions(false) : setShowDropoffSuggestions(false), 200)}
+        style={[
+          styles.input,
+          {
+            backgroundColor: colors.cardBackground,
+            color: colors.text,
+            borderColor: colors.borderColor,
+          },
+        ]}
+      />
+      {showSuggestions && (
+        <View style={[styles.suggestionsWrapper, { borderColor: colors.borderColor }]}>
+          <SuggestionsList
+            data={suggestions}
+            renderItem={({ item }) => renderSuggestionItem({ item, isPickup })}
+            keyExtractor={(item) => item.id}
+          />
+        </View>
+      )}
+    </View>
+  );
+};
+
+// Vehicle Options Display
  
 const vehicleOptions = [ 
 { type: 'Vans', icon: require('../assets/minivan.png')}, 
@@ -358,19 +466,32 @@ const vehicleOptions = [
 { type: 'Full & Mini Trucks', icon: require('../assets/fulltruck.png') }, 
 ]; 
  
-return ( 
-<KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}> 
-<ScrollView style={[styles.container, { backgroundColor: colors.background }]} keyboardShouldPersistTaps="handled"> 
-<View style={styles.headerRow}> 
-<Text style={[styles.title, { color: colors.iconRed }]}>Welcome, {username}!</Text> 
-<TouchableOpacity 
-onPress={() => navigation.navigate('Settings')} 
-style={styles.settingsIcon} 
-> 
-<Ionicons name="settings-outline" size={26} color={colors.iconRed} /> 
-</TouchableOpacity> 
-</View> 
+// Main component render
+
+return (
+  <KeyboardAvoidingView 
+    behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
+    style={{ flex: 1 }}
+  >
+    {/* Main scrollable content area */}
+    <ScrollView 
+      style={[styles.container, { backgroundColor: colors.background }]}
+      keyboardShouldPersistTaps="handled"
+      
+    >
+      {/* Header section with welcome message and settings */}
+      <View style={styles.headerRow}>
+        <Text style={[styles.title, { color: colors.iconRed }]}>Welcome, {username}!</Text>
+        <TouchableOpacity
+          onPress={() => navigation.navigate('Settings')}
+          style={styles.settingsIcon}
+        >
+          <Ionicons name="settings-outline" size={26} color={colors.iconRed} />
+        </TouchableOpacity>
+      </View>
  
+
+  {/* Map section with route visualization */}
 <View style={styles.section}> 
 <View 
 style={{ 
@@ -406,6 +527,7 @@ longitudeDelta: 0.1,
 } 
 customMapStyle={isDarkMode ? mapStyleDark : mapStyleLight} 
 > 
+{/* Map markers and route visualization */}
 {location && ( 
 <Marker coordinate={location} pinColor={colors.iconRed} title="You are here" /> 
 )} 
@@ -431,27 +553,36 @@ strokeWidth={3}
 /> 
 )} 
 </MapView> 
-{(distance && duration) && ( 
-<View style={styles.routeInfoContainer}> 
-<Text style={[styles.routeInfoText, { color: colors.text }]}> 
-Distance: {distance} km 
-</Text> 
-<Text style={[styles.routeInfoText, { color: colors.text }]}> 
-Est. time: {duration} min 
-</Text> 
-</View> 
-)} 
-</View> 
+
+
+ {/* Route distance and duration info */}
+          {(distance && duration) && (
+            <View style={styles.routeInfoContainer}>
+              <Text style={[styles.routeInfoText, { color: colors.text }]}>
+                Distance: {distance} km
+              </Text>
+              <View style={{ width: 10 }} />
+              <Text style={[styles.routeInfoText, { color: colors.text }]}>
+                Est. time: {formatDuration(duration)}
+              </Text>
+            </View>
+          )}
+        </View>
  
+ {/* Location inputs */}
 {renderLocationInput(true)} 
 {renderLocationInput(false)} 
  
+ {/* Time scheduling controls */}
+
 <TouchableOpacity style={styles.timeToggle} onPress={() => setTimeNow(!timeNow)}> 
 <Text style={[styles.linkText, { color: colors.iconRed }]}> 
 {timeNow ? 'Schedule for Later' : 'Use Current Time'} 
 </Text> 
 </TouchableOpacity> 
  
+ {/* Date picker for scheduled rides */}
+
 {!timeNow && ( 
 <TouchableOpacity 
 onPress={showDatePicker} 
@@ -467,7 +598,9 @@ mode="datetime"
 onConfirm={handleConfirm} 
 onCancel={hideDatePicker} 
 /> 
- 
+
+ {/* Action buttons */}
+
 <TouchableOpacity 
 style={[styles.checkoutButton, { backgroundColor: '#4285F4' }]} 
 onPress={openMapsNavigation} 
@@ -491,6 +624,8 @@ disabled={loading || !pickup || !dropoff}
 </TouchableOpacity> 
 </View> 
  
+ {/* Vehicle types section */}
+
 <View style={styles.section}> 
 <Text style={[styles.heading, { color: colors.iconRed }]}>Available Vehicle Types</Text> 
 <View style={styles.vehicleGrid}> 
@@ -512,6 +647,9 @@ borderColor: colors.borderColor,
 </View> 
 </View> 
  
+{/* Booking history section */}
+
+
 <View style={styles.section}> 
 <Text style={[styles.heading, { color: colors.iconRed }]}>View Requests</Text> 
 <TouchableOpacity 
@@ -526,6 +664,7 @@ onPress={() => navigation.navigate('BookingHistory')}
 ); 
 } 
  
+//Map styling configurations
 const mapStyleLight = [ 
 { 
 "featureType": "poi", 
